@@ -59,7 +59,7 @@ const App = () => {
 
   const [expandedDay, setExpandedDay] = useState('segunda');
   const [isAdding, setIsAdding] = useState(false);
-  const [newItem, setNewItem] = useState({ objective: '', summary: '', link: '', date: '', time: '' });
+  const [newItem, setNewItem] = useState({ objective: '', summary: '', link: '', date: '', time: '', recordingType: 'sozinho' });
   
   // Auth Form State
   const [email, setEmail] = useState('');
@@ -245,6 +245,7 @@ const App = () => {
       link: newItem.link.trim() ? (newItem.link.startsWith('http') ? newItem.link : `https://${newItem.link}`) : '',
       date: newItem.date,
       time: newItem.time,
+      recordingType: newItem.recordingType,
       completed: false
     };
 
@@ -258,7 +259,7 @@ const App = () => {
 
     setData(newData);
     saveToCloud(newData);
-    setNewItem({ objective: '', summary: '', link: '', date: '', time: '' });
+    setNewItem({ objective: '', summary: '', link: '', date: '', time: '', recordingType: 'sozinho' });
     setIsAdding(false);
   };
 
@@ -316,10 +317,10 @@ const App = () => {
           <div className="inline-flex items-center justify-center p-5 bg-blue-50 rounded-3xl mb-8">
             <Calendar className="w-12 h-12 text-blue-600" />
           </div>
-          <h1 className="text-4xl font-black text-slate-900 mb-4 uppercase tracking-tighter leading-none">
+          <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-4 uppercase tracking-tighter leading-none">
             Meu <span className="text-blue-600">Plano</span><br/>Semanal
           </h1>
-          <p className="text-slate-500 font-medium mb-10 leading-relaxed text-sm">
+          <p className="text-slate-500 font-medium mb-8 leading-relaxed text-sm">
             {isRegistering 
               ? "Crie sua conta para começar a organizar seus conteúdos." 
               : "Bem-vindo! Entre para começar a organizar seus conteúdos com segurança."}
@@ -402,12 +403,12 @@ const App = () => {
       <div className="max-w-4xl mx-auto">
         
         {/* Header Section - Bold Typography Theme */}
-        <header className="flex flex-col md:flex-row justify-between items-start mb-16 gap-8">
+        <header className="flex flex-col md:flex-row justify-between items-start mb-10 gap-6">
           <div className="flex-1">
-            <h1 className="text-[60px] md:text-[100px] leading-[0.85] font-black tracking-tighter uppercase">
+            <h1 className="text-5xl md:text-7xl leading-[0.85] font-black tracking-tighter uppercase">
               Meu <span className="text-blue-600">Plano</span><br/>Semanal
             </h1>
-            <p className="mt-6 text-slate-400 font-bold tracking-[0.3em] uppercase text-xs flex items-center">
+            <p className="mt-4 text-slate-400 font-bold tracking-[0.3em] uppercase text-xs flex items-center">
               <span className="w-8 h-[2px] bg-blue-600 mr-3"></span>
               Bem vindo, {user.displayName ? user.displayName.split(' ')[0] : user.email.split('@')[0]}
             </p>
@@ -498,16 +499,16 @@ const App = () => {
               {/* Day Header */}
               <button 
                 onClick={() => toggleDay(day.id)}
-                className="w-full flex items-center justify-between p-8 text-left outline-none"
+                className="w-full flex items-center justify-between p-5 md:p-6 text-left outline-none"
               >
                 <div className="flex flex-col">
-                  <h2 className="text-3xl font-black text-slate-800 tracking-tight uppercase">{day.label}</h2>
-                  <p className="text-xs text-slate-300 font-black uppercase tracking-[0.2em] mt-1">
+                  <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">{day.label}</h2>
+                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mt-1">
                     {(data[activeTab][day.id]?.length || 0)} {(data[activeTab][day.id]?.length === 1 ? 'Conteúdo' : 'Conteúdos')}
                   </p>
                 </div>
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-500 ${expandedDay === day.id ? 'bg-blue-600 text-white rotate-180 shadow-lg shadow-blue-200' : 'bg-slate-50 text-slate-300'}`}>
-                  <ChevronDown className="w-6 h-6" strokeWidth={3} />
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-500 ${expandedDay === day.id ? 'bg-blue-600 text-white rotate-180 shadow-lg shadow-blue-200' : 'bg-slate-50 text-slate-300'}`}>
+                  <ChevronDown className="w-5 h-5" strokeWidth={3} />
                 </div>
               </button>
 
@@ -522,10 +523,10 @@ const App = () => {
                     className="overflow-hidden"
                     style={{ willChange: "height, opacity" }}
                   >
-                    <div className="px-8 pb-10 border-t border-slate-50">
-                      <div className="space-y-4 mt-8">
+                    <div className="px-5 md:px-6 pb-6 border-t border-slate-50">
+                      <div className="space-y-3 mt-5">
                         {(!data[activeTab][day.id] || data[activeTab][day.id].length === 0) && !isAdding && (
-                          <div className="text-center py-12 text-slate-300 font-black uppercase tracking-widest bg-slate-50/50 rounded-3xl border-2 border-dashed border-slate-100">
+                          <div className="text-center py-8 text-slate-300 font-black uppercase tracking-widest bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-100 text-sm">
                             Sem planos para hoje
                           </div>
                         )}
@@ -549,30 +550,37 @@ const App = () => {
                                 <CheckCircle2 className="w-10 h-10" strokeWidth={2.5} />
                               </button>
                               <div className="flex-1 min-w-0">
-                                <p className={`text-lg font-bold text-slate-800 truncate leading-tight ${item.completed ? 'line-through text-slate-400 font-semibold italic' : ''}`}>
+                                <p className={`text-base font-bold text-slate-800 truncate leading-tight ${item.completed ? 'line-through text-slate-400 font-semibold italic' : ''}`}>
                                   {item.objective}
                                 </p>
                                 {item.summary && (
-                                  <p className={`text-sm font-medium mt-1 ${item.completed ? 'text-slate-300' : 'text-slate-500'}`}>
+                                  <p className={`text-xs font-medium mt-1 ${item.completed ? 'text-slate-300' : 'text-slate-500'}`}>
                                     {item.summary}
                                   </p>
                                 )}
-                                {(item.date || item.time) && (
-                                  <div className="flex flex-wrap items-center gap-3 mt-2">
-                                    {item.date && (
-                                      <span className={`flex items-center text-[10px] font-black uppercase tracking-wider ${item.completed ? 'text-slate-300' : 'text-slate-400'}`}>
-                                        <Calendar className="w-3 h-3 mr-1" />
-                                        {item.date}
-                                      </span>
-                                    )}
-                                    {item.time && (
-                                      <span className={`flex items-center text-[10px] font-black uppercase tracking-wider ${item.completed ? 'text-slate-300' : 'text-slate-400'}`}>
-                                        <Clock className="w-3 h-3 mr-1" />
-                                        {item.time}
-                                      </span>
-                                    )}
-                                  </div>
-                                )}
+                                <div className="flex flex-wrap items-center gap-2 mt-2">
+                                  {item.recordingType && (
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest ${
+                                      item.recordingType === 'sozinho' 
+                                        ? 'bg-purple-100 text-purple-700' 
+                                        : 'bg-orange-100 text-orange-700'
+                                    }`}>
+                                      {item.recordingType === 'sozinho' ? 'Gravar sozinho' : 'Gravar com alguém'}
+                                    </span>
+                                  )}
+                                  {item.date && (
+                                    <span className={`flex items-center text-[10px] font-black uppercase tracking-wider ${item.completed ? 'text-slate-300' : 'text-slate-400'}`}>
+                                      <Calendar className="w-3 h-3 mr-1" />
+                                      {item.date}
+                                    </span>
+                                  )}
+                                  {item.time && (
+                                    <span className={`flex items-center text-[10px] font-black uppercase tracking-wider ${item.completed ? 'text-slate-300' : 'text-slate-400'}`}>
+                                      <Clock className="w-3 h-3 mr-1" />
+                                      {item.time}
+                                    </span>
+                                  )}
+                                </div>
                                 {item.link && (
                                   <a 
                                     href={item.link} 
@@ -603,55 +611,68 @@ const App = () => {
                           <motion.div 
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="mt-8 p-8 bg-slate-900 rounded-[32px] shadow-2xl space-y-6"
+                            className="mt-6 p-5 md:p-6 bg-slate-900 rounded-[24px] shadow-2xl space-y-4"
                           >
                             <div>
-                              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-3 ml-2">Tarefa</label>
+                              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-2 ml-2">Tarefa</label>
                               <input 
                                 type="text" 
                                 placeholder="O QUE VAMOS FAZER?"
-                                className="w-full p-5 bg-slate-800 text-white rounded-2xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-xl placeholder:text-slate-600"
+                                className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-base placeholder:text-slate-600"
                                 value={newItem.objective}
                                 onChange={(e) => setNewItem({...newItem, objective: e.target.value})}
                                 autoFocus
                               />
                             </div>
                             <div>
-                              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-3 ml-2">Resumo</label>
+                              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-2 ml-2">Resumo</label>
                               <textarea 
                                 placeholder="BREVE DESCRIÇÃO DO CONTEÚDO"
-                                className="w-full p-5 bg-slate-800 text-white rounded-2xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm placeholder:text-slate-600 min-h-[100px] resize-none"
+                                className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm placeholder:text-slate-600 min-h-[80px] resize-none"
                                 value={newItem.summary}
                                 onChange={(e) => setNewItem({...newItem, summary: e.target.value})}
                               />
                             </div>
-                            <div>
-                              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-3 ml-2">Link opcional</label>
-                              <input 
-                                type="text" 
-                                placeholder="WWW.EXEMPLO.COM"
-                                className="w-full p-5 bg-slate-800 text-white rounded-2xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold placeholder:text-slate-600"
-                                value={newItem.link}
-                                onChange={(e) => setNewItem({...newItem, link: e.target.value})}
-                              />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-2 ml-2">Formato</label>
+                                <select
+                                  className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm appearance-none"
+                                  value={newItem.recordingType}
+                                  onChange={(e) => setNewItem({...newItem, recordingType: e.target.value})}
+                                >
+                                  <option value="sozinho">Gravar sozinho</option>
+                                  <option value="com_alguem">Gravar com alguém</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-2 ml-2">Link opcional</label>
+                                <input 
+                                  type="text" 
+                                  placeholder="WWW.EXEMPLO.COM"
+                                  className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm placeholder:text-slate-600"
+                                  value={newItem.link}
+                                  onChange={(e) => setNewItem({...newItem, link: e.target.value})}
+                                />
+                              </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                               <div>
-                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-3 ml-2">Data</label>
+                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-2 ml-2">Data</label>
                                 <input 
                                   type="text" 
                                   placeholder="24/04"
-                                  className="w-full p-5 bg-slate-800 text-white rounded-2xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold placeholder:text-slate-600"
+                                  className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm placeholder:text-slate-600"
                                   value={newItem.date}
                                   onChange={(e) => setNewItem({...newItem, date: e.target.value})}
                                 />
                               </div>
                               <div>
-                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-3 ml-2">Horário</label>
+                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-2 ml-2">Horário</label>
                                 <input 
                                   type="text" 
                                   placeholder="14:00"
-                                  className="w-full p-5 bg-slate-800 text-white rounded-2xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold placeholder:text-slate-600"
+                                  className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm placeholder:text-slate-600"
                                   value={newItem.time}
                                   onChange={(e) => setNewItem({...newItem, time: e.target.value})}
                                 />
@@ -660,13 +681,13 @@ const App = () => {
                             <div className="flex flex-col sm:flex-row gap-3 pt-2">
                               <button 
                                 onClick={() => addItem(day.id)} 
-                                className="flex-1 bg-blue-600 text-white font-black py-5 rounded-2xl hover:bg-blue-700 active:scale-95 transition-all shadow-xl shadow-blue-500/20 text-lg uppercase tracking-tight"
+                                className="flex-1 bg-blue-600 text-white font-black py-4 rounded-xl hover:bg-blue-700 active:scale-95 transition-all shadow-xl shadow-blue-500/20 text-sm uppercase tracking-tight"
                               >
                                 Adicionar Plano
                               </button>
                               <button 
                                 onClick={() => setIsAdding(false)} 
-                                className="px-10 bg-slate-800 text-white font-black py-5 rounded-2xl hover:bg-slate-700 transition-all uppercase tracking-tight"
+                                className="px-8 bg-slate-800 text-white font-black py-4 rounded-xl hover:bg-slate-700 transition-all text-sm uppercase tracking-tight"
                               >
                                 Voltar
                               </button>
@@ -675,9 +696,9 @@ const App = () => {
                         ) : (
                           <button 
                             onClick={() => setIsAdding(true)}
-                            className="mt-8 w-full flex items-center justify-center p-8 border-4 border-slate-50 rounded-[32px] text-slate-300 font-black text-xl uppercase tracking-tighter hover:text-blue-600 hover:border-blue-50 hover:bg-blue-50/20 transition-all group"
+                            className="mt-4 w-full flex items-center justify-center p-6 border-4 border-slate-50 rounded-2xl text-slate-300 font-black text-base uppercase tracking-tighter hover:text-blue-600 hover:border-blue-50 hover:bg-blue-50/20 transition-all group"
                           >
-                            <Plus className="w-8 h-8 mr-4 group-hover:scale-125 transition-transform duration-500" strokeWidth={3} />
+                            <Plus className="w-6 h-6 mr-3 group-hover:scale-125 transition-transform duration-500" strokeWidth={3} />
                             Novo Item
                           </button>
                         )}
