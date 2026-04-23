@@ -13,7 +13,8 @@ import {
   Loader2,
   AlertCircle,
   LogIn,
-  LogOut
+  LogOut,
+  Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -58,7 +59,7 @@ const App = () => {
 
   const [expandedDay, setExpandedDay] = useState('segunda');
   const [isAdding, setIsAdding] = useState(false);
-  const [newItem, setNewItem] = useState({ objective: '', summary: '', link: '' });
+  const [newItem, setNewItem] = useState({ objective: '', summary: '', link: '', date: '', time: '' });
   
   // Auth Form State
   const [email, setEmail] = useState('');
@@ -242,6 +243,8 @@ const App = () => {
       objective: newItem.objective,
       summary: newItem.summary,
       link: newItem.link.trim() ? (newItem.link.startsWith('http') ? newItem.link : `https://${newItem.link}`) : '',
+      date: newItem.date,
+      time: newItem.time,
       completed: false
     };
 
@@ -255,7 +258,7 @@ const App = () => {
 
     setData(newData);
     saveToCloud(newData);
-    setNewItem({ objective: '', summary: '', link: '' });
+    setNewItem({ objective: '', summary: '', link: '', date: '', time: '' });
     setIsAdding(false);
   };
 
@@ -444,25 +447,36 @@ const App = () => {
         <div className="mb-12 flex justify-center">
           <div className="bg-slate-100 p-1.5 rounded-[24px] flex items-center relative w-full max-w-md">
             <motion.div 
-              className={`absolute top-1.5 bottom-1.5 rounded-[20px] shadow-sm ${activeTab === 'gravar' ? 'bg-blue-600' : 'bg-emerald-600'}`}
+              className="absolute top-1.5 bottom-1.5 rounded-[20px] shadow-sm"
               initial={false}
               animate={{ 
                 left: activeTab === 'gravar' ? '6px' : '50%',
                 right: activeTab === 'gravar' ? '50%' : '6px',
+                backgroundColor: activeTab === 'gravar' ? '#2563eb' : '#059669', // blue-600 and emerald-600
               }}
-              transition={{ type: "spring", stiffness: 500, damping: 35 }}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
             />
             <button 
               onClick={() => setActiveTab('gravar')}
-              className={`relative flex-1 py-4 text-xs font-black uppercase tracking-widest transition-colors duration-300 ${activeTab === 'gravar' ? 'text-white' : 'text-slate-400 hover:text-slate-600'}`}
+              className="relative flex-1 py-4 text-xs font-black uppercase tracking-widest outline-none"
             >
-              Marco vai gravar
+              <motion.span
+                animate={{ color: activeTab === 'gravar' ? '#ffffff' : '#94a3b8' }} // white and slate-400
+                transition={{ duration: 0.2 }}
+              >
+                Marco vai gravar
+              </motion.span>
             </button>
             <button 
               onClick={() => setActiveTab('postar')}
-              className={`relative flex-1 py-4 text-xs font-black uppercase tracking-widest transition-colors duration-300 ${activeTab === 'postar' ? 'text-white' : 'text-slate-400 hover:text-slate-600'}`}
+              className="relative flex-1 py-4 text-xs font-black uppercase tracking-widest outline-none"
             >
-              Postagens da Semana
+              <motion.span
+                animate={{ color: activeTab === 'postar' ? '#ffffff' : '#94a3b8' }} // white and slate-400
+                transition={{ duration: 0.2 }}
+              >
+                Postagens da Semana
+              </motion.span>
             </button>
           </div>
         </div>
@@ -543,6 +557,22 @@ const App = () => {
                                     {item.summary}
                                   </p>
                                 )}
+                                {(item.date || item.time) && (
+                                  <div className="flex flex-wrap items-center gap-3 mt-2">
+                                    {item.date && (
+                                      <span className={`flex items-center text-[10px] font-black uppercase tracking-wider ${item.completed ? 'text-slate-300' : 'text-slate-400'}`}>
+                                        <Calendar className="w-3 h-3 mr-1" />
+                                        {item.date}
+                                      </span>
+                                    )}
+                                    {item.time && (
+                                      <span className={`flex items-center text-[10px] font-black uppercase tracking-wider ${item.completed ? 'text-slate-300' : 'text-slate-400'}`}>
+                                        <Clock className="w-3 h-3 mr-1" />
+                                        {item.time}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
                                 {item.link && (
                                   <a 
                                     href={item.link} 
@@ -604,6 +634,28 @@ const App = () => {
                                 value={newItem.link}
                                 onChange={(e) => setNewItem({...newItem, link: e.target.value})}
                               />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-3 ml-2">Data</label>
+                                <input 
+                                  type="text" 
+                                  placeholder="24/04"
+                                  className="w-full p-5 bg-slate-800 text-white rounded-2xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold placeholder:text-slate-600"
+                                  value={newItem.date}
+                                  onChange={(e) => setNewItem({...newItem, date: e.target.value})}
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-3 ml-2">Horário</label>
+                                <input 
+                                  type="text" 
+                                  placeholder="14:00"
+                                  className="w-full p-5 bg-slate-800 text-white rounded-2xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold placeholder:text-slate-600"
+                                  value={newItem.time}
+                                  onChange={(e) => setNewItem({...newItem, time: e.target.value})}
+                                />
+                              </div>
                             </div>
                             <div className="flex flex-col sm:flex-row gap-3 pt-2">
                               <button 
