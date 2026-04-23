@@ -432,7 +432,7 @@ const App = () => {
           {daysOfWeek.map((day) => (
             <div 
               key={day.id} 
-              className={`group relative bg-white border border-slate-100 rounded-[32px] transition-all duration-500 ${expandedDay === day.id ? 'shadow-2xl ring-4 ring-blue-50' : 'shadow-sm hover:shadow-xl hover:border-slate-200'}`}
+              className={`group relative bg-white border border-slate-100 rounded-[32px] transition-shadow duration-500 ${expandedDay === day.id ? 'shadow-2xl ring-4 ring-blue-50' : 'shadow-sm hover:shadow-xl hover:border-slate-200'}`}
             >
               {/* Day Badge */}
               <div className="absolute -top-3 left-8 z-10 transition-transform duration-300 group-hover:scale-110">
@@ -464,7 +464,9 @@ const App = () => {
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
+                    transition={{ type: "spring", duration: 0.4, bounce: 0 }}
                     className="overflow-hidden"
+                    style={{ willChange: "height, opacity" }}
                   >
                     <div className="px-8 pb-10 border-t border-slate-50">
                       <div className="space-y-4 mt-8">
@@ -478,7 +480,12 @@ const App = () => {
                           <motion.div 
                             layout
                             key={item.id} 
-                            className={`group/item flex items-center justify-between p-5 rounded-2xl border-2 transition-all ${item.completed ? 'bg-slate-50/50 border-transparent opacity-50' : 'bg-white border-slate-50 hover:border-blue-200 shadow-sm'}`}
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            transition={{ type: "spring", stiffness: 500, damping: 30, mass: 0.8 }}
+                            className={`group/item flex items-center justify-between p-5 rounded-2xl border-2 ${item.completed ? 'bg-slate-50/50 border-transparent opacity-50' : 'bg-white border-slate-50 hover:border-blue-200 shadow-sm'}`}
+                            style={{ willChange: "transform, opacity" }}
                           >
                             <div className="flex items-center space-x-5 flex-1 min-w-0">
                               <button 
