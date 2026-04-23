@@ -14,7 +14,10 @@ import {
   AlertCircle,
   LogIn,
   LogOut,
-  Clock
+  Clock,
+  X,
+  Copy,
+  GripVertical
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -60,6 +63,9 @@ const App = () => {
   const [expandedDay, setExpandedDay] = useState('segunda');
   const [isAdding, setIsAdding] = useState(false);
   const [newItem, setNewItem] = useState({ objective: '', summary: '', link: '', date: '', time: '', recordingType: 'sozinho' });
+  const [draggedItem, setDraggedItem] = useState(null);
+  const [summaryModal, setSummaryModal] = useState({ isOpen: false, item: null });
+  const [copiedState, setCopiedState] = useState(false);
   
   // Auth Form State
   const [email, setEmail] = useState('');
@@ -229,6 +235,38 @@ const App = () => {
     { id: 'quinta', label: 'Quinta-feira', color: 'bg-purple-500' },
     { id: 'sexta', label: 'Sexta-feira', color: 'bg-rose-500' },
   ];
+
+  const handleDragStart = (e, dayId, item) => {
+    setDraggedItem({ dayId, item });
+  };
+
+  const handleDrop = (e, targetDayId) => {
+    e.preventDefault();
+    if (!draggedItem) return;
+    
+    const { dayId: sourceDayId, item } = draggedItem;
+    if (sourceDayId === targetDayId) return;
+
+    const newData = { ...data };
+    newData[activeTab][sourceDayId] = newData[activeTab][sourceDayId].filter(i => i.id !== item.id);
+    newData[activeTab][targetDayId] = [...(newData[activeTab][targetDayId] || []), item];
+
+    setData(newData);
+    saveToCloud(newData);
+    setDraggedItem(null);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+  };
+
+  const handleCopy = () => {
+    if (summaryModal.item?.summary) {
+      navigator.clipboard.writeText(summaryModal.item.summary);
+      setCopiedState(true);
+      setTimeout(() => setCopiedState(false), 2000);
+    }
+  };
 
   const toggleDay = (dayId) => {
     setExpandedDay(expandedDay === dayId ? null : dayId);
@@ -487,7 +525,9 @@ const App = () => {
           {daysOfWeek.map((day) => (
             <div 
               key={day.id} 
-              className={`group relative bg-white border border-slate-100 rounded-[32px] transition-shadow duration-500 ${expandedDay === day.id ? 'shadow-2xl ring-4 ring-blue-50' : 'shadow-sm hover:shadow-xl hover:border-slate-200'}`}
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, day.id)}
+              className={`group relative bg-white border border-slate-100 rounded-[32px] transition-shadow duration-500 ${expandedDay === day.id ? 'shadow-2xl ring-4 ring-blue-50' : 'shadow-sm hover:shadow-xl hover:border-slate-200'} ${draggedItem && draggedItem.dayId !== day.id ? 'border-dashed border-2 border-blue-300' : ''}`}
             >
               {/* Day Badge */}
               <div className="absolute -top-3 left-8 z-10 transition-transform duration-300 group-hover:scale-110">
@@ -535,14 +575,19 @@ const App = () => {
                           <motion.div 
                             layout
                             key={item.id} 
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, day.id, item)}
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
                             transition={{ type: "spring", stiffness: 500, damping: 30, mass: 0.8 }}
-                            className={`group/item flex items-center justify-between p-5 rounded-2xl border-2 ${item.completed ? 'bg-slate-50/50 border-transparent opacity-50' : 'bg-white border-slate-50 hover:border-blue-200 shadow-sm'}`}
+                            className={`group/item flex items-center justify-between p-5 rounded-2xl border-2 ${item.completed ? 'bg-slate-50/50 border-transparent opacity-50' : 'bg-white border-slate-50 hover:border-blue-200 shadow-sm'} cursor-grab active:cursor-grabbing`}
                             style={{ willChange: "transform, opacity" }}
                           >
-                            <div className="flex items-center space-x-5 flex-1 min-w-0">
+                            <div className="flex items-center space-x-4 flex-1 min-w-0">
+                              <div className="text-slate-300 cursor-grab active:cursor-grabbing">
+                                <GripVertical className="w-5 h-5" />
+                              </div>
                               <button 
                                 onClick={(e) => toggleComplete(e, day.id, item.id)}
                                 className={`flex-shrink-0 transition-transform active:scale-125 ${item.completed ? 'text-emerald-500' : 'text-slate-200 hover:text-blue-500'}`}
@@ -554,9 +599,17 @@ const App = () => {
                                   {item.objective}
                                 </p>
                                 {item.summary && (
-                                  <p className={`text-xs font-medium mt-1 ${item.completed ? 'text-slate-300' : 'text-slate-500'}`}>
-                                    {item.summary}
-                                  </p>
+                                  <div className="flex items-center mt-1 space-x-2">
+                                    <p className={`text-xs font-medium truncate max-w-[200px] sm:max-w-[300px] md:max-w-[400px] ${item.completed ? 'text-slate-300' : 'text-slate-500'}`}>
+                                      {item.summary}
+                                    </p>
+                                    <button 
+                                      onClick={(e) => { e.stopPropagation(); setSummaryModal({ isOpen: true, item }); }}
+                                      className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-1 rounded font-bold uppercase tracking-wider flex-shrink-0 transition-colors"
+                                    >
+                                      Ler Resumo
+                                    </button>
+                                  </div>
                                 )}
                                 <div className="flex flex-wrap items-center gap-2 mt-2">
                                   {item.recordingType && (
@@ -732,6 +785,50 @@ const App = () => {
           </div>
         </footer>
       </div>
+
+      {/* Summary Modal */}
+      <AnimatePresence>
+        {summaryModal.isOpen && summaryModal.item && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setSummaryModal({ isOpen: false, item: null })}>
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-[32px] p-8 max-w-lg w-full shadow-2xl relative"
+            >
+              <button 
+                onClick={() => setSummaryModal({ isOpen: false, item: null })} 
+                className="absolute top-6 right-6 text-slate-400 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 p-2 rounded-full transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              
+              <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight mb-4 pr-10 leading-tight">
+                {summaryModal.item.objective}
+              </h3>
+              
+              <div className="bg-slate-50 p-6 rounded-2xl mb-6 max-h-[50vh] overflow-y-auto">
+                <p className="text-slate-600 font-medium whitespace-pre-wrap text-sm leading-relaxed">
+                  {summaryModal.item.summary}
+                </p>
+              </div>
+              
+              <button 
+                onClick={handleCopy}
+                className={`w-full font-black py-4 rounded-xl active:scale-[0.98] transition-all text-sm uppercase tracking-tight flex items-center justify-center space-x-2 ${
+                  copiedState 
+                    ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-xl shadow-emerald-500/20' 
+                    : 'bg-blue-600 hover:bg-blue-700 text-white shadow-xl shadow-blue-500/20'
+                }`}
+              >
+                {copiedState ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+                <span>{copiedState ? 'Copiado!' : 'Copiar Resumo'}</span>
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
