@@ -65,6 +65,7 @@ const App = () => {
   const [newItem, setNewItem] = useState({ objective: '', summary: '', link: '', date: '', time: '', recordingType: 'sozinho' });
   const [draggedItem, setDraggedItem] = useState(null);
   const [summaryModal, setSummaryModal] = useState({ isOpen: false, item: null });
+  const [editModal, setEditModal] = useState({ isOpen: false, dayId: null, item: null });
   const [copiedState, setCopiedState] = useState(false);
   
   // Auth Form State
@@ -266,6 +267,24 @@ const App = () => {
       setCopiedState(true);
       setTimeout(() => setCopiedState(false), 2000);
     }
+  };
+
+  const handleEditClick = (dayId, item) => {
+    setEditModal({ isOpen: true, dayId, item: { ...item } });
+  };
+
+  const handleSaveEdit = () => {
+    if (!editModal.item?.objective?.trim()) return;
+    
+    const { dayId, item } = editModal;
+    const newData = { ...data };
+    newData[activeTab][dayId] = newData[activeTab][dayId].map(i => 
+      i.id === item.id ? item : i
+    );
+    
+    setData(newData);
+    saveToCloud(newData);
+    setEditModal({ isOpen: false, dayId: null, item: null });
   };
 
   const toggleDay = (dayId) => {
@@ -577,11 +596,12 @@ const App = () => {
                             key={item.id} 
                             draggable
                             onDragStart={(e) => handleDragStart(e, day.id, item)}
+                            onClick={() => handleEditClick(day.id, item)}
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
                             transition={{ type: "spring", stiffness: 500, damping: 30, mass: 0.8 }}
-                            className={`group/item flex items-center justify-between p-5 rounded-2xl border-2 ${item.completed ? 'bg-slate-50/50 border-transparent opacity-50' : 'bg-white border-slate-50 hover:border-blue-200 shadow-sm'} cursor-grab active:cursor-grabbing`}
+                            className={`group/item flex items-center justify-between p-5 rounded-2xl border-2 ${item.completed ? 'bg-slate-50/50 border-transparent opacity-50' : 'bg-white border-slate-50 hover:border-blue-200 shadow-sm'} cursor-pointer hover:shadow-md transition-shadow`}
                             style={{ willChange: "transform, opacity" }}
                           >
                             <div className="flex items-center space-x-4 flex-1 min-w-0">
@@ -599,16 +619,18 @@ const App = () => {
                                   {item.objective}
                                 </p>
                                 {item.summary && (
-                                  <div className="flex items-center mt-1 space-x-2">
+                                  <div className="flex items-center mt-2 space-x-3">
                                     <p className={`text-xs font-medium truncate max-w-[200px] sm:max-w-[300px] md:max-w-[400px] ${item.completed ? 'text-slate-300' : 'text-slate-500'}`}>
                                       {item.summary}
                                     </p>
-                                    <button 
+                                    <motion.button 
+                                      animate={{ scale: [1, 1.05, 1] }}
+                                      transition={{ repeat: Infinity, duration: 2 }}
                                       onClick={(e) => { e.stopPropagation(); setSummaryModal({ isOpen: true, item }); }}
-                                      className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-1 rounded font-bold uppercase tracking-wider flex-shrink-0 transition-colors"
+                                      className="text-[10px] bg-blue-100 hover:bg-blue-200 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-full font-black uppercase tracking-wider flex-shrink-0 transition-colors shadow-sm"
                                     >
                                       Ler Resumo
-                                    </button>
+                                    </motion.button>
                                   </div>
                                 )}
                                 <div className="flex flex-wrap items-center gap-2 mt-2">
@@ -829,6 +851,114 @@ const App = () => {
           </div>
         )}
       </AnimatePresence>
+      {/* Edit Modal */}
+      <AnimatePresence>
+        {editModal.isOpen && editModal.item && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setEditModal({ isOpen: false, dayId: null, item: null })}>
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-slate-900 rounded-[32px] p-6 md:p-8 max-w-lg w-full shadow-2xl relative border border-slate-700"
+            >
+              <button 
+                onClick={() => setEditModal({ isOpen: false, dayId: null, item: null })} 
+                className="absolute top-6 right-6 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-full transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              
+              <h3 className="text-xl font-black text-white uppercase tracking-tight mb-6 pr-10 leading-tight">
+                Editar Plano
+              </h3>
+              
+              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-2 ml-2">Tarefa</label>
+                  <input 
+                    type="text" 
+                    placeholder="O QUE VAMOS FAZER?"
+                    className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-base placeholder:text-slate-600"
+                    value={editModal.item.objective}
+                    onChange={(e) => setEditModal({...editModal, item: {...editModal.item, objective: e.target.value}})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-2 ml-2">Resumo</label>
+                  <textarea 
+                    placeholder="BREVE DESCRIÇÃO DO CONTEÚDO"
+                    className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm placeholder:text-slate-600 min-h-[80px] resize-none"
+                    value={editModal.item.summary}
+                    onChange={(e) => setEditModal({...editModal, item: {...editModal.item, summary: e.target.value}})}
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-2 ml-2">Formato</label>
+                    <select
+                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm appearance-none"
+                      value={editModal.item.recordingType || 'sozinho'}
+                      onChange={(e) => setEditModal({...editModal, item: {...editModal.item, recordingType: e.target.value}})}
+                    >
+                      <option value="sozinho">Gravar sozinho</option>
+                      <option value="com_alguem">Gravar com alguém</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-2 ml-2">Link opcional</label>
+                    <input 
+                      type="text" 
+                      placeholder="WWW.EXEMPLO.COM"
+                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm placeholder:text-slate-600"
+                      value={editModal.item.link || ''}
+                      onChange={(e) => setEditModal({...editModal, item: {...editModal.item, link: e.target.value}})}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-2 ml-2">Data</label>
+                    <input 
+                      type="text" 
+                      placeholder="24/04"
+                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm placeholder:text-slate-600"
+                      value={editModal.item.date || ''}
+                      onChange={(e) => setEditModal({...editModal, item: {...editModal.item, date: e.target.value}})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-2 ml-2">Horário</label>
+                    <input 
+                      type="text" 
+                      placeholder="14:00"
+                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm placeholder:text-slate-600"
+                      value={editModal.item.time || ''}
+                      onChange={(e) => setEditModal({...editModal, item: {...editModal.item, time: e.target.value}})}
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-3 pt-6">
+                <button 
+                  onClick={handleSaveEdit}
+                  className="flex-1 bg-blue-600 text-white font-black py-4 rounded-xl hover:bg-blue-700 active:scale-[0.98] transition-all shadow-xl shadow-blue-500/20 text-sm uppercase tracking-tight"
+                >
+                  Salvar Alterações
+                </button>
+                <button 
+                  onClick={() => setEditModal({ isOpen: false, dayId: null, item: null })} 
+                  className="px-8 bg-slate-800 text-white font-black py-4 rounded-xl hover:bg-slate-700 transition-all text-sm uppercase tracking-tight"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 };
