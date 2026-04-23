@@ -444,15 +444,13 @@ const App = () => {
         <div className="mb-12 flex justify-center">
           <div className="bg-slate-100 p-1.5 rounded-[24px] flex items-center relative w-full max-w-md">
             <motion.div 
-              layoutId="switcher-bg"
               className={`absolute top-1.5 bottom-1.5 rounded-[20px] shadow-sm ${activeTab === 'gravar' ? 'bg-blue-600' : 'bg-emerald-600'}`}
               initial={false}
               animate={{ 
-                x: activeTab === 'gravar' ? 0 : '100%',
-                left: activeTab === 'gravar' ? '6px' : '-6px',
-                right: activeTab === 'gravar' ? 'calc(50% + 6px)' : '6px',
+                left: activeTab === 'gravar' ? '6px' : '50%',
+                right: activeTab === 'gravar' ? '50%' : '6px',
               }}
-              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              transition={{ type: "spring", stiffness: 500, damping: 35 }}
             />
             <button 
               onClick={() => setActiveTab('gravar')}
