@@ -22,7 +22,10 @@ import {
   onAuthStateChanged, 
   GoogleAuthProvider, 
   signInWithPopup, 
-  signOut 
+  signOut,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
 
@@ -58,6 +61,12 @@ const App = () => {
   const [expandedDay, setExpandedDay] = useState('segunda');
   const [isAdding, setIsAdding] = useState(false);
   const [newItem, setNewItem] = useState({ objective: '', summary: '', link: '' });
+  
+  // Auth Form State
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [authError, setAuthError] = useState(null);
 
   // 1. Initial Authentication & Firebase Setup
   useEffect(() => {
@@ -109,6 +118,7 @@ const App = () => {
   }, []);
 
   const handleLogin = async () => {
+    setError(null);
     try {
       const auth = getAuth(getApp());
       const provider = new GoogleAuthProvider();
@@ -130,6 +140,43 @@ const App = () => {
       }
       
       setError(friendlyMessage);
+    }
+  };
+
+  const handleEmailAuth = async (e) => {
+    e.preventDefault();
+    setAuthError(null);
+    setLoading(true);
+    
+    if (!email || !password) {
+      setAuthError("Preencha todos os campos.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const auth = getAuth(getApp());
+      if (isRegistering) {
+        await createUserWithEmailAndPassword(auth, email, password);
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+    } catch (err) {
+      console.error("Email Auth Error:", err.code, err.message);
+      let friendlyMessage = "Erro na autenticação.";
+      
+      switch (err.code) {
+        case 'auth/invalid-email': friendlyMessage = "E-mail inválido."; break;
+        case 'auth/user-disabled': friendlyMessage = "Usuário desativado."; break;
+        case 'auth/user-not-found': friendlyMessage = "Usuário não encontrado."; break;
+        case 'auth/wrong-password': friendlyMessage = "Senha incorreta."; break;
+        case 'auth/email-already-in-use': friendlyMessage = "Este e-mail já está em uso."; break;
+        case 'auth/weak-password': friendlyMessage = "Senha muito fraca (mínimo 6 caracteres)."; break;
+        case 'auth/invalid-credential': friendlyMessage = "E-mail ou senha incorretos."; break;
+        default: friendlyMessage = "Ocorreu um erro. Tente novamente.";
+      }
+      setAuthError(friendlyMessage);
+      setLoading(false);
     }
   };
 
@@ -256,16 +303,74 @@ const App = () => {
           <h1 className="text-4xl font-black text-slate-900 mb-4 uppercase tracking-tighter leading-none">
             Meu <span className="text-blue-600">Plano</span><br/>Semanal
           </h1>
-          <p className="text-slate-500 font-medium mb-10 leading-relaxed">
-            Bem-vindo! Entre com sua conta Google para começar a organizar seus conteúdos com segurança.
+          <p className="text-slate-500 font-medium mb-10 leading-relaxed text-sm">
+            {isRegistering 
+              ? "Crie sua conta para começar a organizar seus conteúdos." 
+              : "Bem-vindo! Entre para começar a organizar seus conteúdos com segurança."}
           </p>
+
+          <form onSubmit={handleEmailAuth} className="space-y-4 mb-6 text-left">
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">E-mail</label>
+              <input 
+                type="email" 
+                placeholder="seu@email.com"
+                className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Senha</label>
+              <input 
+                type="password" 
+                placeholder="••••••••"
+                className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+
+            {authError && (
+              <div className="flex items-center space-x-2 text-rose-500 bg-rose-50 p-3 rounded-xl border border-rose-100">
+                <AlertCircle className="w-4 h-4" />
+                <p className="text-xs font-bold uppercase">{authError}</p>
+              </div>
+            )}
+
+            <button 
+              type="submit"
+              className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl hover:bg-blue-700 active:scale-[0.98] transition-all shadow-lg shadow-blue-100 uppercase tracking-tight text-lg"
+            >
+              {isRegistering ? "Criar Conta" : "Entrar"}
+            </button>
+          </form>
+
+          <div className="relative mb-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-100"></div>
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white px-4 text-slate-300 font-black tracking-widest">ou</span>
+            </div>
+          </div>
           
           <button 
             onClick={handleLogin}
-            className="w-full flex items-center justify-center space-x-3 bg-slate-900 text-white font-black py-5 rounded-2xl hover:bg-slate-800 active:scale-[0.98] transition-all shadow-xl shadow-slate-200 uppercase tracking-tight text-lg"
+            className="w-full flex items-center justify-center space-x-3 bg-white border-2 border-slate-100 text-slate-900 font-black py-4 rounded-2xl hover:bg-slate-50 active:scale-[0.98] transition-all uppercase tracking-tight text-lg"
           >
-            <LogIn className="w-6 h-6" />
+            <LogIn className="w-5 h-5 text-blue-600" />
             <span>Entrar com Google</span>
+          </button>
+
+          <button 
+            onClick={() => {
+              setIsRegistering(!isRegistering);
+              setAuthError(null);
+            }}
+            className="mt-6 text-[10px] text-blue-600 font-black uppercase tracking-[0.2em] hover:underline"
+          >
+            {isRegistering ? "Já tem uma conta? Entrar" : "Não tem conta? Criar conta"}
           </button>
           
           <p className="mt-8 text-[10px] text-slate-300 font-black uppercase tracking-[0.3em]">
@@ -288,7 +393,7 @@ const App = () => {
             </h1>
             <p className="mt-6 text-slate-400 font-bold tracking-[0.3em] uppercase text-xs flex items-center">
               <span className="w-8 h-[2px] bg-blue-600 mr-3"></span>
-              Bem vindo, {user.displayName?.split(' ')[0]}
+              Bem vindo, {user.displayName ? user.displayName.split(' ')[0] : user.email.split('@')[0]}
             </p>
           </div>
           
