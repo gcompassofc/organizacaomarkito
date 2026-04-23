@@ -50,12 +50,10 @@ const App = () => {
   const [firebaseReady, setFirebaseReady] = useState(false);
   const [error, setError] = useState(null);
   
+  const [activeTab, setActiveTab] = useState('gravar');
   const [data, setData] = useState({
-    segunda: [],
-    terca: [],
-    quarta: [],
-    quinta: [],
-    sexta: []
+    gravar: { segunda: [], terca: [], quarta: [], quinta: [], sexta: [] },
+    postar: { segunda: [], terca: [], quarta: [], quinta: [], sexta: [] }
   });
 
   const [expandedDay, setExpandedDay] = useState('segunda');
@@ -90,7 +88,16 @@ const App = () => {
             const docRef = doc(db, 'artifacts', 'organizador-semanal', 'users', currentUser.uid, 'weeklyData', 'current');
             unsubscribeSnapshot = onSnapshot(docRef, (docSnap) => {
               if (docSnap.exists()) {
-                setData(docSnap.data().content);
+                const cloudData = docSnap.data().content;
+                // Migration: check if it's the old format
+                if (cloudData.segunda && !cloudData.gravar) {
+                  setData({
+                    gravar: cloudData,
+                    postar: { segunda: [], terca: [], quarta: [], quinta: [], sexta: [] }
+                  });
+                } else {
+                  setData(cloudData);
+                }
               }
               setLoading(false);
             }, (error) => {
@@ -185,11 +192,8 @@ const App = () => {
       const auth = getAuth(getApp());
       await signOut(auth);
       setData({
-        segunda: [],
-        terca: [],
-        quarta: [],
-        quinta: [],
-        sexta: []
+        gravar: { segunda: [], terca: [], quarta: [], quinta: [], sexta: [] },
+        postar: { segunda: [], terca: [], quarta: [], quinta: [], sexta: [] }
       });
     } catch (err) {
       console.error("Logout error:", err);
@@ -243,7 +247,10 @@ const App = () => {
 
     const newData = {
       ...data,
-      [dayId]: [...(data[dayId] || []), item]
+      [activeTab]: {
+        ...data[activeTab],
+        [dayId]: [...(data[activeTab][dayId] || []), item]
+      }
     };
 
     setData(newData);
@@ -256,7 +263,10 @@ const App = () => {
     e.stopPropagation();
     const newData = {
       ...data,
-      [dayId]: data[dayId].filter(item => item.id !== itemId)
+      [activeTab]: {
+        ...data[activeTab],
+        [dayId]: data[activeTab][dayId].filter(item => item.id !== itemId)
+      }
     };
     setData(newData);
     saveToCloud(newData);
@@ -266,9 +276,12 @@ const App = () => {
     e.stopPropagation();
     const newData = {
       ...data,
-      [dayId]: data[dayId].map(item => 
-        item.id === itemId ? { ...item, completed: !item.completed } : item
-      )
+      [activeTab]: {
+        ...data[activeTab],
+        [dayId]: data[activeTab][dayId].map(item => 
+          item.id === itemId ? { ...item, completed: !item.completed } : item
+        )
+      }
     };
     setData(newData);
     saveToCloud(newData);
@@ -427,6 +440,35 @@ const App = () => {
           </div>
         </header>
 
+        {/* Content Switcher Component */}
+        <div className="mb-12 flex justify-center">
+          <div className="bg-slate-100 p-1.5 rounded-[24px] flex items-center relative w-full max-w-md">
+            <motion.div 
+              layoutId="switcher-bg"
+              className={`absolute top-1.5 bottom-1.5 rounded-[20px] shadow-sm ${activeTab === 'gravar' ? 'bg-blue-600' : 'bg-emerald-600'}`}
+              initial={false}
+              animate={{ 
+                x: activeTab === 'gravar' ? 0 : '100%',
+                left: activeTab === 'gravar' ? '6px' : '-6px',
+                right: activeTab === 'gravar' ? 'calc(50% + 6px)' : '6px',
+              }}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+            />
+            <button 
+              onClick={() => setActiveTab('gravar')}
+              className={`relative flex-1 py-4 text-xs font-black uppercase tracking-widest transition-colors duration-300 ${activeTab === 'gravar' ? 'text-white' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              Marco vai gravar
+            </button>
+            <button 
+              onClick={() => setActiveTab('postar')}
+              className={`relative flex-1 py-4 text-xs font-black uppercase tracking-widest transition-colors duration-300 ${activeTab === 'postar' ? 'text-white' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              Postagens da Semana
+            </button>
+          </div>
+        </div>
+
         {/* Weekly List - Vertical Accordion with Bold Styling */}
         <div className="space-y-8">
           {daysOfWeek.map((day) => (
@@ -449,7 +491,7 @@ const App = () => {
                 <div className="flex flex-col">
                   <h2 className="text-3xl font-black text-slate-800 tracking-tight uppercase">{day.label}</h2>
                   <p className="text-xs text-slate-300 font-black uppercase tracking-[0.2em] mt-1">
-                    {(data[day.id]?.length || 0)} {(data[day.id]?.length === 1 ? 'Conteúdo' : 'Conteúdos')}
+                    {(data[activeTab][day.id]?.length || 0)} {(data[activeTab][day.id]?.length === 1 ? 'Conteúdo' : 'Conteúdos')}
                   </p>
                 </div>
                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-500 ${expandedDay === day.id ? 'bg-blue-600 text-white rotate-180 shadow-lg shadow-blue-200' : 'bg-slate-50 text-slate-300'}`}>
@@ -470,13 +512,13 @@ const App = () => {
                   >
                     <div className="px-8 pb-10 border-t border-slate-50">
                       <div className="space-y-4 mt-8">
-                        {(!data[day.id] || data[day.id].length === 0) && !isAdding && (
+                        {(!data[activeTab][day.id] || data[activeTab][day.id].length === 0) && !isAdding && (
                           <div className="text-center py-12 text-slate-300 font-black uppercase tracking-widest bg-slate-50/50 rounded-3xl border-2 border-dashed border-slate-100">
                             Sem planos para hoje
                           </div>
                         )}
                         
-                        {data[day.id]?.map((item) => (
+                        {data[activeTab][day.id]?.map((item) => (
                           <motion.div 
                             layout
                             key={item.id} 
@@ -604,13 +646,13 @@ const App = () => {
             <div className="flex items-center space-x-2">
               <span className="w-2 h-2 rounded-full bg-blue-200"></span>
               <span className="text-[11px] font-black uppercase tracking-widest">
-                Total: {Object.values(data).flat().length} Itens
+                Total: {Object.values(data[activeTab]).flat().length} Itens
               </span>
             </div>
             <div className="flex items-center space-x-2">
               <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
               <span className="text-[11px] font-black uppercase tracking-widest">
-                {Object.values(data).flat().filter(i => i.completed).length} Concluídos
+                {Object.values(data[activeTab]).flat().filter(i => i.completed).length} Concluídos
               </span>
             </div>
           </div>
