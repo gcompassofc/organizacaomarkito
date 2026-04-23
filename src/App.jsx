@@ -112,10 +112,24 @@ const App = () => {
     try {
       const auth = getAuth(getApp());
       const provider = new GoogleAuthProvider();
+      
+      // Forces account selection to prevent automatic popup closure
+      provider.setCustomParameters({ prompt: 'select_account' });
+      
       await signInWithPopup(auth, provider);
     } catch (err) {
-      console.error("Login error:", err);
-      setError("Erro ao entrar com Google. Tente novamente.");
+      console.error("Firebase Auth Error:", err.code, err.message);
+      
+      let friendlyMessage = "Erro ao entrar com Google. Tente novamente.";
+      if (err.code === 'auth/unauthorized-domain') {
+        friendlyMessage = "Este domínio não está autorizado no Console do Firebase (Authentication > Settings > Authorized Domains).";
+      } else if (err.code === 'auth/operation-not-allowed') {
+        friendlyMessage = "O provedor Google não está ativado no Console do Firebase.";
+      } else if (err.code === 'auth/popup-closed-by-user') {
+        friendlyMessage = "O login foi cancelado.";
+      }
+      
+      setError(friendlyMessage);
     }
   };
 
