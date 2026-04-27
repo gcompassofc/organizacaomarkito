@@ -57,7 +57,8 @@ const App = () => {
   const [activeTab, setActiveTab] = useState('gravar');
   const [data, setData] = useState({
     gravar: { segunda: [], terca: [], quarta: [], quinta: [], sexta: [] },
-    postar: { segunda: [], terca: [], quarta: [], quinta: [], sexta: [] }
+    postar: { segunda: [], terca: [], quarta: [], quinta: [], sexta: [] },
+    stories: { segunda: [], terca: [], quarta: [], quinta: [], sexta: [] }
   });
 
   const [expandedDay, setExpandedDay] = useState('segunda');
@@ -98,14 +99,19 @@ const App = () => {
               if (docSnap.exists()) {
                 const cloudData = docSnap.data().content;
                 // Migration: check if it's the old format
+                let parsedData = cloudData;
                 if (cloudData.segunda && !cloudData.gravar) {
-                  setData({
+                  parsedData = {
                     gravar: cloudData,
-                    postar: { segunda: [], terca: [], quarta: [], quinta: [], sexta: [] }
-                  });
+                    postar: { segunda: [], terca: [], quarta: [], quinta: [], sexta: [] },
+                    stories: { segunda: [], terca: [], quarta: [], quinta: [], sexta: [] }
+                  };
                 } else {
-                  setData(cloudData);
+                  if (!parsedData.stories) {
+                    parsedData.stories = { segunda: [], terca: [], quarta: [], quinta: [], sexta: [] };
+                  }
                 }
+                setData(parsedData);
               }
               setLoading(false);
             }, (error) => {
@@ -201,7 +207,8 @@ const App = () => {
       await signOut(auth);
       setData({
         gravar: { segunda: [], terca: [], quarta: [], quinta: [], sexta: [] },
-        postar: { segunda: [], terca: [], quarta: [], quinta: [], sexta: [] }
+        postar: { segunda: [], terca: [], quarta: [], quinta: [], sexta: [] },
+        stories: { segunda: [], terca: [], quarta: [], quinta: [], sexta: [] }
       });
     } catch (err) {
       console.error("Logout error:", err);
@@ -503,44 +510,72 @@ const App = () => {
 
         {/* Content Switcher Component */}
         <div className="mb-12 flex justify-center">
-          <div className="bg-slate-100 p-1.5 rounded-[24px] flex items-center relative w-full max-w-md">
+          <div className="bg-slate-100 p-1.5 rounded-[24px] flex items-center relative w-full max-w-lg">
             <motion.div 
               className="absolute top-1.5 bottom-1.5 rounded-[20px] shadow-sm"
               initial={false}
               animate={{ 
-                left: activeTab === 'gravar' ? '6px' : '50%',
-                right: activeTab === 'gravar' ? '50%' : '6px',
-                backgroundColor: activeTab === 'gravar' ? '#2563eb' : '#059669', // blue-600 and emerald-600
+                left: activeTab === 'gravar' ? '6px' : activeTab === 'postar' ? 'calc(33.33% + 2px)' : 'calc(66.66% - 2px)',
+                width: 'calc(33.33% - 4px)',
+                backgroundColor: activeTab === 'gravar' ? '#2563eb' : activeTab === 'postar' ? '#059669' : '#8b5cf6', // blue, emerald, purple
               }}
               transition={{ type: "spring", stiffness: 400, damping: 30 }}
             />
             <button 
               onClick={() => setActiveTab('gravar')}
-              className="relative flex-1 py-4 text-xs font-black uppercase tracking-widest outline-none"
+              className="relative flex-1 py-4 text-[10px] md:text-xs font-black uppercase tracking-widest outline-none"
             >
               <motion.span
-                animate={{ color: activeTab === 'gravar' ? '#ffffff' : '#94a3b8' }} // white and slate-400
+                animate={{ color: activeTab === 'gravar' ? '#ffffff' : '#94a3b8' }}
                 transition={{ duration: 0.2 }}
               >
-                Marco vai gravar
+                Gravar
               </motion.span>
             </button>
             <button 
               onClick={() => setActiveTab('postar')}
-              className="relative flex-1 py-4 text-xs font-black uppercase tracking-widest outline-none"
+              className="relative flex-1 py-4 text-[10px] md:text-xs font-black uppercase tracking-widest outline-none"
             >
               <motion.span
-                animate={{ color: activeTab === 'postar' ? '#ffffff' : '#94a3b8' }} // white and slate-400
+                animate={{ color: activeTab === 'postar' ? '#ffffff' : '#94a3b8' }}
                 transition={{ duration: 0.2 }}
               >
-                Postagens da Semana
+                Postar
+              </motion.span>
+            </button>
+            <button 
+              onClick={() => setActiveTab('stories')}
+              className="relative flex-1 py-4 text-[10px] md:text-xs font-black uppercase tracking-widest outline-none"
+            >
+              <motion.span
+                animate={{ color: activeTab === 'stories' ? '#ffffff' : '#94a3b8' }}
+                transition={{ duration: 0.2 }}
+              >
+                Stories
               </motion.span>
             </button>
           </div>
         </div>
 
-        {/* Weekly List - Vertical Accordion with Bold Styling */}
-        <div className="space-y-8">
+        {/* Weekly List - Vertical Accordion with Swipe Logic */}
+        <motion.div 
+          className="space-y-8"
+          onPanEnd={(e, info) => {
+            const offset = info.offset.x;
+            const velocity = info.velocity.x;
+            
+            // Swipe Left (Next Tab)
+            if (offset < -50 || velocity < -500) {
+              if (activeTab === 'gravar') setActiveTab('postar');
+              else if (activeTab === 'postar') setActiveTab('stories');
+            } 
+            // Swipe Right (Prev Tab)
+            else if (offset > 50 || velocity > 500) {
+              if (activeTab === 'stories') setActiveTab('postar');
+              else if (activeTab === 'postar') setActiveTab('gravar');
+            }
+          }}
+        >
           {daysOfWeek.map((day) => (
             <div 
               key={day.id} 
@@ -784,7 +819,7 @@ const App = () => {
               </AnimatePresence>
             </div>
           ))}
-        </div>
+        </motion.div>
 
         {/* Footer - Bold Typography Style */}
         <footer className="mt-20 mb-16 flex flex-col md:flex-row items-center justify-between border-t border-slate-100 pt-10 gap-6">
