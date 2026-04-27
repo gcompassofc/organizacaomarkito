@@ -17,7 +17,9 @@ import {
   Clock,
   X,
   Copy,
-  GripVertical
+  GripVertical,
+  Video,
+  Smartphone
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -464,7 +466,7 @@ const App = () => {
 
   return (
     <div className="min-h-screen bg-[#FAFAFA] font-sans text-slate-900 p-6 md:p-12 selection:bg-blue-100">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto pb-24 md:pb-0">
         
         {/* Header Section - Bold Typography Theme */}
         <header className="flex flex-col md:flex-row justify-between items-start mb-10 gap-6">
@@ -508,8 +510,8 @@ const App = () => {
           </div>
         </header>
 
-        {/* Content Switcher Component */}
-        <div className="mb-12 flex justify-center">
+        {/* Content Switcher Component - Desktop/Tablet */}
+        <div className="mb-12 hidden md:flex justify-center">
           <div className="bg-slate-100 p-1.5 rounded-[24px] flex items-center relative w-full max-w-lg">
             <motion.div 
               className="absolute top-1.5 bottom-1.5 rounded-[20px] shadow-sm"
@@ -842,6 +844,41 @@ const App = () => {
           </div>
         </footer>
       </div>
+
+      {/* Bottom Navigation Bar - Mobile Only */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 z-40 pb-safe">
+        <div className="flex items-center justify-around h-16">
+          <button 
+            onClick={() => setActiveTab('gravar')}
+            className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${
+              activeTab === 'gravar' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            <Video className={`w-5 h-5 ${activeTab === 'gravar' ? 'fill-blue-100/50' : ''}`} strokeWidth={activeTab === 'gravar' ? 2.5 : 2} />
+            <span className="text-[10px] font-black uppercase tracking-wider">Gravar</span>
+          </button>
+          
+          <button 
+            onClick={() => setActiveTab('postar')}
+            className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${
+              activeTab === 'postar' ? 'text-emerald-600' : 'text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            <Calendar className={`w-5 h-5 ${activeTab === 'postar' ? 'fill-emerald-100/50' : ''}`} strokeWidth={activeTab === 'postar' ? 2.5 : 2} />
+            <span className="text-[10px] font-black uppercase tracking-wider">Postar</span>
+          </button>
+          
+          <button 
+            onClick={() => setActiveTab('stories')}
+            className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${
+              activeTab === 'stories' ? 'text-purple-600' : 'text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            <Smartphone className={`w-5 h-5 ${activeTab === 'stories' ? 'fill-purple-100/50' : ''}`} strokeWidth={activeTab === 'stories' ? 2.5 : 2} />
+            <span className="text-[10px] font-black uppercase tracking-wider">Stories</span>
+          </button>
+        </div>
+      </nav>
 
       {/* Summary Modal */}
       <AnimatePresence>
