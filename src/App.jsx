@@ -671,6 +671,16 @@ const App = () => {
                                   </div>
                                 )}
                                 <div className="flex flex-wrap items-center gap-2 mt-2">
+                                  {activeTab === 'gravar' && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-blue-100 text-blue-700">
+                                      O vídeo aqui
+                                    </span>
+                                  )}
+                                  {activeTab === 'stories' && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-purple-100 text-purple-700">
+                                      O stories aqui
+                                    </span>
+                                  )}
                                   {item.recordingType && (
                                     <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest ${
                                       item.recordingType === 'sozinho' 
@@ -699,10 +709,10 @@ const App = () => {
                                     target="_blank" 
                                     rel="noopener noreferrer"
                                     onClick={(e) => e.stopPropagation()}
-                                    className="inline-flex items-center text-[10px] font-black text-blue-500 hover:text-blue-700 mt-2 transition-colors uppercase tracking-widest underline decoration-2 underline-offset-4"
+                                    className={`inline-flex items-center text-[10px] font-black mt-2 transition-colors uppercase tracking-widest underline decoration-2 underline-offset-4 ${activeTab === 'postar' ? 'text-emerald-500 hover:text-emerald-700' : 'text-blue-500 hover:text-blue-700'}`}
                                   >
                                     <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
-                                    Link Externo
+                                    {activeTab === 'postar' ? 'Verifique Aqui' : 'Link Externo'}
                                   </a>
                                 )}
                               </div>
