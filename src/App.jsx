@@ -44,7 +44,7 @@ const firebaseConfig = {
 
 const firestoreDatabaseId = 'ai-studio-568f74c2-f715-4e59-828f-2659132b6705';
 
-const emptyTabData = () => ({ segunda: [], terca: [], quarta: [], quinta: [], sexta: [] });
+const emptyTabData = () => ({ segunda: [], terca: [], quarta: [], quinta: [], sexta: [], sabado: [], domingo: [] });
 
 const emptyWeekData = () => ({
   gravar: emptyTabData(),
@@ -88,7 +88,9 @@ const daysOfWeek = [
   { id: 'terca', label: 'Terca-feira', color: 'bg-emerald-500' },
   { id: 'quarta', label: 'Quarta-feira', color: 'bg-amber-500' },
   { id: 'quinta', label: 'Quinta-feira', color: 'bg-purple-500' },
-  { id: 'sexta', label: 'Sexta-feira', color: 'bg-rose-500' }
+  { id: 'sexta', label: 'Sexta-feira', color: 'bg-rose-500' },
+  { id: 'sabado', label: 'Sábado', color: 'bg-indigo-500' },
+  { id: 'domingo', label: 'Domingo', color: 'bg-pink-500' }
 ];
 
 const toDateKey = (date) => {
@@ -765,8 +767,15 @@ const App = () => {
                           </div>
                         )}
 
-                        {(data[activeTab][day.id] || []).map((item) => (
-                          <motion.div
+                        {[
+                          { title: 'Vídeos', items: (data[activeTab][day.id] || []).filter(item => item.contentType !== 'stories') },
+                          { title: 'Stories', items: (data[activeTab][day.id] || []).filter(item => item.contentType === 'stories') }
+                        ].map((group) => group.items.length > 0 && (
+                          <div key={group.title} className="mb-6 last:mb-0">
+                            <h4 className="text-[10px] font-black text-slate-400 uppercase mb-3 ml-2">{group.title}</h4>
+                            <div className="space-y-3">
+                              {group.items.map((item) => (
+                                <motion.div
                             layout
                             key={item.id}
                             draggable
@@ -853,7 +862,10 @@ const App = () => {
                             <button onClick={(e) => removeItem(e, day.id, item.id)} className="p-3 text-slate-200 hover:text-rose-500 hover:bg-rose-50 rounded-xl">
                               <Trash2 className="w-6 h-6" />
                             </button>
-                          </motion.div>
+                                </motion.div>
+                              ))}
+                            </div>
+                          </div>
                         ))}
                       </div>
 
