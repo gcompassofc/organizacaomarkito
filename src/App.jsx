@@ -32,6 +32,15 @@ import {
   signOut
 } from 'firebase/auth';
 import { doc, getFirestore, onSnapshot, setDoc } from 'firebase/firestore';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
+
+const stripHtml = (html) => {
+  if (!html) return '';
+  const tmp = document.createElement('DIV');
+  tmp.innerHTML = html;
+  return tmp.textContent || tmp.innerText || '';
+};
 
 const firebaseConfig = {
   projectId: 'gen-lang-client-0601883980',
@@ -395,9 +404,19 @@ const App = () => {
     setDraggedItem(null);
   };
 
-  const handleCopy = () => {
+  const handleCopy = async () => {
     if (summaryModal.item?.summary) {
-      navigator.clipboard.writeText(summaryModal.item.summary);
+      try {
+        const plainText = stripHtml(summaryModal.item.summary);
+        const htmlText = summaryModal.item.summary;
+        const clipboardItem = new ClipboardItem({
+          'text/plain': new Blob([plainText], { type: 'text/plain' }),
+          'text/html': new Blob([htmlText], { type: 'text/html' })
+        });
+        await navigator.clipboard.write([clipboardItem]);
+      } catch (err) {
+        navigator.clipboard.writeText(stripHtml(summaryModal.item.summary));
+      }
       setCopiedState(true);
       setTimeout(() => setCopiedState(false), 2000);
     }
@@ -797,7 +816,7 @@ const App = () => {
                                 {item.summary && (
                                   <div className="flex items-center mt-2 space-x-3">
                                     <p className={`text-xs font-medium truncate max-w-[220px] sm:max-w-[320px] md:max-w-[420px] ${item.completed ? 'text-slate-300' : 'text-slate-500'}`}>
-                                      {item.summary}
+                                      {stripHtml(item.summary)}
                                     </p>
                                     <button
                                       onClick={(e) => {
@@ -887,12 +906,14 @@ const App = () => {
                             {activeTab === 'gravar' && (
                               <div>
                                 <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">{tabConfig.gravar.summaryLabel}</label>
-                                <textarea
-                                  placeholder={tabConfig.gravar.summaryPlaceholder}
-                                  className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm placeholder:text-slate-600 min-h-[80px] resize-none"
-                                  value={newItem.summary}
-                                  onChange={(e) => setNewItem({ ...newItem, summary: e.target.value })}
-                                />
+                                <div className="bg-white text-slate-800 rounded-xl overflow-hidden mb-2">
+                                  <ReactQuill 
+                                    theme="snow"
+                                    value={newItem.summary} 
+                                    onChange={(content) => setNewItem({ ...newItem, summary: content })} 
+                                    placeholder={tabConfig.gravar.summaryPlaceholder}
+                                  />
+                                </div>
                               </div>
                             )}
 
@@ -1030,8 +1051,13 @@ const App = () => {
                 <X className="w-5 h-5" />
               </button>
               <h3 className="text-2xl font-black text-slate-800 uppercase mb-4 pr-10">{summaryModal.item.objective}</h3>
-              <div className="bg-slate-50 p-6 rounded-2xl mb-6 max-h-[50vh] overflow-y-auto">
-                <p className="text-slate-600 font-medium whitespace-pre-wrap text-sm leading-relaxed">{summaryModal.item.summary}</p>
+              <div className="bg-slate-50 p-0 rounded-2xl mb-6 max-h-[50vh] overflow-y-auto">
+                <div className="ql-snow">
+                  <div 
+                    className="ql-editor text-slate-600 font-medium text-sm leading-relaxed" 
+                    dangerouslySetInnerHTML={{ __html: summaryModal.item.summary }} 
+                  />
+                </div>
               </div>
               <button onClick={handleCopy} className={`w-full font-black py-4 rounded-xl text-sm uppercase flex items-center justify-center space-x-2 ${copiedState ? 'bg-emerald-500 text-white' : 'bg-blue-600 text-white'}`}>
                 {copiedState ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
@@ -1066,11 +1092,13 @@ const App = () => {
                 {activeTab === 'gravar' && (
                   <div>
                     <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Roteiro</label>
-                    <textarea
-                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm min-h-[80px] resize-none"
-                      value={editModal.item.summary}
-                      onChange={(e) => setEditModal({ ...editModal, item: { ...editModal.item, summary: e.target.value } })}
-                    />
+                    <div className="bg-white text-slate-800 rounded-xl overflow-hidden mb-2">
+                      <ReactQuill 
+                        theme="snow"
+                        value={editModal.item.summary || ''} 
+                        onChange={(content) => setEditModal({ ...editModal, item: { ...editModal.item, summary: content } })} 
+                      />
+                    </div>
                   </div>
                 )}
 
