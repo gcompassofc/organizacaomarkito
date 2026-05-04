@@ -1,1 +1,37 @@
 @import "tailwindcss";
+
+.ql-editor, .ql-editor * {
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+  white-space: normal !important;
+}
+.ql-editor p {
+  margin-bottom: 1rem;
+}
+.ql-editor p:last-child {
+  margin-bottom: 0;
+}
+.ql-editor strong, .ql-editor b {
+  font-weight: 700;
+}
+.ql-editor em, .ql-editor i {
+  font-style: italic;
+}
+.ql-editor ul, .ql-editor ol {
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+.ql-editor ul > li, .ql-editor ol > li {
+  display: list-item;
+}
+.ql-editor ul > li {
+  list-style-type: disc;
+}
+.ql-editor ol > li {
+  list-style-type: decimal;
+}
+.ql-editor h1, .ql-editor h2, .ql-editor h3 {
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+  margin-top: 1.5rem;
+}

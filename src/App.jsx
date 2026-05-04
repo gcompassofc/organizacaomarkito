@@ -249,9 +249,11 @@ const App = () => {
   const [password, setPassword] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
   const [authError, setAuthError] = useState(null);
+  const [profileFilter, setProfileFilter] = useState('todos');
 
   const currentWeekKey = planner.currentWeekKey;
   const data = planner.weeks[currentWeekKey] || emptyWeekData();
+  const allFilteredItems = Object.values(data[activeTab]).flat().filter(item => profileFilter === 'todos' || (item.profile || 'opa') === profileFilter);
 
   useEffect(() => {
     let unsubscribeAuth;
@@ -554,7 +556,7 @@ const App = () => {
                 item.summary || '',
                 getContentTypeTag(item.contentType),
                 tabKey === 'gravar' ? getRecordingTag(item.recordingType) : '',
-                tabKey === 'postar' ? getProfileTag(item.profile) : '',
+                getProfileTag(item.profile),
                 item.time || '',
                 item.primaryLink || '',
                 item.secondaryLink || '',
@@ -738,19 +740,33 @@ const App = () => {
           </div>
         </div>
 
-        <motion.div
-          className="space-y-8"
-          onPanEnd={(e, info) => {
-            const offset = info.offset.x;
-            const velocity = info.velocity.x;
-            if (offset < -50 || velocity < -500) {
-              if (activeTab === 'gravar') setActiveTab('postar');
-            } else if (offset > 50 || velocity > 500) {
-              if (activeTab === 'postar') setActiveTab('gravar');
-            }
-          }}
-        >
-          {daysOfWeek.map((day, dayIndex) => (
+        <div className="mb-10 flex justify-center">
+          <div className="bg-white border-2 border-slate-100 p-1.5 rounded-[20px] flex items-center space-x-1 shadow-sm w-full max-w-md md:max-w-[320px]">
+            <button 
+              onClick={() => setProfileFilter('todos')} 
+              className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${profileFilter === 'todos' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}
+            >
+              Todos
+            </button>
+            <button 
+              onClick={() => setProfileFilter('marco')} 
+              className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${profileFilter === 'marco' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}
+            >
+              Marco
+            </button>
+            <button 
+              onClick={() => setProfileFilter('opa')} 
+              className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${profileFilter === 'opa' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}
+            >
+              OPA
+            </button>
+          </div>
+        </div>
+
+        <motion.div className="space-y-8">
+          {daysOfWeek.map((day, dayIndex) => {
+            const filteredDayItems = (data[activeTab][day.id] || []).filter(item => profileFilter === 'todos' || (item.profile || 'opa') === profileFilter);
+            return (
             <div
               key={day.id}
               onDragOver={handleDragOver}
@@ -767,7 +783,7 @@ const App = () => {
                 <div className="flex flex-col">
                   <h2 className="text-2xl font-black text-slate-800 uppercase">{day.label}</h2>
                   <p className="text-[10px] text-slate-400 font-black uppercase mt-1">
-                    {formatDateShort(addDays(parseWeekKey(currentWeekKey), dayIndex))} - {(data[activeTab][day.id] || []).length} {(data[activeTab][day.id] || []).length === 1 ? 'Conteudo' : 'Conteudos'}
+                    {formatDateShort(addDays(parseWeekKey(currentWeekKey), dayIndex))} - {filteredDayItems.length} {filteredDayItems.length === 1 ? 'Conteudo' : 'Conteudos'}
                   </p>
                 </div>
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${expandedDay === day.id ? 'bg-blue-600 text-white rotate-180' : 'bg-slate-50 text-slate-300'}`}>
@@ -780,15 +796,15 @@ const App = () => {
                   <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                     <div className="px-5 md:px-6 pb-6 border-t border-slate-50">
                       <div className="space-y-3 mt-5">
-                        {(data[activeTab][day.id] || []).length === 0 && !isAdding && (
+                        {filteredDayItems.length === 0 && !isAdding && (
                           <div className="text-center py-8 text-slate-300 font-black uppercase bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-100 text-sm">
                             Sem planos para hoje
                           </div>
                         )}
 
                         {[
-                          { title: 'Vídeos', items: (data[activeTab][day.id] || []).filter(item => item.contentType !== 'stories') },
-                          { title: 'Stories', items: (data[activeTab][day.id] || []).filter(item => item.contentType === 'stories') }
+                          { title: 'Vídeos', items: filteredDayItems.filter(item => item.contentType !== 'stories') },
+                          { title: 'Stories', items: filteredDayItems.filter(item => item.contentType === 'stories') }
                         ].map((group) => group.items.length > 0 && (
                           <div key={group.title} className="mb-6 last:mb-0">
                             <h4 className="text-[10px] font-black text-slate-400 uppercase mb-3 ml-2">{group.title}</h4>
@@ -800,22 +816,22 @@ const App = () => {
                             draggable
                             onDragStart={() => handleDragStart(day.id, item)}
                             onClick={() => setEditModal({ isOpen: true, dayId: day.id, item: { ...item } })}
-                            className={`group/item flex items-center justify-between p-5 rounded-2xl border-2 ${item.completed ? 'bg-slate-50/50 border-transparent opacity-50' : 'bg-white border-slate-50 hover:border-blue-200 shadow-sm'} cursor-pointer`}
+                            className={`group/item flex items-start md:items-center justify-between p-4 md:p-5 rounded-[20px] border-2 ${item.completed ? 'bg-slate-50/50 border-transparent opacity-50' : 'bg-white border-slate-50 hover:border-blue-200 shadow-sm'} cursor-pointer`}
                           >
-                            <div className="flex items-center space-x-4 flex-1 min-w-0">
-                              <div className="text-slate-300 cursor-grab active:cursor-grabbing">
+                            <div className="flex items-start md:items-center space-x-3 md:space-x-4 flex-1 min-w-0">
+                              <div className="text-slate-300 cursor-grab active:cursor-grabbing mt-1 md:mt-0">
                                 <GripVertical className="w-5 h-5" />
                               </div>
-                              <button onClick={(e) => toggleComplete(e, day.id, item.id)} className={`flex-shrink-0 ${item.completed ? 'text-emerald-500' : 'text-slate-200 hover:text-blue-500'}`}>
-                                <CheckCircle2 className="w-10 h-10" strokeWidth={2.5} />
+                              <button onClick={(e) => toggleComplete(e, day.id, item.id)} className={`flex-shrink-0 mt-0.5 md:mt-0 ${item.completed ? 'text-emerald-500' : 'text-slate-200 hover:text-blue-500'}`}>
+                                <CheckCircle2 className="w-7 h-7 md:w-10 md:h-10" strokeWidth={2.5} />
                               </button>
                               <div className="flex-1 min-w-0">
-                                <p className={`text-base font-bold text-slate-800 truncate ${item.completed ? 'line-through text-slate-400 italic' : ''}`}>
+                                <p className={`text-sm md:text-base leading-snug md:leading-normal font-bold text-slate-800 ${item.completed ? 'line-through text-slate-400 italic' : ''}`}>
                                   {item.objective}
                                 </p>
                                 {item.summary && (
-                                  <div className="flex items-center mt-2 space-x-3">
-                                    <p className={`text-xs font-medium truncate max-w-[220px] sm:max-w-[320px] md:max-w-[420px] ${item.completed ? 'text-slate-300' : 'text-slate-500'}`}>
+                                  <div className="flex flex-col mt-2 md:mt-3 space-y-2 md:space-y-3">
+                                    <p className={`text-[11px] md:text-xs font-medium line-clamp-2 ${item.completed ? 'text-slate-300' : 'text-slate-500'}`}>
                                       {stripHtml(item.summary)}
                                     </p>
                                     <button
@@ -823,9 +839,9 @@ const App = () => {
                                         e.stopPropagation();
                                         setSummaryModal({ isOpen: true, item });
                                       }}
-                                      className="text-[10px] bg-blue-100 hover:bg-blue-200 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-full font-black uppercase"
+                                      className="w-full md:w-auto self-start text-[10px] bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2.5 md:py-2 rounded-xl md:rounded-lg font-black uppercase transition-colors text-center"
                                     >
-                                      Ler resumo
+                                      Ler resumo completo
                                     </button>
                                   </div>
                                 )}
@@ -840,8 +856,8 @@ const App = () => {
                                       {getRecordingTag(item.recordingType)}
                                     </span>
                                   )}
-                                  {activeTab === 'postar' && item.profile && (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black uppercase bg-amber-100 text-amber-700">
+                                  {item.profile && (
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black uppercase ${item.profile === 'marco' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
                                       {getProfileTag(item.profile)}
                                     </span>
                                   )}
@@ -878,8 +894,8 @@ const App = () => {
                                 )}
                               </div>
                             </div>
-                            <button onClick={(e) => removeItem(e, day.id, item.id)} className="p-3 text-slate-200 hover:text-rose-500 hover:bg-rose-50 rounded-xl">
-                              <Trash2 className="w-6 h-6" />
+                            <button onClick={(e) => removeItem(e, day.id, item.id)} className="p-2 md:p-3 text-slate-200 hover:text-rose-500 hover:bg-rose-50 rounded-xl mt-0 md:mt-0">
+                              <Trash2 className="w-5 h-5 md:w-6 h-6" />
                             </button>
                                 </motion.div>
                               ))}
@@ -929,32 +945,32 @@ const App = () => {
                                   <option value="stories">Stories</option>
                                 </select>
                               </div>
-                              {activeTab === 'gravar' ? (
-                                <div>
-                                  <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Participacao</label>
-                                  <select
-                                    className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm appearance-none"
-                                    value={newItem.recordingType}
-                                    onChange={(e) => setNewItem({ ...newItem, recordingType: e.target.value })}
-                                  >
-                                    <option value="sozinho">Sozinho</option>
-                                    <option value="com_alguem">Dois</option>
-                                  </select>
-                                </div>
-                              ) : (
-                                <div>
-                                  <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Perfil</label>
-                                  <select
-                                    className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm appearance-none"
-                                    value={newItem.profile}
-                                    onChange={(e) => setNewItem({ ...newItem, profile: e.target.value })}
-                                  >
-                                    <option value="opa">OPA</option>
-                                    <option value="marco">Marco</option>
-                                  </select>
-                                </div>
-                              )}
+                              <div>
+                                <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Perfil</label>
+                                <select
+                                  className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm appearance-none"
+                                  value={newItem.profile}
+                                  onChange={(e) => setNewItem({ ...newItem, profile: e.target.value })}
+                                >
+                                  <option value="opa">OPA</option>
+                                  <option value="marco">Marco</option>
+                                </select>
+                              </div>
                             </div>
+                            
+                            {activeTab === 'gravar' && (
+                              <div>
+                                <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Participacao</label>
+                                <select
+                                  className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm appearance-none"
+                                  value={newItem.recordingType}
+                                  onChange={(e) => setNewItem({ ...newItem, recordingType: e.target.value })}
+                                >
+                                  <option value="sozinho">Sozinho</option>
+                                  <option value="com_alguem">Dois</option>
+                                </select>
+                              </div>
+                            )}
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div>
@@ -1013,18 +1029,19 @@ const App = () => {
                 )}
               </AnimatePresence>
             </div>
-          ))}
+            );
+          })}
         </motion.div>
 
         <footer className="mt-20 mb-16 flex flex-col md:flex-row items-center justify-between border-t border-slate-100 pt-10 gap-6">
           <div className="flex items-center space-x-8 text-slate-400">
             <div className="flex items-center space-x-2">
               <span className="w-2 h-2 rounded-full bg-blue-200" />
-              <span className="text-[11px] font-black uppercase">Total: {Object.values(data[activeTab]).flat().length} itens</span>
+              <span className="text-[11px] font-black uppercase">Total: {allFilteredItems.length} itens</span>
             </div>
             <div className="flex items-center space-x-2">
               <span className="w-2 h-2 rounded-full bg-emerald-400" />
-              <span className="text-[11px] font-black uppercase">{Object.values(data[activeTab]).flat().filter((item) => item.completed).length} concluidos</span>
+              <span className="text-[11px] font-black uppercase">{allFilteredItems.filter((item) => item.completed).length} concluidos</span>
             </div>
           </div>
         </footer>
@@ -1051,11 +1068,11 @@ const App = () => {
                 <X className="w-5 h-5" />
               </button>
               <h3 className="text-2xl font-black text-slate-800 uppercase mb-4 pr-10">{summaryModal.item.objective}</h3>
-              <div className="bg-slate-50 p-0 rounded-2xl mb-6 max-h-[50vh] overflow-y-auto">
+              <div className="bg-slate-50 p-5 rounded-2xl mb-6 max-h-[50vh] overflow-y-auto">
                 <div className="ql-snow">
                   <div 
-                    className="ql-editor text-slate-600 font-medium text-sm leading-relaxed" 
-                    dangerouslySetInnerHTML={{ __html: summaryModal.item.summary }} 
+                    className="ql-editor text-slate-700 text-base leading-relaxed break-normal" 
+                    dangerouslySetInnerHTML={{ __html: summaryModal.item.summary.replace(/&nbsp;/g, ' ') }} 
                   />
                 </div>
               </div>
@@ -1114,32 +1131,32 @@ const App = () => {
                       <option value="stories">Stories</option>
                     </select>
                   </div>
-                  {activeTab === 'gravar' ? (
-                    <div>
-                      <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Participacao</label>
-                      <select
-                        className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm appearance-none"
-                        value={editModal.item.recordingType || 'sozinho'}
-                        onChange={(e) => setEditModal({ ...editModal, item: { ...editModal.item, recordingType: e.target.value } })}
-                      >
-                        <option value="sozinho">Sozinho</option>
-                        <option value="com_alguem">Dois</option>
-                      </select>
-                    </div>
-                  ) : (
-                    <div>
-                      <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Perfil</label>
-                      <select
-                        className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm appearance-none"
-                        value={editModal.item.profile || 'opa'}
-                        onChange={(e) => setEditModal({ ...editModal, item: { ...editModal.item, profile: e.target.value } })}
-                      >
-                        <option value="opa">OPA</option>
-                        <option value="marco">Marco</option>
-                      </select>
-                    </div>
-                  )}
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Perfil</label>
+                    <select
+                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm appearance-none"
+                      value={editModal.item.profile || 'opa'}
+                      onChange={(e) => setEditModal({ ...editModal, item: { ...editModal.item, profile: e.target.value } })}
+                    >
+                      <option value="opa">OPA</option>
+                      <option value="marco">Marco</option>
+                    </select>
+                  </div>
                 </div>
+
+                {activeTab === 'gravar' && (
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Participacao</label>
+                    <select
+                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm appearance-none"
+                      value={editModal.item.recordingType || 'sozinho'}
+                      onChange={(e) => setEditModal({ ...editModal, item: { ...editModal.item, recordingType: e.target.value } })}
+                    >
+                      <option value="sozinho">Sozinho</option>
+                      <option value="com_alguem">Dois</option>
+                    </select>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
