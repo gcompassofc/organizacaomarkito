@@ -18,7 +18,8 @@ import {
   Plus,
   Trash2,
   Video,
-  X
+  X,
+  Scissors
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { getApp, getApps, initializeApp } from 'firebase/app';
@@ -57,6 +58,7 @@ const emptyTabData = () => ({ segunda: [], terca: [], quarta: [], quinta: [], se
 
 const emptyWeekData = () => ({
   gravar: emptyTabData(),
+  editar: { geral: [] },
   postar: emptyTabData()
 });
 
@@ -71,26 +73,23 @@ const tabConfig = {
     primaryLinkLabel: 'Suba o video aqui',
     secondaryLinkLabel: 'Link do conteudo completo'
   },
+  editar: {
+    label: 'Editar',
+    accent: 'amber',
+    titleLabel: 'Titulo',
+    titlePlaceholder: 'QUAL CONTEUDO VAMOS EDITAR?',
+    primaryLinkLabel: 'Suba o video aqui',
+    secondaryLinkLabel: 'Arquivo editado'
+  },
   postar: {
     label: 'Postar',
     accent: 'emerald',
     titleLabel: 'Nome do post',
     titlePlaceholder: 'QUAL POST VAI AO AR?',
-    primaryLinkLabel: 'Link da pasta completa',
-    secondaryLinkLabel: 'Video editado'
+    primaryLinkLabel: 'Arquivo editado',
+    secondaryLinkLabel: 'Pasta completa'
   }
 };
-
-const defaultItem = () => ({
-  objective: '',
-  summary: '',
-  primaryLink: '',
-  secondaryLink: '',
-  contentType: 'video_curto',
-  recordingType: 'sozinho',
-  profile: 'opa',
-  time: ''
-});
 
 const daysOfWeek = [
   { id: 'segunda', label: 'Segunda-feira', color: 'bg-blue-500' },
@@ -107,6 +106,28 @@ const toDateKey = (date) => {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+};
+
+const defaultItem = () => {
+  const today = new Date();
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return {
+    objective: '',
+    summary: '',
+    primaryLink: '',
+    secondaryLink: '',
+    editedVideoLink: '',
+    postCaption: '',
+    contentType: 'video_curto',
+    recordingType: 'sozinho',
+    profile: 'opa',
+    time: '',
+    editor: 'allyson',
+    recordingDate: toDateKey(today),
+    postDate: toDateKey(tomorrow),
+    status: 'gravar'
+  };
 };
 
 const addDays = (date, days) => {
@@ -130,7 +151,10 @@ const parseWeekKey = (weekKey) => {
   return new Date(year, month - 1, day);
 };
 
-const formatDateShort = (date) => date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+const formatDateShort = (dateStringOrDate) => {
+  const d = typeof dateStringOrDate === 'string' ? new Date(dateStringOrDate + 'T12:00:00') : dateStringOrDate;
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+};
 
 const formatWeekRange = (weekKey) => {
   const start = parseWeekKey(weekKey);
@@ -139,7 +163,7 @@ const formatWeekRange = (weekKey) => {
 };
 
 const createPlanner = (currentWeekKey = getWeekKey()) => ({
-  version: 3,
+  version: 4,
   currentWeekKey,
   weeks: {
     [currentWeekKey]: emptyWeekData()
@@ -151,38 +175,87 @@ const normalizeUrl = (value) => {
   return value.startsWith('http') ? value : `https://${value}`;
 };
 
-const normalizeItem = (item = {}, tabKey = 'gravar', forcedContentType) => ({
-  id: item.id || Date.now(),
-  objective: item.objective || '',
-  summary: item.summary || '',
-  primaryLink: item.primaryLink || item.uploadLink || item.folderLink || item.link || '',
-  secondaryLink: item.secondaryLink || item.contentLink || item.editedVideoLink || '',
-  contentType: forcedContentType || item.contentType || 'video_curto',
-  recordingType: item.recordingType || 'sozinho',
-  profile: item.profile || 'opa',
-  time: item.time || '',
-  completed: Boolean(item.completed),
-  tabKey
-});
+const getWeekKeyAndDayId = (dateString) => {
+  if (!dateString) return { weekKey: getWeekKey(), dayId: 'segunda' };
+  const [year, month, day] = dateString.split('-').map(Number);
+  const dateObj = new Date(year, month - 1, day);
+  
+  const base = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
+  const dayOfWeek = base.getDay(); // 0 is Sunday
+  
+  const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const monday = new Date(base);
+  monday.setDate(monday.getDate() + diff);
+  
+  const weekKey = toDateKey(monday);
+  const dayIds = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
+  const dayId = dayIds[dayOfWeek];
+  
+  return { weekKey, dayId };
+};
 
-const mergeLegacyStoriesIntoGravar = (weekData = {}) => {
+const getNextDayOfWeek = (weekKey, dayId) => {
+   const [year, month, day] = weekKey.split('-').map(Number);
+   const monday = new Date(year, month - 1, day);
+   const dayMap = { 'segunda': 0, 'terca': 1, 'quarta': 2, 'quinta': 3, 'sexta': 4, 'sabado': 5, 'domingo': 6 };
+   const diff = dayMap[dayId] || 0;
+   monday.setDate(monday.getDate() + diff);
+   return toDateKey(monday);
+};
+
+const normalizeItem = (item = {}, tabKey = 'gravar', forcedContentType, weekKeyStr, fallbackDayId) => {
+  const norm = {
+    id: item.id || Date.now(),
+    objective: item.objective || '',
+    summary: item.summary || '',
+    primaryLink: item.primaryLink || item.uploadLink || item.folderLink || item.link || '',
+    secondaryLink: item.secondaryLink || item.contentLink || item.editedVideoLink || '',
+    editedVideoLink: item.editedVideoLink || '',
+    postCaption: item.postCaption || '',
+    editor: item.editor || 'allyson',
+    contentType: forcedContentType || item.contentType || 'video_curto',
+    recordingType: item.recordingType || 'sozinho',
+    profile: item.profile || 'opa',
+    time: item.time || '',
+    completed: Boolean(item.completed),
+    tabKey
+  };
+
+  if (!item.recordingDate && weekKeyStr) {
+     norm.recordingDate = getNextDayOfWeek(weekKeyStr, item.recordingDayId || fallbackDayId || 'segunda');
+  } else {
+     norm.recordingDate = item.recordingDate || toDateKey(new Date());
+  }
+  
+  if (!item.postDate && weekKeyStr) {
+     norm.postDate = getNextDayOfWeek(weekKeyStr, item.postDayId || fallbackDayId || 'segunda');
+  } else {
+     norm.postDate = item.postDate || toDateKey(new Date());
+  }
+
+  return norm;
+};
+
+const mergeLegacyStoriesIntoGravar = (weekData = {}, weekKeyStr) => {
   const base = emptyWeekData();
   const gravarSource = weekData.gravar || base.gravar;
   const postarSource = weekData.postar || base.postar;
   const storiesSource = weekData.stories || base.gravar;
+  const editarSource = weekData.editar || base.editar;
 
   const gravar = {};
   const postar = {};
+  const editar = { geral: (editarSource.geral || []).map((item) => normalizeItem(item, 'editar', undefined, weekKeyStr, 'segunda')) };
 
   daysOfWeek.forEach((day) => {
     gravar[day.id] = [
-      ...(gravarSource[day.id] || []).map((item) => normalizeItem(item, 'gravar', item.contentType || 'video_curto')),
-      ...(storiesSource[day.id] || []).map((item) => normalizeItem(item, 'gravar', 'stories'))
+      ...(gravarSource[day.id] || []).map((item) => normalizeItem(item, 'gravar', item.contentType || 'video_curto', weekKeyStr, day.id)),
+      ...(storiesSource[day.id] || []).map((item) => normalizeItem(item, 'gravar', 'stories', weekKeyStr, day.id))
     ];
-    postar[day.id] = (postarSource[day.id] || []).map((item) => normalizeItem(item, 'postar'));
+    postar[day.id] = (postarSource[day.id] || []).map((item) => normalizeItem(item, 'postar', undefined, weekKeyStr, day.id));
   });
 
-  return { gravar, postar };
+  return { gravar, editar, postar };
 };
 
 const normalizePlanner = (cloudData) => {
@@ -192,12 +265,12 @@ const normalizePlanner = (cloudData) => {
 
   if (cloudData.weeks) {
     const weeks = Object.entries(cloudData.weeks).reduce((acc, [weekKey, weekData]) => {
-      acc[weekKey] = mergeLegacyStoriesIntoGravar(weekData);
+      acc[weekKey] = mergeLegacyStoriesIntoGravar(weekData, weekKey);
       return acc;
     }, {});
 
     return {
-      version: 3,
+      version: 4,
       currentWeekKey: cloudData.currentWeekKey || currentWeekKey,
       weeks: Object.keys(weeks).length ? weeks : { [currentWeekKey]: emptyWeekData() }
     };
@@ -205,28 +278,34 @@ const normalizePlanner = (cloudData) => {
 
   if (cloudData.segunda && !cloudData.gravar) {
     return {
-      version: 3,
+      version: 4,
       currentWeekKey,
       weeks: {
         [currentWeekKey]: mergeLegacyStoriesIntoGravar({
           gravar: cloudData,
           postar: emptyTabData()
-        })
+        }, currentWeekKey)
       }
     };
   }
 
   return {
-    version: 3,
+    version: 4,
     currentWeekKey,
     weeks: {
-      [currentWeekKey]: mergeLegacyStoriesIntoGravar(cloudData)
+      [currentWeekKey]: mergeLegacyStoriesIntoGravar(cloudData, currentWeekKey)
     }
   };
 };
 
 const getRecordingTag = (value) => (value === 'com_alguem' ? 'Dois' : 'Sozinho');
-const getContentTypeTag = (value) => (value === 'stories' ? 'Stories' : 'Video curto');
+const getContentTypeTag = (value) => {
+  if (value === 'stories') return 'Stories';
+  if (value === 'estatico') return 'Estático';
+  if (value === 'carrossel') return 'Carrossel';
+  if (value === 'video_longo') return 'Vídeo Longo';
+  return 'Vídeo Curto';
+};
 const getProfileTag = (value) => (value === 'marco' ? 'Marco' : 'OPA');
 
 const App = () => {
@@ -243,17 +322,40 @@ const App = () => {
   const [newItem, setNewItem] = useState(() => defaultItem());
   const [draggedItem, setDraggedItem] = useState(null);
   const [summaryModal, setSummaryModal] = useState({ isOpen: false, item: null });
-  const [editModal, setEditModal] = useState({ isOpen: false, dayId: null, item: null });
+  const [editModal, setEditModal] = useState({ isOpen: false, dayId: null, item: null, itemWeekKey: null });
   const [copiedState, setCopiedState] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
   const [authError, setAuthError] = useState(null);
   const [profileFilter, setProfileFilter] = useState('todos');
+  const [editorFilter, setEditorFilter] = useState('todos');
+  const [showCompleted, setShowCompleted] = useState(false);
 
   const currentWeekKey = planner.currentWeekKey;
-  const data = planner.weeks[currentWeekKey] || emptyWeekData();
-  const allFilteredItems = Object.values(data[activeTab]).flat().filter(item => profileFilter === 'todos' || (item.profile || 'opa') === profileFilter);
+  const currentWeekData = planner.weeks[currentWeekKey] || emptyWeekData();
+  
+  // Lista global de edição
+  const allEditarItemsGlobal = Object.entries(planner.weeks).flatMap(([weekKey, weekData]) => {
+     return weekData.editar.geral.map(item => ({ ...item, _sourceWeekKey: weekKey }));
+  });
+  
+  allEditarItemsGlobal.sort((a, b) => {
+     const dateA = a.postDate ? new Date(a.postDate + 'T12:00:00') : new Date(a._sourceWeekKey + 'T12:00:00');
+     const dateB = b.postDate ? new Date(b.postDate + 'T12:00:00') : new Date(b._sourceWeekKey + 'T12:00:00');
+     return dateA - dateB;
+  });
+
+  const getFilteredGravarPostar = (tabData) => {
+    return Object.values(tabData).flat().filter(item => profileFilter === 'todos' || (item.profile || 'opa') === profileFilter);
+  };
+  
+  const allFilteredItems = activeTab === 'editar' 
+      ? allEditarItemsGlobal.filter(item => 
+          (profileFilter === 'todos' || (item.profile || 'opa') === profileFilter) &&
+          (editorFilter === 'todos' || (item.editor || 'allyson') === editorFilter)
+        )
+      : getFilteredGravarPostar(currentWeekData[activeTab]);
 
   useEffect(() => {
     let unsubscribeAuth;
@@ -323,16 +425,6 @@ const App = () => {
     saveToCloud(nextPlanner);
   };
 
-  const updateCurrentWeek = (updater) => {
-    updatePlanner((prevPlanner) => ({
-      ...prevPlanner,
-      weeks: {
-        ...prevPlanner.weeks,
-        [prevPlanner.currentWeekKey]: updater(prevPlanner.weeks[prevPlanner.currentWeekKey] || emptyWeekData())
-      }
-    }));
-  };
-
   const handleLogin = async () => {
     setError(null);
     try {
@@ -385,23 +477,37 @@ const App = () => {
     }
   };
 
-  const handleDragStart = (dayId, item) => setDraggedItem({ dayId, item });
+  const handleDragStart = (dayId, item, itemWeekKey) => {
+      if (activeTab === 'editar') return;
+      setDraggedItem({ dayId, item, itemWeekKey });
+  }
   const handleDragOver = (e) => e.preventDefault();
 
   const handleDrop = (e, targetDayId) => {
     e.preventDefault();
-    if (!draggedItem) return;
-    const { dayId: sourceDayId, item } = draggedItem;
-    if (sourceDayId === targetDayId) return;
+    if (!draggedItem || activeTab === 'editar') return;
+    const { dayId: sourceDayId, item, itemWeekKey } = draggedItem;
+    if (sourceDayId === targetDayId && itemWeekKey === currentWeekKey) return;
 
-    updateCurrentWeek((currentWeek) => ({
-      ...currentWeek,
-      [activeTab]: {
-        ...currentWeek[activeTab],
-        [sourceDayId]: currentWeek[activeTab][sourceDayId].filter((entry) => entry.id !== item.id),
-        [targetDayId]: [...currentWeek[activeTab][targetDayId], item]
+    const targetDateStr = getNextDayOfWeek(currentWeekKey, targetDayId);
+
+    updatePlanner((prev) => {
+      const next = { ...prev };
+      
+      next.weeks[itemWeekKey][activeTab][sourceDayId] = next.weeks[itemWeekKey][activeTab][sourceDayId].filter((entry) => entry.id !== item.id);
+      
+      const updatedItem = { ...item };
+      if (activeTab === 'gravar') {
+         updatedItem.recordingDate = targetDateStr;
+      } else if (activeTab === 'postar') {
+         updatedItem.postDate = targetDateStr;
       }
-    }));
+      
+      if (!next.weeks[currentWeekKey]) next.weeks[currentWeekKey] = emptyWeekData();
+      next.weeks[currentWeekKey][activeTab][targetDayId] = [...(next.weeks[currentWeekKey][activeTab][targetDayId] || []), updatedItem];
+      
+      return next;
+    });
 
     setDraggedItem(null);
   };
@@ -427,32 +533,53 @@ const App = () => {
   const handleSaveEdit = () => {
     if (!editModal.item?.objective?.trim()) return;
 
-    updateCurrentWeek((currentWeek) => ({
-      ...currentWeek,
-      [activeTab]: {
-        ...currentWeek[activeTab],
-        [editModal.dayId]: currentWeek[activeTab][editModal.dayId].map((item) => (
-          item.id === editModal.item.id
-            ? {
-                ...editModal.item,
-                primaryLink: normalizeUrl(editModal.item.primaryLink),
-                secondaryLink: normalizeUrl(editModal.item.secondaryLink)
-              }
-            : item
-        ))
+    updatePlanner((prev) => {
+      const next = { ...prev };
+      const { dayId: oldDayId, itemWeekKey: oldWeekKey, item: newProps } = editModal;
+      
+      if (activeTab === 'editar') {
+         next.weeks[oldWeekKey].editar.geral = next.weeks[oldWeekKey].editar.geral.filter(i => i.id !== newProps.id);
+      } else {
+         next.weeks[oldWeekKey][activeTab][oldDayId] = next.weeks[oldWeekKey][activeTab][oldDayId].filter(i => i.id !== newProps.id);
       }
-    }));
+      
+      const item = {
+         ...newProps,
+         primaryLink: normalizeUrl(newProps.primaryLink),
+         secondaryLink: normalizeUrl(newProps.secondaryLink),
+         editedVideoLink: normalizeUrl(newProps.editedVideoLink)
+      };
+      
+      const targetTab = item.tabKey || activeTab;
+      
+      if (targetTab === 'editar') {
+         const targetWeekKey = getWeekKeyAndDayId(item.postDate).weekKey;
+         if (!next.weeks[targetWeekKey]) next.weeks[targetWeekKey] = emptyWeekData();
+         next.weeks[targetWeekKey].editar.geral.push(item);
+      } else if (targetTab === 'gravar') {
+         const { weekKey, dayId } = getWeekKeyAndDayId(item.recordingDate);
+         if (!next.weeks[weekKey]) next.weeks[weekKey] = emptyWeekData();
+         next.weeks[weekKey].gravar[dayId].push(item);
+      } else if (targetTab === 'postar') {
+         const { weekKey, dayId } = getWeekKeyAndDayId(item.postDate);
+         if (!next.weeks[weekKey]) next.weeks[weekKey] = emptyWeekData();
+         next.weeks[weekKey].postar[dayId].push(item);
+      }
 
-    setEditModal({ isOpen: false, dayId: null, item: null });
+      return next;
+    });
+
+    setEditModal({ isOpen: false, dayId: null, item: null, itemWeekKey: null });
   };
 
   const toggleDay = (dayId) => {
     setExpandedDay(expandedDay === dayId ? null : dayId);
-    setIsAdding(false);
   };
 
-  const addItem = (dayId) => {
+  const addItem = () => {
     if (!newItem.objective.trim()) return;
+
+    const isEstatico = newItem.contentType === 'estatico' || newItem.contentType === 'carrossel';
 
     const item = {
       id: Date.now(),
@@ -460,47 +587,89 @@ const App = () => {
       summary: newItem.summary,
       primaryLink: normalizeUrl(newItem.primaryLink),
       secondaryLink: normalizeUrl(newItem.secondaryLink),
+      editedVideoLink: normalizeUrl(newItem.editedVideoLink),
+      postCaption: newItem.postCaption,
+      editor: newItem.editor,
+      recordingDate: newItem.recordingDate,
+      postDate: newItem.postDate,
       contentType: newItem.contentType,
       recordingType: newItem.recordingType,
       profile: newItem.profile,
       time: newItem.time,
-      completed: false
+      completed: false,
+      tabKey: isEstatico ? 'editar' : 'gravar'
     };
 
-    updateCurrentWeek((currentWeek) => ({
-      ...currentWeek,
-      [activeTab]: {
-        ...currentWeek[activeTab],
-        [dayId]: [...currentWeek[activeTab][dayId], item]
+    updatePlanner((prev) => {
+      const next = { ...prev };
+      
+      if (isEstatico) {
+         const { weekKey } = getWeekKeyAndDayId(item.postDate);
+         if (!next.weeks[weekKey]) next.weeks[weekKey] = emptyWeekData();
+         next.weeks[weekKey].editar.geral.push(item);
+      } else {
+         const { weekKey, dayId } = getWeekKeyAndDayId(item.recordingDate);
+         if (!next.weeks[weekKey]) next.weeks[weekKey] = emptyWeekData();
+         next.weeks[weekKey].gravar[dayId].push(item);
       }
-    }));
+      return next;
+    });
 
     setNewItem(defaultItem());
     setIsAdding(false);
   };
 
-  const removeItem = (e, dayId, itemId) => {
+  const removeItem = (e, dayId, itemId, itemWeekKey) => {
     e.stopPropagation();
-    updateCurrentWeek((currentWeek) => ({
-      ...currentWeek,
-      [activeTab]: {
-        ...currentWeek[activeTab],
-        [dayId]: currentWeek[activeTab][dayId].filter((item) => item.id !== itemId)
-      }
-    }));
+    updatePlanner((prev) => {
+        const next = { ...prev };
+        if (activeTab === 'editar') {
+            next.weeks[itemWeekKey].editar.geral = next.weeks[itemWeekKey].editar.geral.filter((item) => item.id !== itemId);
+        } else {
+            next.weeks[itemWeekKey][activeTab][dayId] = next.weeks[itemWeekKey][activeTab][dayId].filter((item) => item.id !== itemId);
+        }
+        return next;
+    });
   };
 
-  const toggleComplete = (e, dayId, itemId) => {
+  const toggleComplete = (e, dayId, itemId, itemWeekKey) => {
     e.stopPropagation();
-    updateCurrentWeek((currentWeek) => ({
-      ...currentWeek,
-      [activeTab]: {
-        ...currentWeek[activeTab],
-        [dayId]: currentWeek[activeTab][dayId].map((item) => (
-          item.id === itemId ? { ...item, completed: !item.completed } : item
-        ))
+    updatePlanner((prev) => {
+      const next = { ...prev };
+
+      if (activeTab === 'gravar') {
+        const items = next.weeks[itemWeekKey].gravar[dayId];
+        const itemIndex = items.findIndex(i => i.id === itemId);
+        if (itemIndex > -1) {
+          const item = { ...items[itemIndex], completed: false, tabKey: 'editar' };
+          items.splice(itemIndex, 1);
+          
+          const postWeekKey = item.postDate ? getWeekKeyAndDayId(item.postDate).weekKey : itemWeekKey;
+          if (!next.weeks[postWeekKey]) next.weeks[postWeekKey] = emptyWeekData();
+          next.weeks[postWeekKey].editar.geral.push(item);
+        }
+      } else if (activeTab === 'editar') {
+        const items = next.weeks[itemWeekKey].editar.geral;
+        const itemIndex = items.findIndex(i => i.id === itemId);
+        if (itemIndex > -1) {
+          const item = { ...items[itemIndex], completed: false, tabKey: 'postar' };
+          items.splice(itemIndex, 1);
+          
+          const postWeekKey = item.postDate ? getWeekKeyAndDayId(item.postDate).weekKey : itemWeekKey;
+          const postDayId = item.postDate ? getWeekKeyAndDayId(item.postDate).dayId : 'segunda';
+          
+          if (!next.weeks[postWeekKey]) next.weeks[postWeekKey] = emptyWeekData();
+          next.weeks[postWeekKey].postar[postDayId] = [...(next.weeks[postWeekKey].postar[postDayId] || []), item];
+        }
+      } else if (activeTab === 'postar') {
+        const items = next.weeks[itemWeekKey].postar[dayId];
+        const itemIndex = items.findIndex(i => i.id === itemId);
+        if (itemIndex > -1) {
+          items[itemIndex].completed = !items[itemIndex].completed;
+        }
       }
-    }));
+      return next;
+    });
   };
 
   const changeWeek = (direction) => {
@@ -545,25 +714,44 @@ const App = () => {
       })
       .sort(([a], [b]) => a.localeCompare(b))
       .forEach(([weekKey, weekData]) => {
-        Object.entries(weekData).forEach(([tabKey, days]) => {
-          daysOfWeek.forEach((day) => {
-            (days[day.id] || []).forEach((item) => {
-              rows.push([
-                formatWeekRange(weekKey),
-                day.label,
-                tabConfig[tabKey].label,
-                item.objective || '',
-                item.summary || '',
-                getContentTypeTag(item.contentType),
-                tabKey === 'gravar' ? getRecordingTag(item.recordingType) : '',
-                getProfileTag(item.profile),
-                item.time || '',
-                item.primaryLink || '',
-                item.secondaryLink || '',
-                item.completed ? 'Sim' : 'Nao'
-              ]);
-            });
-          });
+        Object.entries(weekData).forEach(([tabKey, content]) => {
+            if (tabKey === 'editar') {
+                content.geral.forEach(item => {
+                  rows.push([
+                    formatWeekRange(weekKey),
+                    'Geral',
+                    tabConfig[tabKey].label,
+                    item.objective || '',
+                    item.summary || '',
+                    getContentTypeTag(item.contentType),
+                    '',
+                    getProfileTag(item.profile),
+                    item.time || '',
+                    item.primaryLink || '',
+                    item.editedVideoLink || '',
+                    item.completed ? 'Sim' : 'Nao'
+                  ]);
+                });
+            } else {
+              daysOfWeek.forEach((day) => {
+                (content[day.id] || []).forEach((item) => {
+                  rows.push([
+                    formatWeekRange(weekKey),
+                    day.label,
+                    tabConfig[tabKey].label,
+                    item.objective || '',
+                    item.summary || '',
+                    getContentTypeTag(item.contentType),
+                    tabKey === 'gravar' ? getRecordingTag(item.recordingType) : '',
+                    getProfileTag(item.profile),
+                    item.time || '',
+                    item.primaryLink || '',
+                    item.secondaryLink || '',
+                    item.completed ? 'Sim' : 'Nao'
+                  ]);
+                });
+              });
+            }
         });
       });
 
@@ -579,6 +767,119 @@ const App = () => {
     link.click();
     URL.revokeObjectURL(url);
   };
+
+  const renderCard = (item, dayId, itemWeekKey) => (
+    <motion.div
+        layout
+        key={item.id}
+        draggable={activeTab !== 'editar'}
+        onDragStart={() => handleDragStart(dayId, item, itemWeekKey)}
+        onClick={() => setEditModal({ isOpen: true, dayId, item: { ...item }, itemWeekKey })}
+        className={`group/item flex items-start md:items-center justify-between p-4 md:p-5 rounded-[20px] border-2 ${item.completed ? 'bg-slate-50/50 border-transparent opacity-50' : 'bg-white border-slate-50 hover:border-blue-200 shadow-sm'} cursor-pointer`}
+    >
+        <div className="flex items-start md:items-center space-x-3 md:space-x-4 flex-1 min-w-0">
+        {activeTab !== 'editar' && (
+            <div className="text-slate-300 cursor-grab active:cursor-grabbing mt-1 md:mt-0">
+                <GripVertical className="w-5 h-5" />
+            </div>
+        )}
+        <button onClick={(e) => toggleComplete(e, dayId, item.id, itemWeekKey)} className={`flex-shrink-0 mt-0.5 md:mt-0 ${item.completed ? 'text-emerald-500' : 'text-slate-200 hover:text-blue-500'}`}>
+            <CheckCircle2 className="w-7 h-7 md:w-10 md:h-10" strokeWidth={2.5} />
+        </button>
+        <div className="flex-1 min-w-0">
+            <p className={`text-sm md:text-base leading-snug md:leading-normal font-bold text-slate-800 ${item.completed ? 'line-through text-slate-400 italic' : ''}`}>
+            {item.objective}
+            </p>
+            {item.summary && (
+            <div className="flex flex-col mt-2 md:mt-3 space-y-2 md:space-y-3">
+                <p className={`text-[11px] md:text-xs font-medium line-clamp-2 ${item.completed ? 'text-slate-300' : 'text-slate-500'}`}>
+                {stripHtml(item.summary)}
+                </p>
+                <button
+                onClick={(e) => {
+                    e.stopPropagation();
+                    setSummaryModal({ isOpen: true, item });
+                }}
+                className="w-full md:w-auto self-start text-[10px] bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2.5 md:py-2 rounded-xl md:rounded-lg font-black uppercase transition-colors text-center"
+                >
+                Ler resumo completo
+                </button>
+            </div>
+            )}
+            
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+            {item.contentType && (
+                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black uppercase ${activeTab === 'gravar' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                {getContentTypeTag(item.contentType)}
+                </span>
+            )}
+            {activeTab === 'gravar' && item.recordingType && (
+                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black uppercase ${item.recordingType === 'sozinho' ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'}`}>
+                {getRecordingTag(item.recordingType)}
+                </span>
+            )}
+            {item.profile && (
+                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black uppercase ${item.profile === 'marco' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
+                {getProfileTag(item.profile)}
+                </span>
+            )}
+            {activeTab === 'editar' && item.editor && (
+                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black uppercase bg-amber-100 text-amber-700`}>
+                Editor: {item.editor}
+                </span>
+            )}
+            {activeTab === 'postar' && item.time && (
+                <span className={`flex items-center text-[10px] font-black uppercase ${item.completed ? 'text-slate-300' : 'text-slate-400'}`}>
+                <Clock className="w-3 h-3 mr-1" />
+                {item.time}
+                </span>
+            )}
+            {(activeTab === 'editar' || activeTab === 'postar') && item.postDate && (
+                <span className={`flex items-center text-[10px] font-black uppercase ${item.completed ? 'text-slate-300' : 'text-slate-400'}`}>
+                <Calendar className="w-3 h-3 mr-1" />
+                Postar: {formatDateShort(item.postDate)}
+                </span>
+            )}
+            </div>
+
+            {activeTab === 'gravar' && item.primaryLink && (
+            <a href={item.primaryLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center text-[10px] font-black mt-2 mr-3 uppercase underline decoration-2 underline-offset-4 text-blue-500 hover:text-blue-700">
+                <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                Suba o vídeo aqui
+            </a>
+            )}
+            {activeTab === 'editar' && item.primaryLink && (
+            <a href={item.primaryLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center text-[10px] font-black mt-2 mr-3 uppercase underline decoration-2 underline-offset-4 text-blue-500 hover:text-blue-700">
+                <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                Baixe o vídeo bruto aqui
+            </a>
+            )}
+            {activeTab === 'editar' && item.editedVideoLink && (
+            <a href={item.editedVideoLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center text-[10px] font-black mt-2 mr-3 uppercase underline decoration-2 underline-offset-4 text-emerald-500 hover:text-emerald-700">
+                <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                Arquivo editado
+            </a>
+            )}
+            {activeTab === 'postar' && item.editedVideoLink && (
+            <a href={item.editedVideoLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center text-[10px] font-black mt-2 mr-3 uppercase underline decoration-2 underline-offset-4 text-emerald-500 hover:text-emerald-700">
+                <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                Baixe o vídeo editado aqui
+            </a>
+            )}
+            
+            {activeTab === 'postar' && item.postCaption && (
+            <div className="mt-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Legenda do post</p>
+                <p className="text-xs text-slate-700 whitespace-pre-wrap">{item.postCaption}</p>
+            </div>
+            )}
+        </div>
+        </div>
+        <button onClick={(e) => removeItem(e, dayId, item.id, itemWeekKey)} className="p-2 md:p-3 text-slate-200 hover:text-rose-500 hover:bg-rose-50 rounded-xl mt-0 md:mt-0">
+        <Trash2 className="w-5 h-5 md:w-6 h-6" />
+        </button>
+    </motion.div>
+  );
 
   if (authChecking || (user && loading)) {
     return (
@@ -703,6 +1004,10 @@ const App = () => {
               </h2>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <button onClick={() => setIsAdding(true)} className="h-11 px-5 flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-[10px] uppercase shadow-md transition-transform hover:scale-105">
+                <Plus className="w-4 h-4" />
+                Nova Tarefa
+              </button>
               <button onClick={() => changeWeek(-1)} className="w-11 h-11 flex items-center justify-center bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-2xl">
                 <ChevronLeft className="w-5 h-5" />
               </button>
@@ -721,18 +1026,21 @@ const App = () => {
         </section>
 
         <div className="mb-12 hidden md:flex justify-center">
-          <div className="bg-slate-100 p-1.5 rounded-[24px] flex items-center relative w-full max-w-md">
+          <div className="bg-slate-100 p-1.5 rounded-[24px] flex items-center relative w-full max-w-lg">
             <motion.div
               className="absolute top-1.5 bottom-1.5 rounded-[20px] shadow-sm"
               initial={false}
               animate={{
-                left: activeTab === 'gravar' ? '6px' : 'calc(50% + 1px)',
-                width: 'calc(50% - 7px)',
-                backgroundColor: activeTab === 'gravar' ? '#2563eb' : '#059669'
+                left: activeTab === 'gravar' ? '6px' : activeTab === 'editar' ? 'calc(33.33% + 2px)' : 'calc(66.66% - 2px)',
+                width: 'calc(33.33% - 4px)',
+                backgroundColor: activeTab === 'gravar' ? '#2563eb' : activeTab === 'editar' ? '#f59e0b' : '#059669'
               }}
             />
             <button onClick={() => setActiveTab('gravar')} className="relative flex-1 py-4 text-xs font-black uppercase">
               <motion.span animate={{ color: activeTab === 'gravar' ? '#ffffff' : '#94a3b8' }}>Gravar</motion.span>
+            </button>
+            <button onClick={() => setActiveTab('editar')} className="relative flex-1 py-4 text-xs font-black uppercase">
+              <motion.span animate={{ color: activeTab === 'editar' ? '#ffffff' : '#94a3b8' }}>Editar</motion.span>
             </button>
             <button onClick={() => setActiveTab('postar')} className="relative flex-1 py-4 text-xs font-black uppercase">
               <motion.span animate={{ color: activeTab === 'postar' ? '#ffffff' : '#94a3b8' }}>Postar</motion.span>
@@ -740,7 +1048,7 @@ const App = () => {
           </div>
         </div>
 
-        <div className="mb-10 flex justify-center">
+        <div className="mb-8 flex flex-col items-center justify-center space-y-4">
           <div className="bg-white border-2 border-slate-100 p-1.5 rounded-[20px] flex items-center space-x-1 shadow-sm w-full max-w-md md:max-w-[320px]">
             <button 
               onClick={() => setProfileFilter('todos')} 
@@ -761,276 +1069,104 @@ const App = () => {
               OPA
             </button>
           </div>
+          
+          {activeTab === 'editar' && (
+            <div className="bg-white border-2 border-slate-100 p-1.5 rounded-[20px] flex items-center space-x-1 shadow-sm w-full max-w-md md:max-w-[400px]">
+              {['todos', 'allyson', 'kallyl', 'natalia'].map(ed => (
+                <button 
+                  key={ed}
+                  onClick={() => setEditorFilter(ed)} 
+                  className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${editorFilter === ed ? 'bg-amber-500 text-white shadow-md' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}
+                >
+                  {ed === 'todos' ? 'Todos Editores' : ed}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end mb-4">
+          <button 
+            onClick={() => setShowCompleted(!showCompleted)}
+            className="flex items-center space-x-2 text-[10px] font-black uppercase text-slate-400 hover:text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm"
+          >
+            {showCompleted ? 'Ocultar Concluídos' : 'Mostrar Concluídos'}
+          </button>
         </div>
 
         <motion.div className="space-y-8">
-          {daysOfWeek.map((day, dayIndex) => {
-            const filteredDayItems = (data[activeTab][day.id] || []).filter(item => profileFilter === 'todos' || (item.profile || 'opa') === profileFilter);
-            return (
-            <div
-              key={day.id}
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDrop(e, day.id)}
-              className={`group relative bg-white border border-slate-100 rounded-[32px] transition-shadow duration-500 ${expandedDay === day.id ? 'shadow-2xl ring-4 ring-blue-50' : 'shadow-sm hover:shadow-xl hover:border-slate-200'} ${draggedItem && draggedItem.dayId !== day.id ? 'border-dashed border-2 border-blue-300' : ''}`}
-            >
-              <div className="absolute -top-3 left-8 z-10">
-                <span className={`${day.color} text-white text-[11px] font-black px-5 py-1.5 rounded-full uppercase shadow-lg`}>
-                  {day.id.substring(0, 3)}
-                </span>
-              </div>
-
-              <button onClick={() => toggleDay(day.id)} className="w-full flex items-center justify-between p-5 md:p-6 text-left outline-none">
-                <div className="flex flex-col">
-                  <h2 className="text-2xl font-black text-slate-800 uppercase">{day.label}</h2>
-                  <p className="text-[10px] text-slate-400 font-black uppercase mt-1">
-                    {formatDateShort(addDays(parseWeekKey(currentWeekKey), dayIndex))} - {filteredDayItems.length} {filteredDayItems.length === 1 ? 'Conteudo' : 'Conteudos'}
-                  </p>
-                </div>
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${expandedDay === day.id ? 'bg-blue-600 text-white rotate-180' : 'bg-slate-50 text-slate-300'}`}>
-                  <ChevronDown className="w-5 h-5" strokeWidth={3} />
-                </div>
-              </button>
-
-              <AnimatePresence>
-                {expandedDay === day.id && (
-                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                    <div className="px-5 md:px-6 pb-6 border-t border-slate-50">
-                      <div className="space-y-3 mt-5">
-                        {filteredDayItems.length === 0 && !isAdding && (
-                          <div className="text-center py-8 text-slate-300 font-black uppercase bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-100 text-sm">
-                            Sem planos para hoje
-                          </div>
-                        )}
-
-                        {[
-                          { title: 'Vídeos', items: filteredDayItems.filter(item => item.contentType !== 'stories') },
-                          { title: 'Stories', items: filteredDayItems.filter(item => item.contentType === 'stories') }
-                        ].map((group) => group.items.length > 0 && (
-                          <div key={group.title} className="mb-6 last:mb-0">
-                            <h4 className="text-[10px] font-black text-slate-400 uppercase mb-3 ml-2">{group.title}</h4>
-                            <div className="space-y-3">
-                              {group.items.map((item) => (
-                                <motion.div
-                            layout
-                            key={item.id}
-                            draggable
-                            onDragStart={() => handleDragStart(day.id, item)}
-                            onClick={() => setEditModal({ isOpen: true, dayId: day.id, item: { ...item } })}
-                            className={`group/item flex items-start md:items-center justify-between p-4 md:p-5 rounded-[20px] border-2 ${item.completed ? 'bg-slate-50/50 border-transparent opacity-50' : 'bg-white border-slate-50 hover:border-blue-200 shadow-sm'} cursor-pointer`}
-                          >
-                            <div className="flex items-start md:items-center space-x-3 md:space-x-4 flex-1 min-w-0">
-                              <div className="text-slate-300 cursor-grab active:cursor-grabbing mt-1 md:mt-0">
-                                <GripVertical className="w-5 h-5" />
-                              </div>
-                              <button onClick={(e) => toggleComplete(e, day.id, item.id)} className={`flex-shrink-0 mt-0.5 md:mt-0 ${item.completed ? 'text-emerald-500' : 'text-slate-200 hover:text-blue-500'}`}>
-                                <CheckCircle2 className="w-7 h-7 md:w-10 md:h-10" strokeWidth={2.5} />
-                              </button>
-                              <div className="flex-1 min-w-0">
-                                <p className={`text-sm md:text-base leading-snug md:leading-normal font-bold text-slate-800 ${item.completed ? 'line-through text-slate-400 italic' : ''}`}>
-                                  {item.objective}
-                                </p>
-                                {item.summary && (
-                                  <div className="flex flex-col mt-2 md:mt-3 space-y-2 md:space-y-3">
-                                    <p className={`text-[11px] md:text-xs font-medium line-clamp-2 ${item.completed ? 'text-slate-300' : 'text-slate-500'}`}>
-                                      {stripHtml(item.summary)}
-                                    </p>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSummaryModal({ isOpen: true, item });
-                                      }}
-                                      className="w-full md:w-auto self-start text-[10px] bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2.5 md:py-2 rounded-xl md:rounded-lg font-black uppercase transition-colors text-center"
-                                    >
-                                      Ler resumo completo
-                                    </button>
-                                  </div>
-                                )}
-                                <div className="flex flex-wrap items-center gap-2 mt-2">
-                                  {item.contentType && (
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black uppercase ${activeTab === 'gravar' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                                      {getContentTypeTag(item.contentType)}
-                                    </span>
-                                  )}
-                                  {activeTab === 'gravar' && item.recordingType && (
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black uppercase ${item.recordingType === 'sozinho' ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'}`}>
-                                      {getRecordingTag(item.recordingType)}
-                                    </span>
-                                  )}
-                                  {item.profile && (
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black uppercase ${item.profile === 'marco' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
-                                      {getProfileTag(item.profile)}
-                                    </span>
-                                  )}
-                                  {item.time && (
-                                    <span className={`flex items-center text-[10px] font-black uppercase ${item.completed ? 'text-slate-300' : 'text-slate-400'}`}>
-                                      <Clock className="w-3 h-3 mr-1" />
-                                      {item.time}
-                                    </span>
-                                  )}
-                                </div>
-                                {item.primaryLink && (
-                                  <a
-                                    href={item.primaryLink}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()}
-                                    className={`inline-flex items-center text-[10px] font-black mt-2 mr-3 uppercase underline decoration-2 underline-offset-4 ${activeTab === 'gravar' ? 'text-blue-500 hover:text-blue-700' : 'text-emerald-500 hover:text-emerald-700'}`}
-                                  >
-                                    <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
-                                    {activeTab === 'gravar' ? 'Suba o video aqui' : 'Pasta completa'}
-                                  </a>
-                                )}
-                                {item.secondaryLink && (
-                                  <a
-                                    href={item.secondaryLink}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()}
-                                    className={`inline-flex items-center text-[10px] font-black mt-2 uppercase underline decoration-2 underline-offset-4 ${activeTab === 'gravar' ? 'text-blue-500 hover:text-blue-700' : 'text-emerald-500 hover:text-emerald-700'}`}
-                                  >
-                                    <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
-                                    {activeTab === 'gravar' ? 'Link conteudo completo' : 'Video editado'}
-                                  </a>
-                                )}
-                              </div>
-                            </div>
-                            <button onClick={(e) => removeItem(e, day.id, item.id)} className="p-2 md:p-3 text-slate-200 hover:text-rose-500 hover:bg-rose-50 rounded-xl mt-0 md:mt-0">
-                              <Trash2 className="w-5 h-5 md:w-6 h-6" />
-                            </button>
-                                </motion.div>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
+          {activeTab === 'editar' ? (
+              <div className="bg-white border border-slate-100 rounded-[32px] p-5 md:p-8 shadow-sm">
+                  <h2 className="text-2xl font-black text-slate-800 uppercase mb-6 text-center">Fila Global de Edição</h2>
+                  {allFilteredItems.filter(item => showCompleted || !item.completed).length === 0 ? (
+                      <div className="text-center py-12 text-slate-300 font-black uppercase bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-100 text-sm">
+                          Nenhum conteúdo para editar no momento
                       </div>
+                  ) : (
+                      <div className="space-y-4">
+                          {allFilteredItems.filter(item => showCompleted || !item.completed).map(item => renderCard(item, 'geral', item._sourceWeekKey))}
+                      </div>
+                  )}
+              </div>
+          ) : (
+            daysOfWeek.map((day, dayIndex) => {
+              const filteredDayItems = (currentWeekData[activeTab][day.id] || []).filter(item => (profileFilter === 'todos' || (item.profile || 'opa') === profileFilter) && (showCompleted || !item.completed));
+              return (
+              <div
+                key={day.id}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, day.id)}
+                className={`group relative bg-white border border-slate-100 rounded-[32px] transition-shadow duration-500 ${expandedDay === day.id ? 'shadow-2xl ring-4 ring-blue-50' : 'shadow-sm hover:shadow-xl hover:border-slate-200'} ${draggedItem && draggedItem.dayId !== day.id ? 'border-dashed border-2 border-blue-300' : ''}`}
+              >
+                <div className="absolute -top-3 left-8 z-10">
+                  <span className={`${day.color} text-white text-[11px] font-black px-5 py-1.5 rounded-full uppercase shadow-lg`}>
+                    {day.id.substring(0, 3)}
+                  </span>
+                </div>
 
-                      <AnimatePresence>
-                        {isAdding ? (
-                          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mt-6 p-5 md:p-6 bg-slate-900 rounded-[24px] shadow-2xl space-y-4">
-                            <div>
-                              <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">{tabConfig[activeTab].titleLabel}</label>
-                              <input
-                                type="text"
-                                placeholder={tabConfig[activeTab].titlePlaceholder}
-                                className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-base placeholder:text-slate-600"
-                                value={newItem.objective}
-                                onChange={(e) => setNewItem({ ...newItem, objective: e.target.value })}
-                                autoFocus
-                              />
+                <button onClick={() => toggleDay(day.id)} className="w-full flex items-center justify-between p-5 md:p-6 text-left outline-none">
+                  <div className="flex flex-col">
+                    <h2 className="text-2xl font-black text-slate-800 uppercase">{day.label}</h2>
+                    <p className="text-[10px] text-slate-400 font-black uppercase mt-1">
+                      {formatDateShort(addDays(parseWeekKey(currentWeekKey), dayIndex))} - {filteredDayItems.length} {filteredDayItems.length === 1 ? 'Conteudo' : 'Conteudos'}
+                    </p>
+                  </div>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${expandedDay === day.id ? 'bg-blue-600 text-white rotate-180' : 'bg-slate-50 text-slate-300'}`}>
+                    <ChevronDown className="w-5 h-5" strokeWidth={3} />
+                  </div>
+                </button>
+
+                <AnimatePresence>
+                  {expandedDay === day.id && (
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                      <div className="px-5 md:px-6 pb-6 border-t border-slate-50">
+                        <div className="space-y-3 mt-5">
+                          {filteredDayItems.length === 0 && (
+                            <div className="text-center py-8 text-slate-300 font-black uppercase bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-100 text-sm">
+                              Sem planos para hoje
                             </div>
+                          )}
 
-                            {activeTab === 'gravar' && (
-                              <div>
-                                <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">{tabConfig.gravar.summaryLabel}</label>
-                                <div className="bg-white text-slate-800 rounded-xl overflow-hidden mb-2">
-                                  <ReactQuill 
-                                    theme="snow"
-                                    value={newItem.summary} 
-                                    onChange={(content) => setNewItem({ ...newItem, summary: content })} 
-                                    placeholder={tabConfig.gravar.summaryPlaceholder}
-                                  />
-                                </div>
-                              </div>
-                            )}
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div>
-                                <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Tipo</label>
-                                <select
-                                  className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm appearance-none"
-                                  value={newItem.contentType}
-                                  onChange={(e) => setNewItem({ ...newItem, contentType: e.target.value })}
-                                >
-                                  <option value="video_curto">Video curto</option>
-                                  <option value="stories">Stories</option>
-                                </select>
-                              </div>
-                              <div>
-                                <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Perfil</label>
-                                <select
-                                  className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm appearance-none"
-                                  value={newItem.profile}
-                                  onChange={(e) => setNewItem({ ...newItem, profile: e.target.value })}
-                                >
-                                  <option value="opa">OPA</option>
-                                  <option value="marco">Marco</option>
-                                </select>
-                              </div>
-                            </div>
-                            
-                            {activeTab === 'gravar' && (
-                              <div>
-                                <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Participacao</label>
-                                <select
-                                  className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm appearance-none"
-                                  value={newItem.recordingType}
-                                  onChange={(e) => setNewItem({ ...newItem, recordingType: e.target.value })}
-                                >
-                                  <option value="sozinho">Sozinho</option>
-                                  <option value="com_alguem">Dois</option>
-                                </select>
-                              </div>
-                            )}
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div>
-                                <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">{tabConfig[activeTab].primaryLinkLabel}</label>
-                                <input
-                                  type="text"
-                                  placeholder="WWW.EXEMPLO.COM"
-                                  className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm placeholder:text-slate-600"
-                                  value={newItem.primaryLink}
-                                  onChange={(e) => setNewItem({ ...newItem, primaryLink: e.target.value })}
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">{tabConfig[activeTab].secondaryLinkLabel}</label>
-                                <input
-                                  type="text"
-                                  placeholder="WWW.EXEMPLO.COM"
-                                  className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm placeholder:text-slate-600"
-                                  value={newItem.secondaryLink}
-                                  onChange={(e) => setNewItem({ ...newItem, secondaryLink: e.target.value })}
-                                />
+                          {[
+                            { title: 'Vídeos', items: filteredDayItems.filter(item => item.contentType !== 'stories') },
+                            { title: 'Stories', items: filteredDayItems.filter(item => item.contentType === 'stories') }
+                          ].map((group) => group.items.length > 0 && (
+                            <div key={group.title} className="mb-6 last:mb-0">
+                              <h4 className="text-[10px] font-black text-slate-400 uppercase mb-3 ml-2">{group.title}</h4>
+                              <div className="space-y-3">
+                                {group.items.map((item) => renderCard(item, day.id, currentWeekKey))}
                               </div>
                             </div>
-
-                            {activeTab === 'postar' && (
-                              <div>
-                                <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Horario</label>
-                                <input
-                                  type="text"
-                                  placeholder="14:00"
-                                  className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm placeholder:text-slate-600"
-                                  value={newItem.time}
-                                  onChange={(e) => setNewItem({ ...newItem, time: e.target.value })}
-                                />
-                              </div>
-                            )}
-
-                            <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                              <button onClick={() => addItem(day.id)} className="flex-1 bg-blue-600 text-white font-black py-4 rounded-xl hover:bg-blue-700 text-sm uppercase">
-                                Adicionar plano
-                              </button>
-                              <button onClick={() => setIsAdding(false)} className="px-8 bg-slate-800 text-white font-black py-4 rounded-xl hover:bg-slate-700 text-sm uppercase">
-                                Voltar
-                              </button>
-                            </div>
-                          </motion.div>
-                        ) : (
-                          <button onClick={() => setIsAdding(true)} className="mt-4 w-full flex items-center justify-center p-6 border-4 border-slate-50 rounded-2xl text-slate-300 font-black text-base uppercase hover:text-blue-600 hover:border-blue-50 hover:bg-blue-50/20">
-                            <Plus className="w-6 h-6 mr-3" strokeWidth={3} />
-                            Novo item
-                          </button>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-            );
-          })}
+                          ))}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+              );
+            })
+          )}
         </motion.div>
 
         <footer className="mt-20 mb-16 flex flex-col md:flex-row items-center justify-between border-t border-slate-100 pt-10 gap-6">
@@ -1053,6 +1189,10 @@ const App = () => {
             <Video className="w-5 h-5" />
             <span className="text-[10px] font-black uppercase">Gravar</span>
           </button>
+          <button onClick={() => setActiveTab('editar')} className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${activeTab === 'editar' ? 'text-amber-600' : 'text-slate-400'}`}>
+            <Scissors className="w-5 h-5" />
+            <span className="text-[10px] font-black uppercase">Editar</span>
+          </button>
           <button onClick={() => setActiveTab('postar')} className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${activeTab === 'postar' ? 'text-emerald-600' : 'text-slate-400'}`}>
             <Calendar className="w-5 h-5" />
             <span className="text-[10px] font-black uppercase">Postar</span>
@@ -1060,6 +1200,165 @@ const App = () => {
         </div>
       </nav>
 
+      {/* MODAL ADICIONAR TAREFA GLOBAL */}
+      <AnimatePresence>
+        {isAdding && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsAdding(false)}>
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} onClick={(e) => e.stopPropagation()} className="bg-slate-900 rounded-[32px] p-6 md:p-8 max-w-2xl w-full shadow-2xl relative border border-slate-700 max-h-[90vh] overflow-y-auto">
+              <button onClick={() => setIsAdding(false)} className="absolute top-6 right-6 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-full z-10">
+                <X className="w-5 h-5" />
+              </button>
+              
+              <h3 className="text-2xl font-black text-white uppercase mb-6 pr-10">Nova Tarefa</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Título da Tarefa</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Video sobre organização"
+                    className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-base placeholder:text-slate-600"
+                    value={newItem.objective}
+                    onChange={(e) => setNewItem({ ...newItem, objective: e.target.value })}
+                    autoFocus
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Roteiro / Resumo</label>
+                  <div className="bg-white text-slate-800 rounded-xl overflow-hidden mb-2">
+                    <ReactQuill 
+                      theme="snow"
+                      value={newItem.summary} 
+                      onChange={(content) => setNewItem({ ...newItem, summary: content })} 
+                      placeholder="GANCHO, PROMESSA, TOPICOS E FECHAMENTO"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Tipo</label>
+                    <select
+                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm appearance-none"
+                      value={newItem.contentType}
+                      onChange={(e) => setNewItem({ ...newItem, contentType: e.target.value })}
+                    >
+                      <option value="video_curto">Video curto</option>
+                      <option value="video_longo">Vídeo Longo</option>
+                      <option value="stories">Stories</option>
+                      <option value="estatico">Estático</option>
+                      <option value="carrossel">Carrossel</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Perfil</label>
+                    <select
+                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm appearance-none"
+                      value={newItem.profile}
+                      onChange={(e) => setNewItem({ ...newItem, profile: e.target.value })}
+                    >
+                      <option value="opa">OPA</option>
+                      <option value="marco">Marco</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Participacao</label>
+                    <select
+                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm appearance-none"
+                      value={newItem.recordingType}
+                      onChange={(e) => setNewItem({ ...newItem, recordingType: e.target.value })}
+                    >
+                      <option value="sozinho">Sozinho</option>
+                      <option value="com_alguem">Dois</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Dia para Gravar</label>
+                    <input
+                      type="date"
+                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm"
+                      value={newItem.recordingDate}
+                      onChange={(e) => setNewItem({ ...newItem, recordingDate: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Dia para Postar</label>
+                    <input
+                      type="date"
+                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm"
+                      value={newItem.postDate}
+                      onChange={(e) => setNewItem({ ...newItem, postDate: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Responsável Edição</label>
+                    <select
+                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm appearance-none"
+                      value={newItem.editor}
+                      onChange={(e) => setNewItem({ ...newItem, editor: e.target.value })}
+                    >
+                      <option value="allyson">Allyson</option>
+                      <option value="kallyl">Kallyl</option>
+                      <option value="natalia">Natalia</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Horario da Postagem</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: 14:00"
+                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm placeholder:text-slate-600"
+                      value={newItem.time}
+                      onChange={(e) => setNewItem({ ...newItem, time: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Link do Vídeo Bruto</label>
+                    <input
+                      type="text"
+                      placeholder="Link do drive"
+                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm placeholder:text-slate-600"
+                      value={newItem.primaryLink}
+                      onChange={(e) => setNewItem({ ...newItem, primaryLink: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Link do Arquivo Editado</label>
+                    <input
+                      type="text"
+                      placeholder="Pasta completa (já deixarei preenchido)"
+                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm placeholder:text-slate-600"
+                      value={newItem.editedVideoLink}
+                      onChange={(e) => setNewItem({ ...newItem, editedVideoLink: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3 pt-4 mt-4 border-t border-slate-800">
+                  <button onClick={addItem} className="flex-1 bg-blue-600 text-white font-black py-4 rounded-xl hover:bg-blue-700 text-sm uppercase">
+                    Salvar Tarefa
+                  </button>
+                  <button onClick={() => setIsAdding(false)} className="px-8 bg-slate-800 text-white font-black py-4 rounded-xl hover:bg-slate-700 text-sm uppercase">
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* SUMMARY MODAL */}
       <AnimatePresence>
         {summaryModal.isOpen && summaryModal.item && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setSummaryModal({ isOpen: false, item: null })}>
@@ -1085,30 +1384,44 @@ const App = () => {
         )}
       </AnimatePresence>
 
+      {/* EDIT MODAL */}
       <AnimatePresence>
         {editModal.isOpen && editModal.item && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setEditModal({ isOpen: false, dayId: null, item: null })}>
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} onClick={(e) => e.stopPropagation()} className="bg-slate-900 rounded-[32px] p-6 md:p-8 max-w-lg w-full shadow-2xl relative border border-slate-700">
-              <button onClick={() => setEditModal({ isOpen: false, dayId: null, item: null })} className="absolute top-6 right-6 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-full">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setEditModal({ isOpen: false, dayId: null, item: null, itemWeekKey: null })}>
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} onClick={(e) => e.stopPropagation()} className="bg-slate-900 rounded-[32px] p-6 md:p-8 max-w-xl w-full shadow-2xl relative border border-slate-700">
+              <button onClick={() => setEditModal({ isOpen: false, dayId: null, item: null, itemWeekKey: null })} className="absolute top-6 right-6 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-full">
                 <X className="w-5 h-5" />
               </button>
 
-              <h3 className="text-xl font-black text-white uppercase mb-6 pr-10">Editar plano</h3>
+              <h3 className="text-xl font-black text-white uppercase mb-6 pr-10">Editar tarefa</h3>
 
               <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-                <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">{tabConfig[activeTab].titleLabel}</label>
-                  <input
-                    type="text"
-                    className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-base"
-                    value={editModal.item.objective}
-                    onChange={(e) => setEditModal({ ...editModal, item: { ...editModal.item, objective: e.target.value } })}
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Título da Tarefa</label>
+                    <input
+                      type="text"
+                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-base"
+                      value={editModal.item.objective || ''}
+                      onChange={(e) => setEditModal({ ...editModal, item: { ...editModal.item, objective: e.target.value } })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Etapa Atual</label>
+                    <select
+                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm appearance-none"
+                      value={editModal.item.tabKey || 'gravar'}
+                      onChange={(e) => setEditModal({ ...editModal, item: { ...editModal.item, tabKey: e.target.value } })}
+                    >
+                      <option value="gravar">Gravar</option>
+                      <option value="editar">Editar</option>
+                      <option value="postar">Postar</option>
+                    </select>
+                  </div>
                 </div>
 
-                {activeTab === 'gravar' && (
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Roteiro</label>
+                <div>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Roteiro / Resumo</label>
                     <div className="bg-white text-slate-800 rounded-xl overflow-hidden mb-2">
                       <ReactQuill 
                         theme="snow"
@@ -1116,51 +1429,69 @@ const App = () => {
                         onChange={(content) => setEditModal({ ...editModal, item: { ...editModal.item, summary: content } })} 
                       />
                     </div>
-                  </div>
+                </div>
+                
+                {(activeTab === 'postar' || activeTab === 'editar') && (
+                    <div>
+                        <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Legenda do post</label>
+                        <textarea
+                            rows={4}
+                            className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm resize-none"
+                            value={editModal.item.postCaption || ''}
+                            onChange={(e) => setEditModal({ ...editModal, item: { ...editModal.item, postCaption: e.target.value } })}
+                            placeholder="Escreva a legenda aqui..."
+                        />
+                    </div>
                 )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Tipo</label>
-                    <select
-                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm appearance-none"
-                      value={editModal.item.contentType || 'video_curto'}
-                      onChange={(e) => setEditModal({ ...editModal, item: { ...editModal.item, contentType: e.target.value } })}
-                    >
-                      <option value="video_curto">Video curto</option>
-                      <option value="stories">Stories</option>
-                    </select>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Dia para Gravar</label>
+                    <input
+                      type="date"
+                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm"
+                      value={editModal.item.recordingDate || ''}
+                      onChange={(e) => setEditModal({ ...editModal, item: { ...editModal.item, recordingDate: e.target.value } })}
+                    />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Perfil</label>
-                    <select
-                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm appearance-none"
-                      value={editModal.item.profile || 'opa'}
-                      onChange={(e) => setEditModal({ ...editModal, item: { ...editModal.item, profile: e.target.value } })}
-                    >
-                      <option value="opa">OPA</option>
-                      <option value="marco">Marco</option>
-                    </select>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Dia para Postar</label>
+                    <input
+                      type="date"
+                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm"
+                      value={editModal.item.postDate || ''}
+                      onChange={(e) => setEditModal({ ...editModal, item: { ...editModal.item, postDate: e.target.value } })}
+                    />
                   </div>
                 </div>
 
-                {activeTab === 'gravar' && (
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Participacao</label>
-                    <select
-                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm appearance-none"
-                      value={editModal.item.recordingType || 'sozinho'}
-                      onChange={(e) => setEditModal({ ...editModal, item: { ...editModal.item, recordingType: e.target.value } })}
-                    >
-                      <option value="sozinho">Sozinho</option>
-                      <option value="com_alguem">Dois</option>
-                    </select>
-                  </div>
-                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Responsável Edição</label>
+                        <select
+                        className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm appearance-none"
+                        value={editModal.item.editor || 'allyson'}
+                        onChange={(e) => setEditModal({ ...editModal, item: { ...editModal.item, editor: e.target.value } })}
+                        >
+                        <option value="allyson">Allyson</option>
+                        <option value="kallyl">Kallyl</option>
+                        <option value="natalia">Natalia</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Horario da postagem</label>
+                        <input
+                        type="text"
+                        className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm"
+                        value={editModal.item.time || ''}
+                        onChange={(e) => setEditModal({ ...editModal, item: { ...editModal.item, time: e.target.value } })}
+                        />
+                    </div>
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">{tabConfig[activeTab].primaryLinkLabel}</label>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Link do Vídeo Bruto</label>
                     <input
                       type="text"
                       className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm"
@@ -1169,34 +1500,22 @@ const App = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">{tabConfig[activeTab].secondaryLinkLabel}</label>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Link do Arquivo Editado</label>
                     <input
                       type="text"
                       className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm"
-                      value={editModal.item.secondaryLink || ''}
-                      onChange={(e) => setEditModal({ ...editModal, item: { ...editModal.item, secondaryLink: e.target.value } })}
+                      value={editModal.item.editedVideoLink || ''}
+                      onChange={(e) => setEditModal({ ...editModal, item: { ...editModal.item, editedVideoLink: e.target.value } })}
                     />
                   </div>
                 </div>
-
-                {activeTab === 'postar' && (
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Horario</label>
-                    <input
-                      type="text"
-                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm"
-                      value={editModal.item.time || ''}
-                      onChange={(e) => setEditModal({ ...editModal, item: { ...editModal.item, time: e.target.value } })}
-                    />
-                  </div>
-                )}
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3 pt-6">
                 <button onClick={handleSaveEdit} className="flex-1 bg-blue-600 text-white font-black py-4 rounded-xl hover:bg-blue-700 text-sm uppercase">
                   Salvar alteracoes
                 </button>
-                <button onClick={() => setEditModal({ isOpen: false, dayId: null, item: null })} className="px-8 bg-slate-800 text-white font-black py-4 rounded-xl hover:bg-slate-700 text-sm uppercase">
+                <button onClick={() => setEditModal({ isOpen: false, dayId: null, item: null, itemWeekKey: null })} className="px-8 bg-slate-800 text-white font-black py-4 rounded-xl hover:bg-slate-700 text-sm uppercase">
                   Cancelar
                 </button>
               </div>
