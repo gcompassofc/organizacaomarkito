@@ -91,6 +91,12 @@ const tabConfig = {
   }
 };
 
+const getTodayDayId = () => {
+  const jsDay = new Date().getDay();
+  const idx = jsDay === 0 ? 6 : jsDay - 1;
+  return ['segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado', 'domingo'][idx];
+};
+
 const daysOfWeek = [
   { id: 'segunda', label: 'Segunda-feira', color: 'bg-blue-500' },
   { id: 'terca', label: 'Terca-feira', color: 'bg-emerald-500' },
@@ -321,7 +327,7 @@ const App = () => {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('gravar');
   const [planner, setPlanner] = useState(() => createPlanner());
-  const [expandedDay, setExpandedDay] = useState('segunda');
+  const [expandedDay, setExpandedDay] = useState(() => getTodayDayId());
   const [isAdding, setIsAdding] = useState(false);
   const [newItem, setNewItem] = useState(() => defaultItem());
   const [draggedItem, setDraggedItem] = useState(null);
@@ -736,7 +742,7 @@ const App = () => {
         [nextWeekKey]: prevPlanner.weeks[nextWeekKey] || emptyWeekData()
       }
     }));
-    setExpandedDay('segunda');
+    setExpandedDay(nextWeekKey === getWeekKey() ? getTodayDayId() : 'segunda');
     setIsAdding(false);
   };
 
@@ -750,7 +756,7 @@ const App = () => {
         [thisWeekKey]: prevPlanner.weeks[thisWeekKey] || emptyWeekData()
       }
     }));
-    setExpandedDay('segunda');
+    setExpandedDay(getTodayDayId());
     setIsAdding(false);
   };
 
