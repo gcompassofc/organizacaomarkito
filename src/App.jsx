@@ -122,6 +122,7 @@ const defaultItem = () => {
     contentType: 'video_curto',
     recordingType: 'sozinho',
     profile: 'opa',
+    storyMode: 'aovivo',
     time: '',
     editor: 'allyson',
     recordingDate: toDateKey(today),
@@ -216,9 +217,12 @@ const normalizeItem = (item = {}, tabKey = 'gravar', forcedContentType, weekKeyS
     contentType: forcedContentType || item.contentType || 'video_curto',
     recordingType: item.recordingType || 'sozinho',
     profile: item.profile || 'opa',
+    storyMode: item.storyMode || 'aovivo',
     time: item.time || '',
     completed: Boolean(item.completed),
-    tabKey
+    tabKey,
+    _gravarOrigin: item._gravarOrigin || null,
+    _editarOrigin: item._editarOrigin || null
   };
 
   if (!item.recordingDate && weekKeyStr) {
@@ -324,13 +328,22 @@ const App = () => {
   const [summaryModal, setSummaryModal] = useState({ isOpen: false, item: null });
   const [editModal, setEditModal] = useState({ isOpen: false, dayId: null, item: null, itemWeekKey: null });
   const [copiedState, setCopiedState] = useState(false);
+  const [captionCopiedId, setCaptionCopiedId] = useState(null);
+
+  const handleCopyCaption = (e, item) => {
+    e.stopPropagation();
+    if (!item.postCaption) return;
+    navigator.clipboard.writeText(item.postCaption).then(() => {
+      setCaptionCopiedId(item.id);
+      setTimeout(() => setCaptionCopiedId(null), 1800);
+    });
+  };
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
   const [authError, setAuthError] = useState(null);
   const [profileFilter, setProfileFilter] = useState('todos');
   const [editorFilter, setEditorFilter] = useState('todos');
-  const [showCompleted, setShowCompleted] = useState(false);
 
   const currentWeekKey = planner.currentWeekKey;
   const currentWeekData = planner.weeks[currentWeekKey] || emptyWeekData();
@@ -349,6 +362,36 @@ const App = () => {
   const getFilteredGravarPostar = (tabData) => {
     return Object.values(tabData).flat().filter(item => profileFilter === 'todos' || (item.profile || 'opa') === profileFilter);
   };
+
+  const gravarSlimEchoes = {};
+  daysOfWeek.forEach(day => { gravarSlimEchoes[day.id] = []; });
+  Object.entries(planner.weeks).forEach(([weekKey, weekData]) => {
+    (weekData.editar?.geral || []).forEach(item => {
+      const origin = item._gravarOrigin;
+      if (origin && origin.weekKey === currentWeekKey && gravarSlimEchoes[origin.dayId]) {
+        gravarSlimEchoes[origin.dayId].push({ item, livesIn: { weekKey, dayId: 'geral' }, stageLabel: 'Em edição' });
+      }
+    });
+    Object.entries(weekData.postar || {}).forEach(([livesDayId, items]) => {
+      (items || []).forEach(item => {
+        const origin = item._gravarOrigin;
+        if (origin && origin.weekKey === currentWeekKey && gravarSlimEchoes[origin.dayId]) {
+          gravarSlimEchoes[origin.dayId].push({ item, livesIn: { weekKey, dayId: livesDayId }, stageLabel: item.completed ? 'Postado' : 'Para postar' });
+        }
+      });
+    });
+  });
+
+  const editarSlimEchoes = [];
+  Object.entries(planner.weeks).forEach(([weekKey, weekData]) => {
+    Object.entries(weekData.postar || {}).forEach(([livesDayId, items]) => {
+      (items || []).forEach(item => {
+        if (item._editarOrigin) {
+          editarSlimEchoes.push({ item, livesIn: { weekKey, dayId: livesDayId }, stageLabel: item.completed ? 'Postado' : 'Para postar' });
+        }
+      });
+    });
+  });
   
   const allFilteredItems = activeTab === 'editar' 
       ? allEditarItemsGlobal.filter(item => 
@@ -595,6 +638,7 @@ const App = () => {
       contentType: newItem.contentType,
       recordingType: newItem.recordingType,
       profile: newItem.profile,
+      storyMode: newItem.storyMode || 'aovivo',
       time: newItem.time,
       completed: false,
       tabKey: isEstatico ? 'editar' : 'gravar'
@@ -641,9 +685,14 @@ const App = () => {
         const items = next.weeks[itemWeekKey].gravar[dayId];
         const itemIndex = items.findIndex(i => i.id === itemId);
         if (itemIndex > -1) {
-          const item = { ...items[itemIndex], completed: false, tabKey: 'editar' };
+          const item = {
+            ...items[itemIndex],
+            completed: false,
+            tabKey: 'editar',
+            _gravarOrigin: items[itemIndex]._gravarOrigin || { weekKey: itemWeekKey, dayId }
+          };
           items.splice(itemIndex, 1);
-          
+
           const postWeekKey = item.postDate ? getWeekKeyAndDayId(item.postDate).weekKey : itemWeekKey;
           if (!next.weeks[postWeekKey]) next.weeks[postWeekKey] = emptyWeekData();
           next.weeks[postWeekKey].editar.geral.push(item);
@@ -652,12 +701,17 @@ const App = () => {
         const items = next.weeks[itemWeekKey].editar.geral;
         const itemIndex = items.findIndex(i => i.id === itemId);
         if (itemIndex > -1) {
-          const item = { ...items[itemIndex], completed: false, tabKey: 'postar' };
+          const item = {
+            ...items[itemIndex],
+            completed: false,
+            tabKey: 'postar',
+            _editarOrigin: items[itemIndex]._editarOrigin || { weekKey: itemWeekKey }
+          };
           items.splice(itemIndex, 1);
-          
+
           const postWeekKey = item.postDate ? getWeekKeyAndDayId(item.postDate).weekKey : itemWeekKey;
           const postDayId = item.postDate ? getWeekKeyAndDayId(item.postDate).dayId : 'segunda';
-          
+
           if (!next.weeks[postWeekKey]) next.weeks[postWeekKey] = emptyWeekData();
           next.weeks[postWeekKey].postar[postDayId] = [...(next.weeks[postWeekKey].postar[postDayId] || []), item];
         }
@@ -768,15 +822,23 @@ const App = () => {
     URL.revokeObjectURL(url);
   };
 
-  const renderCard = (item, dayId, itemWeekKey) => (
+  const renderCard = (item, dayId, itemWeekKey) => {
+    const isEditarAoVivo = activeTab === 'editar' && item.contentType === 'stories' && (item.storyMode || 'aovivo') === 'aovivo';
+    return (
     <motion.div
         layout
         key={item.id}
         draggable={activeTab !== 'editar'}
         onDragStart={() => handleDragStart(dayId, item, itemWeekKey)}
         onClick={() => setEditModal({ isOpen: true, dayId, item: { ...item }, itemWeekKey })}
-        className={`group/item flex items-start md:items-center justify-between p-4 md:p-5 rounded-[20px] border-2 ${item.completed ? 'bg-slate-50/50 border-transparent opacity-50' : 'bg-white border-slate-50 hover:border-blue-200 shadow-sm'} cursor-pointer`}
+        className={`group/item relative flex items-start md:items-center justify-between p-4 md:p-5 rounded-[20px] border-2 ${item.completed ? 'bg-slate-50/50 border-transparent opacity-50' : isEditarAoVivo ? 'bg-rose-50/40 border-rose-300 border-l-[6px] border-l-rose-500 shadow-sm' : 'bg-white border-slate-50 hover:border-blue-200 shadow-sm'} cursor-pointer`}
     >
+        {isEditarAoVivo && (
+          <div className="absolute -top-2.5 left-6 inline-flex items-center gap-1.5 bg-rose-500 text-white px-3 py-0.5 rounded-full text-[9px] font-black uppercase shadow-md">
+            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+            Ao vivo — só baixar
+          </div>
+        )}
         <div className="flex items-start md:items-center space-x-3 md:space-x-4 flex-1 min-w-0">
         {activeTab !== 'editar' && (
             <div className="text-slate-300 cursor-grab active:cursor-grabbing mt-1 md:mt-0">
@@ -869,7 +931,16 @@ const App = () => {
             
             {activeTab === 'postar' && item.postCaption && (
             <div className="mt-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Legenda do post</p>
+                <div className="flex items-center justify-between mb-1">
+                    <p className="text-[10px] font-black text-slate-400 uppercase">Legenda do post</p>
+                    <button
+                        onClick={(e) => handleCopyCaption(e, item)}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase transition-all ${captionCopiedId === item.id ? 'bg-emerald-500 text-white' : 'bg-blue-50 hover:bg-blue-100 text-blue-700'}`}
+                    >
+                        {captionCopiedId === item.id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                        <span>{captionCopiedId === item.id ? 'Copiado!' : 'Copiar'}</span>
+                    </button>
+                </div>
                 <p className="text-xs text-slate-700 whitespace-pre-wrap">{item.postCaption}</p>
             </div>
             )}
@@ -878,6 +949,24 @@ const App = () => {
         <button onClick={(e) => removeItem(e, dayId, item.id, itemWeekKey)} className="p-2 md:p-3 text-slate-200 hover:text-rose-500 hover:bg-rose-50 rounded-xl mt-0 md:mt-0">
         <Trash2 className="w-5 h-5 md:w-6 h-6" />
         </button>
+    </motion.div>
+    );
+  };
+
+  const renderSlimCard = (item, livesDayId, livesWeekKey, stageLabel) => (
+    <motion.div
+      layout
+      key={`slim-${livesWeekKey}-${livesDayId}-${item.id}`}
+      onClick={() => setEditModal({ isOpen: true, dayId: livesDayId, item: { ...item }, itemWeekKey: livesWeekKey })}
+      className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-slate-50/60 hover:bg-slate-100 cursor-pointer border border-slate-100"
+    >
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" strokeWidth={2.5} />
+        <span className="text-xs font-bold text-slate-400 line-through italic truncate">{item.objective}</span>
+      </div>
+      {stageLabel && (
+        <span className="text-[8px] font-black uppercase text-slate-300 ml-2 flex-shrink-0">{stageLabel}</span>
+      )}
     </motion.div>
   );
 
@@ -1085,32 +1174,34 @@ const App = () => {
           )}
         </div>
 
-        <div className="flex justify-end mb-4">
-          <button 
-            onClick={() => setShowCompleted(!showCompleted)}
-            className="flex items-center space-x-2 text-[10px] font-black uppercase text-slate-400 hover:text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm"
-          >
-            {showCompleted ? 'Ocultar Concluídos' : 'Mostrar Concluídos'}
-          </button>
-        </div>
-
         <motion.div className="space-y-8">
           {activeTab === 'editar' ? (
               <div className="bg-white border border-slate-100 rounded-[32px] p-5 md:p-8 shadow-sm">
                   <h2 className="text-2xl font-black text-slate-800 uppercase mb-6 text-center">Fila Global de Edição</h2>
-                  {allFilteredItems.filter(item => showCompleted || !item.completed).length === 0 ? (
+                  {allFilteredItems.length === 0 && editarSlimEchoes.length === 0 ? (
                       <div className="text-center py-12 text-slate-300 font-black uppercase bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-100 text-sm">
                           Nenhum conteúdo para editar no momento
                       </div>
                   ) : (
                       <div className="space-y-4">
-                          {allFilteredItems.filter(item => showCompleted || !item.completed).map(item => renderCard(item, 'geral', item._sourceWeekKey))}
+                          {allFilteredItems.map(item => renderCard(item, 'geral', item._sourceWeekKey))}
+                          {editarSlimEchoes.length > 0 && (
+                            <div className="pt-4 mt-4 border-t border-slate-100 space-y-1.5">
+                              <p className="text-[9px] font-black text-slate-300 uppercase mb-2">Concluídos</p>
+                              {editarSlimEchoes
+                                .filter(e => (profileFilter === 'todos' || (e.item.profile || 'opa') === profileFilter) && (editorFilter === 'todos' || (e.item.editor || 'allyson') === editorFilter))
+                                .map(e => renderSlimCard(e.item, e.livesIn.dayId, e.livesIn.weekKey, e.stageLabel))}
+                            </div>
+                          )}
                       </div>
                   )}
               </div>
           ) : (
             daysOfWeek.map((day, dayIndex) => {
-              const filteredDayItems = (currentWeekData[activeTab][day.id] || []).filter(item => (profileFilter === 'todos' || (item.profile || 'opa') === profileFilter) && (showCompleted || !item.completed));
+              const allDayItems = (currentWeekData[activeTab][day.id] || []).filter(item => profileFilter === 'todos' || (item.profile || 'opa') === profileFilter);
+              const filteredDayItems = activeTab === 'postar' ? allDayItems.filter(item => !item.completed) : allDayItems;
+              const completedPostarItems = activeTab === 'postar' ? allDayItems.filter(item => item.completed) : [];
+              const dayEchoes = activeTab === 'gravar' ? (gravarSlimEchoes[day.id] || []).filter(e => profileFilter === 'todos' || (e.item.profile || 'opa') === profileFilter) : [];
               return (
               <div
                 key={day.id}
@@ -1141,23 +1232,69 @@ const App = () => {
                     <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                       <div className="px-5 md:px-6 pb-6 border-t border-slate-50">
                         <div className="space-y-3 mt-5">
-                          {filteredDayItems.length === 0 && (
+                          {filteredDayItems.length === 0 && completedPostarItems.length === 0 && dayEchoes.length === 0 && (
                             <div className="text-center py-8 text-slate-300 font-black uppercase bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-100 text-sm">
                               Sem planos para hoje
                             </div>
                           )}
 
-                          {[
-                            { title: 'Vídeos', items: filteredDayItems.filter(item => item.contentType !== 'stories') },
-                            { title: 'Stories', items: filteredDayItems.filter(item => item.contentType === 'stories') }
-                          ].map((group) => group.items.length > 0 && (
-                            <div key={group.title} className="mb-6 last:mb-0">
-                              <h4 className="text-[10px] font-black text-slate-400 uppercase mb-3 ml-2">{group.title}</h4>
-                              <div className="space-y-3">
-                                {group.items.map((item) => renderCard(item, day.id, currentWeekKey))}
-                              </div>
+                          {(() => {
+                            const videos = filteredDayItems.filter(item => item.contentType !== 'stories');
+                            const storiesAoVivo = filteredDayItems.filter(item => item.contentType === 'stories' && (item.storyMode || 'aovivo') === 'aovivo');
+                            const storiesBanco = filteredDayItems.filter(item => item.contentType === 'stories' && item.storyMode === 'banco');
+                            return (
+                              <>
+                                {videos.length > 0 && (
+                                  <div className="mb-6">
+                                    <h4 className="text-[10px] font-black text-slate-400 uppercase mb-3 ml-2">Vídeos</h4>
+                                    <div className="space-y-3">
+                                      {videos.map((item) => renderCard(item, day.id, currentWeekKey))}
+                                    </div>
+                                  </div>
+                                )}
+                                {storiesAoVivo.length > 0 && activeTab === 'gravar' && (
+                                  <div className="mb-6 -mx-2 px-3 py-3 rounded-2xl bg-gradient-to-br from-rose-50 to-rose-100/50 border-2 border-rose-200">
+                                    <div className="flex items-center gap-2 mb-3 ml-1">
+                                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-rose-500 text-white text-[11px] animate-pulse">●</span>
+                                      <h4 className="text-xs font-black text-rose-700 uppercase tracking-wide">Stories — Ao vivo</h4>
+                                      <span className="text-[9px] font-bold text-rose-500 uppercase">Postar agora</span>
+                                    </div>
+                                    <div className="space-y-3">
+                                      {storiesAoVivo.map((item) => renderCard(item, day.id, currentWeekKey))}
+                                    </div>
+                                  </div>
+                                )}
+                                {storiesBanco.length > 0 && activeTab === 'gravar' && (
+                                  <div className="mb-6 -mx-2 px-3 py-3 rounded-2xl bg-gradient-to-br from-violet-50 to-violet-100/40 border-2 border-violet-200">
+                                    <div className="flex items-center gap-2 mb-3 ml-1">
+                                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-violet-500 text-white text-[12px]">📦</span>
+                                      <h4 className="text-xs font-black text-violet-700 uppercase tracking-wide">Stories — Banco</h4>
+                                      <span className="text-[9px] font-bold text-violet-500 uppercase">Guardar para depois</span>
+                                    </div>
+                                    <div className="space-y-3">
+                                      {storiesBanco.map((item) => renderCard(item, day.id, currentWeekKey))}
+                                    </div>
+                                  </div>
+                                )}
+                                {(storiesAoVivo.length > 0 || storiesBanco.length > 0) && activeTab !== 'gravar' && (
+                                  <div className="mb-6">
+                                    <h4 className="text-[10px] font-black text-slate-400 uppercase mb-3 ml-2">Stories</h4>
+                                    <div className="space-y-3">
+                                      {[...storiesAoVivo, ...storiesBanco].map((item) => renderCard(item, day.id, currentWeekKey))}
+                                    </div>
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
+
+                          {(dayEchoes.length > 0 || completedPostarItems.length > 0) && (
+                            <div className="pt-3 mt-3 border-t border-slate-100 space-y-1.5">
+                              <h4 className="text-[9px] font-black text-slate-300 uppercase mb-2 ml-1">Concluídos</h4>
+                              {dayEchoes.map(e => renderSlimCard(e.item, e.livesIn.dayId, e.livesIn.weekKey, e.stageLabel))}
+                              {completedPostarItems.map(item => renderSlimCard(item, day.id, currentWeekKey, 'Postado'))}
                             </div>
-                          ))}
+                          )}
                         </div>
                       </div>
                     </motion.div>
@@ -1251,6 +1388,27 @@ const App = () => {
                       <option value="carrossel">Carrossel</option>
                     </select>
                   </div>
+                  {newItem.contentType === 'stories' && (
+                    <div className="md:col-span-3">
+                      <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Modo do Story</label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setNewItem({ ...newItem, storyMode: 'aovivo' })}
+                          className={`p-4 rounded-xl font-black uppercase text-sm border-2 transition-all ${newItem.storyMode === 'aovivo' ? 'bg-rose-500 text-white border-rose-400 shadow-lg shadow-rose-500/30' : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-rose-500/50'}`}
+                        >
+                          🔴 Ao vivo<br /><span className="text-[9px] font-bold normal-case opacity-90">Gravar e postar agora</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNewItem({ ...newItem, storyMode: 'banco' })}
+                          className={`p-4 rounded-xl font-black uppercase text-sm border-2 transition-all ${newItem.storyMode === 'banco' ? 'bg-violet-500 text-white border-violet-400 shadow-lg shadow-violet-500/30' : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-violet-500/50'}`}
+                        >
+                          📦 Banco<br /><span className="text-[9px] font-bold normal-case opacity-90">Guardar para depois</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   <div>
                     <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Perfil</label>
                     <select
@@ -1419,6 +1577,28 @@ const App = () => {
                     </select>
                   </div>
                 </div>
+
+                {editModal.item.contentType === 'stories' && (
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Modo do Story</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setEditModal({ ...editModal, item: { ...editModal.item, storyMode: 'aovivo' } })}
+                        className={`p-4 rounded-xl font-black uppercase text-sm border-2 transition-all ${(editModal.item.storyMode || 'aovivo') === 'aovivo' ? 'bg-rose-500 text-white border-rose-400 shadow-lg shadow-rose-500/30' : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-rose-500/50'}`}
+                      >
+                        🔴 Ao vivo<br /><span className="text-[9px] font-bold normal-case opacity-90">Gravar e postar agora</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditModal({ ...editModal, item: { ...editModal.item, storyMode: 'banco' } })}
+                        className={`p-4 rounded-xl font-black uppercase text-sm border-2 transition-all ${editModal.item.storyMode === 'banco' ? 'bg-violet-500 text-white border-violet-400 shadow-lg shadow-violet-500/30' : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-violet-500/50'}`}
+                      >
+                        📦 Banco<br /><span className="text-[9px] font-bold normal-case opacity-90">Guardar para depois</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <div>
                     <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Roteiro / Resumo</label>
