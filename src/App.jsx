@@ -995,9 +995,16 @@ const App = () => {
                 </span>
             )}
             {activeTab === 'editar' && item.editor && (
-                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black uppercase bg-amber-100 text-amber-700`}>
-                Editor: {item.editor}
-                </span>
+                item.editor === 'torres' ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black uppercase bg-violet-600 text-white shadow-sm ring-1 ring-violet-300">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                    Torres • Externo
+                  </span>
+                ) : (
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black uppercase bg-amber-100 text-amber-700`}>
+                  Editor: {item.editor}
+                  </span>
+                )
             )}
             {activeTab === 'postar' && item.time && (
                 <span className={`flex items-center text-[10px] font-black uppercase ${item.completed ? 'text-slate-300' : 'text-slate-400'}`}>
@@ -1498,15 +1505,20 @@ const App = () => {
           
           {activeTab === 'editar' && (
             <div className="bg-white border-2 border-slate-100 p-1.5 rounded-[20px] flex items-center space-x-1 shadow-sm w-full max-w-md md:max-w-[400px]">
-              {['todos', 'allyson', 'kallyl', 'natalia'].map(ed => (
-                <button 
-                  key={ed}
-                  onClick={() => setEditorFilter(ed)} 
-                  className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${editorFilter === ed ? 'bg-amber-500 text-white shadow-md' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}
-                >
-                  {ed === 'todos' ? 'Todos Editores' : ed}
-                </button>
-              ))}
+              {['todos', 'allyson', 'kallyl', 'natalia', 'torres'].map(ed => {
+                const isTorres = ed === 'torres';
+                const activeCls = isTorres ? 'bg-violet-600 text-white shadow-md' : 'bg-amber-500 text-white shadow-md';
+                const idleCls = isTorres ? 'text-violet-600 hover:bg-violet-50' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600';
+                return (
+                  <button
+                    key={ed}
+                    onClick={() => setEditorFilter(ed)}
+                    className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${editorFilter === ed ? activeCls : idleCls}`}
+                  >
+                    {ed === 'todos' ? 'Todos Editores' : isTorres ? 'Torres • Ext' : ed}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
@@ -1827,6 +1839,7 @@ const App = () => {
                       <option value="allyson">Allyson</option>
                       <option value="kallyl">Kallyl</option>
                       <option value="natalia">Natalia</option>
+                      <option value="torres">★ Torres (Externo)</option>
                     </select>
                   </div>
                   <div>
@@ -2018,6 +2031,7 @@ const App = () => {
                         <option value="allyson">Allyson</option>
                         <option value="kallyl">Kallyl</option>
                         <option value="natalia">Natalia</option>
+                        <option value="torres">★ Torres (Externo)</option>
                         </select>
                     </div>
                     <div>
