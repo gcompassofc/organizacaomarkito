@@ -136,7 +136,8 @@ const defaultItem = () => {
     editor: 'allyson',
     recordingDate: toDateKey(today),
     postDate: toDateKey(tomorrow),
-    status: 'gravar'
+    status: 'gravar',
+    initialStage: 'gravar'
   };
 };
 
@@ -726,6 +727,7 @@ const App = () => {
     if (!newItem.objective.trim()) return;
 
     const isEstatico = newItem.contentType === 'estatico' || newItem.contentType === 'carrossel';
+    const stage = newItem.initialStage || (isEstatico ? 'editar' : 'gravar');
 
     const item = {
       id: Date.now(),
@@ -744,16 +746,20 @@ const App = () => {
       storyMode: newItem.storyMode || 'aovivo',
       time: newItem.time,
       completed: false,
-      tabKey: isEstatico ? 'editar' : 'gravar'
+      tabKey: stage
     };
 
     updatePlanner((prev) => {
       const next = { ...prev };
-      
-      if (isEstatico) {
+
+      if (stage === 'editar') {
          const { weekKey } = getWeekKeyAndDayId(item.postDate);
          if (!next.weeks[weekKey]) next.weeks[weekKey] = emptyWeekData();
          next.weeks[weekKey].editar.geral.push(item);
+      } else if (stage === 'postar') {
+         const { weekKey, dayId } = getWeekKeyAndDayId(item.postDate);
+         if (!next.weeks[weekKey]) next.weeks[weekKey] = emptyWeekData();
+         next.weeks[weekKey].postar[dayId].push(item);
       } else {
          const { weekKey, dayId } = getWeekKeyAndDayId(item.recordingDate);
          if (!next.weeks[weekKey]) next.weeks[weekKey] = emptyWeekData();
@@ -1683,8 +1689,28 @@ const App = () => {
               </button>
               
               <h3 className="text-2xl font-black text-white uppercase mb-6 pr-10">Nova Tarefa</h3>
-              
+
               <div className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Começar em qual etapa?</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: 'gravar', label: 'Gravar', hint: 'Ainda vai gravar', cls: 'bg-blue-500 border-blue-400 shadow-blue-500/30' },
+                      { id: 'editar', label: 'Editar', hint: 'Ja gravado', cls: 'bg-amber-500 border-amber-400 shadow-amber-500/30' },
+                      { id: 'postar', label: 'Postar', hint: 'Ja editado', cls: 'bg-emerald-500 border-emerald-400 shadow-emerald-500/30' }
+                    ].map(s => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => setNewItem({ ...newItem, initialStage: s.id })}
+                        className={`p-3 rounded-xl font-black uppercase text-xs border-2 transition-all ${newItem.initialStage === s.id ? `${s.cls} text-white shadow-lg` : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-600'}`}
+                      >
+                        {s.label}<br /><span className="text-[9px] font-bold normal-case opacity-90">{s.hint}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Título da Tarefa</label>
                   <input
