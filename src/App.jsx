@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   AlertCircle,
+  AlertTriangle,
   Calendar,
+  CalendarDays,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -12,6 +14,7 @@ import {
   Download,
   ExternalLink,
   GripVertical,
+  LayoutGrid,
   Loader2,
   LogIn,
   LogOut,
@@ -318,6 +321,70 @@ const getContentTypeTag = (value) => {
 };
 const getProfileTag = (value) => (value === 'marco' ? 'Marco' : 'OPA');
 
+const STATUS_META = {
+  para_gravar:     { label: 'Para gravar',      dot: 'bg-blue-500',    chip: 'bg-blue-100 text-blue-700' },
+  gravado:         { label: 'Gravado',          dot: 'bg-cyan-500',    chip: 'bg-cyan-100 text-cyan-700' },
+  em_edicao:       { label: 'Em edição',        dot: 'bg-amber-500',   chip: 'bg-amber-100 text-amber-700' },
+  pronto_postar:   { label: 'Pronto p/ postar', dot: 'bg-emerald-500', chip: 'bg-emerald-100 text-emerald-700' },
+  postado:         { label: 'Postado',          dot: 'bg-green-700',   chip: 'bg-green-200 text-green-900' },
+  atrasado_gravar: { label: 'Atrasado: gravar', dot: 'bg-rose-600',    chip: 'bg-rose-100 text-rose-700' },
+  atrasado_editar: { label: 'Atrasado: editar', dot: 'bg-rose-600',    chip: 'bg-rose-100 text-rose-700' },
+  atrasado_postar: { label: 'Atrasado: postar', dot: 'bg-rose-600',    chip: 'bg-rose-100 text-rose-700' }
+};
+
+const KANBAN_COLUMNS = [
+  { id: 'atrasado',      label: 'Atrasados',        accent: 'border-rose-400 bg-rose-50/40' },
+  { id: 'para_gravar',   label: 'Para gravar',      accent: 'border-blue-200 bg-blue-50/40' },
+  { id: 'em_edicao',     label: 'Em edição',        accent: 'border-amber-200 bg-amber-50/40' },
+  { id: 'pronto_postar', label: 'Pronto p/ postar', accent: 'border-emerald-200 bg-emerald-50/40' },
+  { id: 'postado',       label: 'Postado',          accent: 'border-green-300 bg-green-50/40' }
+];
+
+const deriveStatus = (item, todayKey) => {
+  const tab = item.tabKey || 'gravar';
+  const completed = !!item.completed;
+  if (tab === 'postar' && completed) return 'postado';
+  if (tab === 'postar') return (item.postDate && item.postDate < todayKey) ? 'atrasado_postar' : 'pronto_postar';
+  if (tab === 'editar') return (item.postDate && item.postDate < todayKey) ? 'atrasado_editar' : 'em_edicao';
+  if (completed) return 'gravado';
+  return (item.recordingDate && item.recordingDate < todayKey) ? 'atrasado_gravar' : 'para_gravar';
+};
+
+const statusToKanbanColumn = (status) => {
+  if (status.startsWith('atrasado_')) return 'atrasado';
+  if (status === 'gravado') return 'em_edicao';
+  return status;
+};
+
+const getAllItemsFlat = (planner) => {
+  const out = [];
+  Object.entries(planner.weeks || {}).forEach(([weekKey, week]) => {
+    daysOfWeek.forEach(d => {
+      (week.gravar?.[d.id] || []).forEach(item => out.push({ item, weekKey, dayId: d.id, tab: 'gravar' }));
+      (week.postar?.[d.id] || []).forEach(item => out.push({ item, weekKey, dayId: d.id, tab: 'postar' }));
+    });
+    (week.editar?.geral || []).forEach(item => out.push({ item, weekKey, dayId: 'geral', tab: 'editar' }));
+  });
+  return out;
+};
+
+const buildMonthGrid = (anchorDate) => {
+  const first = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), 1);
+  const startWeekday = first.getDay();
+  const startOffset = startWeekday === 0 ? -6 : 1 - startWeekday;
+  const gridStart = new Date(first);
+  gridStart.setDate(first.getDate() + startOffset);
+  const cells = [];
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(gridStart);
+    d.setDate(gridStart.getDate() + i);
+    cells.push(d);
+  }
+  return cells;
+};
+
+const MONTH_NAMES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
 const App = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -350,6 +417,36 @@ const App = () => {
   const [authError, setAuthError] = useState(null);
   const [profileFilter, setProfileFilter] = useState('todos');
   const [editorFilter, setEditorFilter] = useState('todos');
+  const [panoramaMode, setPanoramaMode] = useState(() => {
+    try { return localStorage.getItem('panoramaMode') === 'true'; } catch { return false; }
+  });
+  const [viewMode, setViewMode] = useState('semanal');
+  const [panoramaMonth, setPanoramaMonth] = useState(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  });
+  const [calendarDateField, setCalendarDateField] = useState('postDate');
+  const titleClicksRef = useRef({ count: 0, lastTime: 0 });
+
+  const handleTitleClick = () => {
+    const now = Date.now();
+    const ref = titleClicksRef.current;
+    if (now - ref.lastTime > 1500) ref.count = 0;
+    ref.count += 1;
+    ref.lastTime = now;
+    if (ref.count >= 5) {
+      const next = !panoramaMode;
+      setPanoramaMode(next);
+      try { localStorage.setItem('panoramaMode', String(next)); } catch {}
+      ref.count = 0;
+      if (!next) setViewMode('semanal');
+    }
+  };
+
+  const openItemFromPanorama = (item, dayId, weekKey) => {
+    setActiveTab(item.tabKey || 'gravar');
+    setEditModal({ isOpen: true, dayId: dayId || 'geral', item: { ...item }, itemWeekKey: weekKey });
+  };
 
   const currentWeekKey = planner.currentWeekKey;
   const currentWeekData = planner.weeks[currentWeekKey] || emptyWeekData();
@@ -959,6 +1056,213 @@ const App = () => {
     );
   };
 
+  const todayKey = toDateKey(new Date());
+
+  const matchesPanoramaFilters = (item) => {
+    if (profileFilter !== 'todos' && (item.profile || 'opa') !== profileFilter) return false;
+    if (editorFilter !== 'todos' && (item.editor || 'allyson') !== editorFilter) return false;
+    return true;
+  };
+
+  const renderMonthView = () => {
+    const cells = buildMonthGrid(panoramaMonth);
+    const monthIdx = panoramaMonth.getMonth();
+    const yearLabel = panoramaMonth.getFullYear();
+
+    const itemsByDate = {};
+    getAllItemsFlat(planner).forEach(({ item, weekKey, dayId }) => {
+      if (!matchesPanoramaFilters(item)) return;
+      const dateKey = calendarDateField === 'recordingDate'
+        ? (item.recordingDate || null)
+        : (item.postDate || item.recordingDate || null);
+      if (!dateKey) return;
+      if (!itemsByDate[dateKey]) itemsByDate[dateKey] = [];
+      itemsByDate[dateKey].push({ item, weekKey, dayId });
+    });
+
+    const goPrev = () => setPanoramaMonth(new Date(yearLabel, monthIdx - 1, 1));
+    const goNext = () => setPanoramaMonth(new Date(yearLabel, monthIdx + 1, 1));
+    const goToday = () => { const d = new Date(); setPanoramaMonth(new Date(d.getFullYear(), d.getMonth(), 1)); };
+
+    const weekdayLabels = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+
+    return (
+      <div className="bg-white border border-slate-100 rounded-[32px] p-4 md:p-6 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+          <div>
+            <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Visão mensal</p>
+            <h2 className="text-2xl md:text-3xl font-black text-slate-900 uppercase">{MONTH_NAMES[monthIdx]} {yearLabel}</h2>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="bg-slate-50 p-1 rounded-xl flex items-center">
+              <button onClick={() => setCalendarDateField('postDate')} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition ${calendarDateField === 'postDate' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>Por postagem</button>
+              <button onClick={() => setCalendarDateField('recordingDate')} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition ${calendarDateField === 'recordingDate' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>Por gravação</button>
+            </div>
+            <button onClick={goPrev} className="w-9 h-9 flex items-center justify-center bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-xl"><ChevronLeft className="w-4 h-4" /></button>
+            <button onClick={goToday} className="px-3 h-9 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl font-black text-[10px] uppercase">Hoje</button>
+            <button onClick={goNext} className="w-9 h-9 flex items-center justify-center bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-xl"><ChevronRight className="w-4 h-4" /></button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-7 gap-1 mb-2">
+          {weekdayLabels.map(d => (
+            <div key={d} className="text-center text-[10px] font-black text-slate-400 uppercase py-2">{d}</div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-7 gap-1">
+          {cells.map((cellDate, idx) => {
+            const cellKey = toDateKey(cellDate);
+            const inMonth = cellDate.getMonth() === monthIdx;
+            const isToday = cellKey === todayKey;
+            const dayItems = itemsByDate[cellKey] || [];
+            const hasOverdue = dayItems.some(({ item }) => deriveStatus(item, todayKey).startsWith('atrasado_'));
+            return (
+              <div
+                key={idx}
+                className={`min-h-[88px] md:min-h-[110px] p-1.5 rounded-xl border ${inMonth ? 'bg-white' : 'bg-slate-50/40'} ${isToday ? 'border-blue-500 ring-2 ring-blue-200' : hasOverdue ? 'border-rose-300' : 'border-slate-100'}`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className={`text-[11px] font-black ${inMonth ? (isToday ? 'text-blue-600' : 'text-slate-700') : 'text-slate-300'}`}>{cellDate.getDate()}</span>
+                  {dayItems.length > 0 && (
+                    <span className="text-[8px] font-black text-slate-400">{dayItems.length}</span>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  {dayItems.slice(0, 3).map(({ item, weekKey, dayId }) => {
+                    const status = deriveStatus(item, todayKey);
+                    const meta = STATUS_META[status];
+                    const overdue = status.startsWith('atrasado_');
+                    return (
+                      <div
+                        key={`${weekKey}-${dayId}-${item.id}`}
+                        onClick={() => openItemFromPanorama(item, dayId, weekKey)}
+                        className={`text-[9px] font-black uppercase truncate px-1.5 py-1 rounded cursor-pointer ${meta.chip} ${overdue ? 'ring-1 ring-rose-400 animate-pulse' : ''} ${item.completed ? 'line-through opacity-60' : ''}`}
+                        title={`${item.objective} — ${meta.label}`}
+                      >
+                        {item.objective}
+                      </div>
+                    );
+                  })}
+                  {dayItems.length > 3 && (
+                    <div className="text-[8px] font-black text-slate-400 px-1">+{dayItems.length - 3} mais</div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-5 pt-4 border-t border-slate-100 flex flex-wrap gap-3">
+          {Object.entries(STATUS_META).map(([k, m]) => (
+            <div key={k} className="flex items-center gap-1.5">
+              <span className={`w-2.5 h-2.5 rounded-full ${m.dot}`} />
+              <span className="text-[10px] font-black text-slate-500 uppercase">{m.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderKanbanView = () => {
+    const weekStart = parseWeekKey(currentWeekKey);
+    const weekEnd = addDays(weekStart, 6);
+    const weekStartKey = toDateKey(weekStart);
+    const weekEndKey = toDateKey(weekEnd);
+
+    const grouped = { atrasado: [], para_gravar: [], em_edicao: [], pronto_postar: [], postado: [] };
+
+    getAllItemsFlat(planner).forEach(({ item, weekKey, dayId }) => {
+      if (!matchesPanoramaFilters(item)) return;
+      const status = deriveStatus(item, todayKey);
+      const col = statusToKanbanColumn(status);
+      const refDate = item.postDate || item.recordingDate;
+      const inWeek = refDate && refDate >= weekStartKey && refDate <= weekEndKey;
+      if (col === 'atrasado') {
+        grouped.atrasado.push({ item, weekKey, dayId, status });
+      } else if (col === 'postado') {
+        if (inWeek) grouped.postado.push({ item, weekKey, dayId, status });
+      } else if (inWeek) {
+        grouped[col].push({ item, weekKey, dayId, status });
+      }
+    });
+
+    Object.keys(grouped).forEach(k => {
+      grouped[k].sort((a, b) => {
+        const da = a.item.postDate || a.item.recordingDate || '';
+        const db = b.item.postDate || b.item.recordingDate || '';
+        return da.localeCompare(db);
+      });
+    });
+
+    return (
+      <div className="bg-white border border-slate-100 rounded-[32px] p-4 md:p-6 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+          <div>
+            <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Kanban — {formatWeekRange(currentWeekKey)}</p>
+            <h2 className="text-2xl md:text-3xl font-black text-slate-900 uppercase">Panorama da semana</h2>
+            <p className="text-[10px] font-black text-slate-400 mt-1">Atrasados aparecem aqui mesmo se forem de outras semanas.</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+          {KANBAN_COLUMNS.map(col => {
+            const items = grouped[col.id];
+            return (
+              <div key={col.id} className={`rounded-2xl border-2 ${col.accent} p-3 min-h-[200px]`}>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-[11px] font-black text-slate-700 uppercase">{col.label}</h3>
+                  <span className="text-[10px] font-black text-slate-500 bg-white/70 px-2 py-0.5 rounded-full">{items.length}</span>
+                </div>
+                <div className="space-y-2">
+                  {items.length === 0 && (
+                    <p className="text-[10px] font-black text-slate-300 uppercase text-center py-6">Vazio</p>
+                  )}
+                  {items.map(({ item, weekKey, dayId, status }) => {
+                    const meta = STATUS_META[status];
+                    const overdue = status.startsWith('atrasado_');
+                    return (
+                      <div
+                        key={`${weekKey}-${dayId}-${item.id}`}
+                        onClick={() => openItemFromPanorama(item, dayId, weekKey)}
+                        className={`bg-white p-2.5 rounded-xl shadow-sm border cursor-pointer hover:shadow-md transition ${overdue ? 'border-rose-300' : 'border-slate-100'}`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <span className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${meta.dot} ${overdue ? 'animate-pulse' : ''}`} />
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-xs font-black text-slate-800 line-clamp-2 ${item.completed ? 'line-through opacity-60' : ''}`}>{item.objective}</p>
+                            <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                              {item.profile && (
+                                <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded ${item.profile === 'marco' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>{getProfileTag(item.profile)}</span>
+                              )}
+                              {item.postDate && (
+                                <span className="text-[8px] font-black uppercase text-slate-400 flex items-center gap-1">
+                                  <Calendar className="w-2.5 h-2.5" />
+                                  {formatDateShort(item.postDate)}
+                                </span>
+                              )}
+                              {overdue && (
+                                <span className="text-[8px] font-black uppercase text-rose-600 flex items-center gap-1">
+                                  <AlertTriangle className="w-2.5 h-2.5" />
+                                  {meta.label.replace('Atrasado: ', '')}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   const renderSlimCard = (item, livesDayId, livesWeekKey, stageLabel) => (
     <motion.div
       layout
@@ -1063,8 +1367,13 @@ const App = () => {
       <div className="max-w-4xl mx-auto pb-24 md:pb-0">
         <header className="flex flex-col md:flex-row justify-between items-start mb-10 gap-6">
           <div className="flex-1">
-            <h1 className="text-5xl md:text-7xl leading-[0.85] font-black uppercase">
+            <h1
+              onClick={handleTitleClick}
+              className="text-5xl md:text-7xl leading-[0.85] font-black uppercase cursor-pointer select-none"
+              title={panoramaMode ? 'Modo panorama ativo' : ''}
+            >
               Meu <span className="text-blue-600">Plano</span><br />Semanal
+              {panoramaMode && <span className="ml-3 inline-block w-2 h-2 rounded-full bg-rose-500 align-top mt-2" />}
             </h1>
             <p className="mt-4 text-slate-400 font-bold uppercase text-xs flex items-center">
               <span className="w-8 h-[2px] bg-blue-600 mr-3" />
@@ -1118,8 +1427,23 @@ const App = () => {
               </button>
             </div>
           </div>
+          {panoramaMode && (
+            <div className="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-black text-slate-400 uppercase mr-1">Modo Panorama:</span>
+              <button onClick={() => setViewMode('semanal')} className={`h-9 px-4 flex items-center gap-1.5 rounded-xl font-black text-[10px] uppercase transition-all ${viewMode === 'semanal' ? 'bg-slate-900 text-white shadow-sm' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>
+                <Calendar className="w-3.5 h-3.5" /> Semanal
+              </button>
+              <button onClick={() => setViewMode('mes')} className={`h-9 px-4 flex items-center gap-1.5 rounded-xl font-black text-[10px] uppercase transition-all ${viewMode === 'mes' ? 'bg-slate-900 text-white shadow-sm' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>
+                <CalendarDays className="w-3.5 h-3.5" /> Mês
+              </button>
+              <button onClick={() => setViewMode('kanban')} className={`h-9 px-4 flex items-center gap-1.5 rounded-xl font-black text-[10px] uppercase transition-all ${viewMode === 'kanban' ? 'bg-slate-900 text-white shadow-sm' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>
+                <LayoutGrid className="w-3.5 h-3.5" /> Kanban
+              </button>
+            </div>
+          )}
         </section>
 
+        {(!panoramaMode || viewMode === 'semanal') && (
         <div className="mb-12 hidden md:flex justify-center">
           <div className="bg-slate-100 p-1.5 rounded-[24px] flex items-center relative w-full max-w-lg">
             <motion.div
@@ -1142,6 +1466,7 @@ const App = () => {
             </button>
           </div>
         </div>
+        )}
 
         <div className="mb-8 flex flex-col items-center justify-center space-y-4">
           <div className="bg-white border-2 border-slate-100 p-1.5 rounded-[20px] flex items-center space-x-1 shadow-sm w-full max-w-md md:max-w-[320px]">
@@ -1180,6 +1505,10 @@ const App = () => {
           )}
         </div>
 
+        {panoramaMode && viewMode === 'mes' && renderMonthView()}
+        {panoramaMode && viewMode === 'kanban' && renderKanbanView()}
+
+        {(!panoramaMode || viewMode === 'semanal') && (
         <motion.div className="space-y-8">
           {activeTab === 'editar' ? (
               <div className="bg-white border border-slate-100 rounded-[32px] p-5 md:p-8 shadow-sm">
@@ -1311,6 +1640,7 @@ const App = () => {
             })
           )}
         </motion.div>
+        )}
 
         <footer className="mt-20 mb-16 flex flex-col md:flex-row items-center justify-between border-t border-slate-100 pt-10 gap-6">
           <div className="flex items-center space-x-8 text-slate-400">
