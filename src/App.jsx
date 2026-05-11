@@ -128,6 +128,7 @@ const defaultItem = () => {
     secondaryLink: '',
     editedVideoLink: '',
     postCaption: '',
+    firstComment: '',
     contentType: 'video_curto',
     recordingType: 'sozinho',
     profile: 'opa',
@@ -223,6 +224,7 @@ const normalizeItem = (item = {}, tabKey = 'gravar', forcedContentType, weekKeyS
     secondaryLink: item.secondaryLink || item.contentLink || item.editedVideoLink || '',
     editedVideoLink: item.editedVideoLink || '',
     postCaption: item.postCaption || '',
+    firstComment: item.firstComment || '',
     editor: item.editor || 'allyson',
     contentType: forcedContentType || item.contentType || 'video_curto',
     recordingType: item.recordingType || 'sozinho',
@@ -403,6 +405,7 @@ const App = () => {
   const [editModal, setEditModal] = useState({ isOpen: false, dayId: null, item: null, itemWeekKey: null });
   const [copiedState, setCopiedState] = useState(false);
   const [captionCopiedId, setCaptionCopiedId] = useState(null);
+  const [firstCommentCopiedId, setFirstCommentCopiedId] = useState(null);
 
   const handleCopyCaption = (e, item) => {
     e.stopPropagation();
@@ -410,6 +413,15 @@ const App = () => {
     navigator.clipboard.writeText(item.postCaption).then(() => {
       setCaptionCopiedId(item.id);
       setTimeout(() => setCaptionCopiedId(null), 1800);
+    });
+  };
+
+  const handleCopyFirstComment = (e, item) => {
+    e.stopPropagation();
+    if (!item.firstComment) return;
+    navigator.clipboard.writeText(item.firstComment).then(() => {
+      setFirstCommentCopiedId(item.id);
+      setTimeout(() => setFirstCommentCopiedId(null), 1800);
     });
   };
   const [email, setEmail] = useState('');
@@ -494,6 +506,19 @@ const App = () => {
           editarSlimEchoes.push({ item, livesIn: { weekKey, dayId: livesDayId }, stageLabel: item.completed ? 'Postado' : 'Para postar' });
         }
       });
+    });
+  });
+
+  const editarPreviewsByDay = {};
+  daysOfWeek.forEach(d => { editarPreviewsByDay[d.id] = []; });
+  const currentWeekDayKeys = daysOfWeek.map((_, idx) => toDateKey(addDays(parseWeekKey(currentWeekKey), idx)));
+  Object.entries(planner.weeks).forEach(([weekKey, weekData]) => {
+    (weekData.editar?.geral || []).forEach(item => {
+      if (!item.postDate) return;
+      const idx = currentWeekDayKeys.indexOf(item.postDate);
+      if (idx >= 0) {
+        editarPreviewsByDay[daysOfWeek[idx].id].push({ item, sourceWeekKey: weekKey });
+      }
     });
   });
   
@@ -737,6 +762,7 @@ const App = () => {
       secondaryLink: normalizeUrl(newItem.secondaryLink),
       editedVideoLink: normalizeUrl(newItem.editedVideoLink),
       postCaption: newItem.postCaption,
+      firstComment: newItem.firstComment,
       editor: newItem.editor,
       recordingDate: newItem.recordingDate,
       postDate: newItem.postDate,
@@ -1060,6 +1086,21 @@ const App = () => {
                 <p className="text-xs text-slate-700 whitespace-pre-wrap">{item.postCaption}</p>
             </div>
             )}
+            {activeTab === 'postar' && item.firstComment && (
+            <div className="mt-2 bg-indigo-50/60 p-3 rounded-xl border border-indigo-100">
+                <div className="flex items-center justify-between mb-1">
+                    <p className="text-[10px] font-black text-indigo-500 uppercase">Primeiro comentário</p>
+                    <button
+                        onClick={(e) => handleCopyFirstComment(e, item)}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase transition-all ${firstCommentCopiedId === item.id ? 'bg-emerald-500 text-white' : 'bg-indigo-100 hover:bg-indigo-200 text-indigo-700'}`}
+                    >
+                        {firstCommentCopiedId === item.id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                        <span>{firstCommentCopiedId === item.id ? 'Copiado!' : 'Copiar'}</span>
+                    </button>
+                </div>
+                <p className="text-xs text-slate-700 whitespace-pre-wrap">{item.firstComment}</p>
+            </div>
+            )}
         </div>
         </div>
         <button onClick={(e) => removeItem(e, dayId, item.id, itemWeekKey)} className="p-2 md:p-3 text-slate-200 hover:text-rose-500 hover:bg-rose-50 rounded-xl mt-0 md:mt-0">
@@ -1275,6 +1316,53 @@ const App = () => {
       </div>
     );
   };
+
+  const renderPreviewCard = (item, sourceWeekKey) => (
+    <motion.div
+      layout
+      key={`preview-${sourceWeekKey}-${item.id}`}
+      onClick={() => setEditModal({ isOpen: true, dayId: 'geral', item: { ...item }, itemWeekKey: sourceWeekKey })}
+      className="relative flex items-start md:items-center justify-between p-3 md:p-4 rounded-[18px] border-2 border-dashed border-amber-300 bg-amber-50/30 hover:bg-amber-50/60 cursor-pointer opacity-90"
+      title="Ainda em edição — vai aparecer aqui quando for marcado como editado"
+    >
+      <div className="absolute -top-2.5 left-5 inline-flex items-center gap-1.5 bg-amber-500 text-white px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase shadow-sm">
+        <Scissors className="w-2.5 h-2.5" />
+        Ainda em edição
+      </div>
+      <div className="flex items-start md:items-center space-x-3 flex-1 min-w-0 mt-1">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm md:text-base leading-snug font-bold text-slate-600 italic">
+            {item.objective}
+          </p>
+          <div className="flex flex-wrap items-center gap-2 mt-1.5">
+            {item.contentType && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black uppercase bg-amber-100 text-amber-700">
+                {getContentTypeTag(item.contentType)}
+              </span>
+            )}
+            {item.editor && (
+              item.editor === 'torres' ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black uppercase bg-violet-600 text-white">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                  Torres • Externo
+                </span>
+              ) : (
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black uppercase bg-slate-100 text-slate-500">
+                  Editor: {item.editor}
+                </span>
+              )
+            )}
+            {item.time && (
+              <span className="flex items-center text-[10px] font-black uppercase text-slate-400">
+                <Clock className="w-3 h-3 mr-1" />
+                {item.time}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
 
   const renderSlimCard = (item, livesDayId, livesWeekKey, stageLabel) => (
     <motion.div
@@ -1555,6 +1643,12 @@ const App = () => {
               const filteredDayItems = activeTab === 'postar' ? allDayItems.filter(item => !item.completed) : allDayItems;
               const completedPostarItems = activeTab === 'postar' ? allDayItems.filter(item => item.completed) : [];
               const dayEchoes = activeTab === 'gravar' ? (gravarSlimEchoes[day.id] || []).filter(e => profileFilter === 'todos' || (e.item.profile || 'opa') === profileFilter) : [];
+              const dayPreviews = activeTab === 'postar'
+                ? (editarPreviewsByDay[day.id] || []).filter(p =>
+                    (profileFilter === 'todos' || (p.item.profile || 'opa') === profileFilter) &&
+                    (editorFilter === 'todos' || (p.item.editor || 'allyson') === editorFilter)
+                  )
+                : [];
               return (
               <div
                 key={day.id}
@@ -1573,6 +1667,12 @@ const App = () => {
                     <h2 className="text-2xl font-black text-slate-800 uppercase">{day.label}</h2>
                     <p className="text-[10px] text-slate-400 font-black uppercase mt-1">
                       {formatDateShort(addDays(parseWeekKey(currentWeekKey), dayIndex))} - {filteredDayItems.length} {filteredDayItems.length === 1 ? 'Conteudo' : 'Conteudos'}
+                      {dayPreviews.length > 0 && (
+                        <span className="ml-2 inline-flex items-center gap-1 text-amber-600">
+                          <Scissors className="w-2.5 h-2.5" />
+                          +{dayPreviews.length} em edição
+                        </span>
+                      )}
                     </p>
                   </div>
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${expandedDay === day.id ? 'bg-blue-600 text-white rotate-180' : 'bg-slate-50 text-slate-300'}`}>
@@ -1585,7 +1685,7 @@ const App = () => {
                     <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                       <div className="px-5 md:px-6 pb-6 border-t border-slate-50">
                         <div className="space-y-3 mt-5">
-                          {filteredDayItems.length === 0 && completedPostarItems.length === 0 && dayEchoes.length === 0 && (
+                          {filteredDayItems.length === 0 && completedPostarItems.length === 0 && dayEchoes.length === 0 && dayPreviews.length === 0 && (
                             <div className="text-center py-8 text-slate-300 font-black uppercase bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-100 text-sm">
                               Sem planos para hoje
                             </div>
@@ -1640,6 +1740,19 @@ const App = () => {
                               </>
                             );
                           })()}
+
+                          {dayPreviews.length > 0 && (
+                            <div className="pt-4 mt-4 border-t border-dashed border-amber-200 space-y-3">
+                              <div className="flex items-center gap-2 ml-1">
+                                <Scissors className="w-3.5 h-3.5 text-amber-500" />
+                                <h4 className="text-[10px] font-black text-amber-700 uppercase">Chegando do editor ({dayPreviews.length})</h4>
+                                <span className="text-[9px] font-bold text-amber-500/80 normal-case">prévia — só liberado após editar</span>
+                              </div>
+                              <div className="space-y-3 pt-2">
+                                {dayPreviews.map(p => renderPreviewCard(p.item, p.sourceWeekKey))}
+                              </div>
+                            </div>
+                          )}
 
                           {(dayEchoes.length > 0 || completedPostarItems.length > 0) && (
                             <div className="pt-3 mt-3 border-t border-slate-100 space-y-1.5">
@@ -1877,6 +1990,31 @@ const App = () => {
                   </div>
                 </div>
 
+                {(newItem.initialStage === 'postar' || newItem.initialStage === 'editar') && (
+                  <>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Legenda do post</label>
+                      <textarea
+                        rows={3}
+                        className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm resize-none placeholder:text-slate-600"
+                        value={newItem.postCaption}
+                        onChange={(e) => setNewItem({ ...newItem, postCaption: e.target.value })}
+                        placeholder="Escreva a legenda aqui..."
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Primeiro comentário</label>
+                      <textarea
+                        rows={2}
+                        className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-sm resize-none placeholder:text-slate-600"
+                        value={newItem.firstComment}
+                        onChange={(e) => setNewItem({ ...newItem, firstComment: e.target.value })}
+                        placeholder="Comentário fixado / link / CTA..."
+                      />
+                    </div>
+                  </>
+                )}
+
                 <div className="flex flex-col sm:flex-row gap-3 pt-4 mt-4 border-t border-slate-800">
                   <button onClick={addItem} className="flex-1 bg-blue-600 text-white font-black py-4 rounded-xl hover:bg-blue-700 text-sm uppercase">
                     Salvar Tarefa
@@ -1995,6 +2133,19 @@ const App = () => {
                             value={editModal.item.postCaption || ''}
                             onChange={(e) => setEditModal({ ...editModal, item: { ...editModal.item, postCaption: e.target.value } })}
                             placeholder="Escreva a legenda aqui..."
+                        />
+                    </div>
+                )}
+
+                {(activeTab === 'postar' || activeTab === 'editar') && (
+                    <div>
+                        <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Primeiro comentário</label>
+                        <textarea
+                            rows={3}
+                            className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-sm resize-none"
+                            value={editModal.item.firstComment || ''}
+                            onChange={(e) => setEditModal({ ...editModal, item: { ...editModal.item, firstComment: e.target.value } })}
+                            placeholder="Comentário fixado / link / CTA..."
                         />
                     </div>
                 )}
