@@ -1,7 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  AlertCircle,
-  AlertTriangle,
   Calendar,
   CalendarDays,
   Check,
@@ -16,7 +14,6 @@ import {
   GripVertical,
   LayoutGrid,
   Loader2,
-  LogIn,
   LogOut,
   Plus,
   Trash2,
@@ -38,355 +35,43 @@ import {
 import { doc, getFirestore, onSnapshot, setDoc } from 'firebase/firestore';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
-
-const stripHtml = (html) => {
-  if (!html) return '';
-  const tmp = document.createElement('DIV');
-  tmp.innerHTML = html;
-  return tmp.textContent || tmp.innerText || '';
-};
-
-const firebaseConfig = {
-  projectId: 'gen-lang-client-0601883980',
-  appId: '1:946045213254:web:ea0dbdd8a0faa88bc88847',
-  apiKey: 'AIzaSyBs63bKDn0Wz-aNftk7uBexbMiWmMIHmZc',
-  authDomain: 'gen-lang-client-0601883980.firebaseapp.com',
-  storageBucket: 'gen-lang-client-0601883980.firebasestorage.app',
-  messagingSenderId: '946045213254'
-};
-
-const firestoreDatabaseId = 'ai-studio-568f74c2-f715-4e59-828f-2659132b6705';
-
-const emptyTabData = () => ({ segunda: [], terca: [], quarta: [], quinta: [], sexta: [], sabado: [], domingo: [] });
-
-const emptyWeekData = () => ({
-  gravar: emptyTabData(),
-  editar: { geral: [] },
-  postar: emptyTabData()
-});
-
-const tabConfig = {
-  gravar: {
-    label: 'Gravar',
-    accent: 'blue',
-    titleLabel: 'Titulo',
-    titlePlaceholder: 'QUAL CONTEUDO VAMOS GRAVAR?',
-    summaryLabel: 'Roteiro',
-    summaryPlaceholder: 'GANCHO, PROMESSA, TOPICOS E FECHAMENTO',
-    primaryLinkLabel: 'Suba o video aqui',
-    secondaryLinkLabel: 'Link do conteudo completo'
-  },
-  editar: {
-    label: 'Editar',
-    accent: 'amber',
-    titleLabel: 'Titulo',
-    titlePlaceholder: 'QUAL CONTEUDO VAMOS EDITAR?',
-    primaryLinkLabel: 'Suba o video aqui',
-    secondaryLinkLabel: 'Arquivo editado'
-  },
-  postar: {
-    label: 'Postar',
-    accent: 'emerald',
-    titleLabel: 'Nome do post',
-    titlePlaceholder: 'QUAL POST VAI AO AR?',
-    primaryLinkLabel: 'Arquivo editado',
-    secondaryLinkLabel: 'Pasta completa'
-  }
-};
-
-const getTodayDayId = () => {
-  const jsDay = new Date().getDay();
-  const idx = jsDay === 0 ? 6 : jsDay - 1;
-  return ['segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado', 'domingo'][idx];
-};
-
-const daysOfWeek = [
-  { id: 'segunda', label: 'Segunda-feira', color: 'bg-blue-500' },
-  { id: 'terca', label: 'Terca-feira', color: 'bg-emerald-500' },
-  { id: 'quarta', label: 'Quarta-feira', color: 'bg-amber-500' },
-  { id: 'quinta', label: 'Quinta-feira', color: 'bg-purple-500' },
-  { id: 'sexta', label: 'Sexta-feira', color: 'bg-rose-500' },
-  { id: 'sabado', label: 'Sábado', color: 'bg-indigo-500' },
-  { id: 'domingo', label: 'Domingo', color: 'bg-pink-500' }
-];
-
-const toDateKey = (date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const defaultItem = () => {
-  const today = new Date();
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  return {
-    objective: '',
-    summary: '',
-    primaryLink: '',
-    secondaryLink: '',
-    editedVideoLink: '',
-    postCaption: '',
-    firstComment: '',
-    contentType: 'video_curto',
-    recordingType: 'sozinho',
-    profile: 'opa',
-    storyMode: 'aovivo',
-    time: '',
-    editor: 'allyson',
-    recordingDate: toDateKey(today),
-    postDate: toDateKey(tomorrow),
-    status: 'gravar',
-    initialStage: 'gravar'
-  };
-};
-
-const addDays = (date, days) => {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
-  return next;
-};
-
-const getMonday = (date = new Date()) => {
-  const base = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const day = base.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  base.setDate(base.getDate() + diff);
-  return base;
-};
-
-const getWeekKey = (date = new Date()) => toDateKey(getMonday(date));
-
-const parseWeekKey = (weekKey) => {
-  const [year, month, day] = weekKey.split('-').map(Number);
-  return new Date(year, month - 1, day);
-};
-
-const formatDateShort = (dateStringOrDate) => {
-  const d = typeof dateStringOrDate === 'string' ? new Date(dateStringOrDate + 'T12:00:00') : dateStringOrDate;
-  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-};
-
-const formatWeekRange = (weekKey) => {
-  const start = parseWeekKey(weekKey);
-  const end = addDays(start, 6);
-  return `${formatDateShort(start)} ate ${formatDateShort(end)}`;
-};
-
-const createPlanner = (currentWeekKey = getWeekKey()) => ({
-  version: 4,
-  currentWeekKey,
-  weeks: {
-    [currentWeekKey]: emptyWeekData()
-  }
-});
-
-const normalizeUrl = (value) => {
-  if (!value || !value.trim()) return '';
-  return value.startsWith('http') ? value : `https://${value}`;
-};
-
-const getWeekKeyAndDayId = (dateString) => {
-  if (!dateString) return { weekKey: getWeekKey(), dayId: 'segunda' };
-  const [year, month, day] = dateString.split('-').map(Number);
-  const dateObj = new Date(year, month - 1, day);
-  
-  const base = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
-  const dayOfWeek = base.getDay(); // 0 is Sunday
-  
-  const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-  const monday = new Date(base);
-  monday.setDate(monday.getDate() + diff);
-  
-  const weekKey = toDateKey(monday);
-  const dayIds = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
-  const dayId = dayIds[dayOfWeek];
-  
-  return { weekKey, dayId };
-};
-
-const getNextDayOfWeek = (weekKey, dayId) => {
-   const [year, month, day] = weekKey.split('-').map(Number);
-   const monday = new Date(year, month - 1, day);
-   const dayMap = { 'segunda': 0, 'terca': 1, 'quarta': 2, 'quinta': 3, 'sexta': 4, 'sabado': 5, 'domingo': 6 };
-   const diff = dayMap[dayId] || 0;
-   monday.setDate(monday.getDate() + diff);
-   return toDateKey(monday);
-};
-
-const normalizeItem = (item = {}, tabKey = 'gravar', forcedContentType, weekKeyStr, fallbackDayId) => {
-  const norm = {
-    id: item.id || Date.now(),
-    objective: item.objective || '',
-    summary: item.summary || '',
-    primaryLink: item.primaryLink || item.uploadLink || item.folderLink || item.link || '',
-    secondaryLink: item.secondaryLink || item.contentLink || item.editedVideoLink || '',
-    editedVideoLink: item.editedVideoLink || '',
-    postCaption: item.postCaption || '',
-    firstComment: item.firstComment || '',
-    editor: item.editor || 'allyson',
-    contentType: forcedContentType || item.contentType || 'video_curto',
-    recordingType: item.recordingType || 'sozinho',
-    profile: item.profile || 'opa',
-    storyMode: item.storyMode || 'aovivo',
-    time: item.time || '',
-    completed: Boolean(item.completed),
-    tabKey,
-    _gravarOrigin: item._gravarOrigin || null,
-    _editarOrigin: item._editarOrigin || null
-  };
-
-  if (!item.recordingDate && weekKeyStr) {
-     norm.recordingDate = getNextDayOfWeek(weekKeyStr, item.recordingDayId || fallbackDayId || 'segunda');
-  } else {
-     norm.recordingDate = item.recordingDate || toDateKey(new Date());
-  }
-  
-  if (!item.postDate && weekKeyStr) {
-     norm.postDate = getNextDayOfWeek(weekKeyStr, item.postDayId || fallbackDayId || 'segunda');
-  } else {
-     norm.postDate = item.postDate || toDateKey(new Date());
-  }
-
-  return norm;
-};
-
-const mergeLegacyStoriesIntoGravar = (weekData = {}, weekKeyStr) => {
-  const base = emptyWeekData();
-  const gravarSource = weekData.gravar || base.gravar;
-  const postarSource = weekData.postar || base.postar;
-  const storiesSource = weekData.stories || base.gravar;
-  const editarSource = weekData.editar || base.editar;
-
-  const gravar = {};
-  const postar = {};
-  const editar = { geral: (editarSource.geral || []).map((item) => normalizeItem(item, 'editar', undefined, weekKeyStr, 'segunda')) };
-
-  daysOfWeek.forEach((day) => {
-    gravar[day.id] = [
-      ...(gravarSource[day.id] || []).map((item) => normalizeItem(item, 'gravar', item.contentType || 'video_curto', weekKeyStr, day.id)),
-      ...(storiesSource[day.id] || []).map((item) => normalizeItem(item, 'gravar', 'stories', weekKeyStr, day.id))
-    ];
-    postar[day.id] = (postarSource[day.id] || []).map((item) => normalizeItem(item, 'postar', undefined, weekKeyStr, day.id));
-  });
-
-  return { gravar, editar, postar };
-};
-
-const normalizePlanner = (cloudData) => {
-  const currentWeekKey = getWeekKey();
-
-  if (!cloudData) return createPlanner(currentWeekKey);
-
-  if (cloudData.weeks) {
-    const weeks = Object.entries(cloudData.weeks).reduce((acc, [weekKey, weekData]) => {
-      acc[weekKey] = mergeLegacyStoriesIntoGravar(weekData, weekKey);
-      return acc;
-    }, {});
-
-    return {
-      version: 4,
-      currentWeekKey: cloudData.currentWeekKey || currentWeekKey,
-      weeks: Object.keys(weeks).length ? weeks : { [currentWeekKey]: emptyWeekData() }
-    };
-  }
-
-  if (cloudData.segunda && !cloudData.gravar) {
-    return {
-      version: 4,
-      currentWeekKey,
-      weeks: {
-        [currentWeekKey]: mergeLegacyStoriesIntoGravar({
-          gravar: cloudData,
-          postar: emptyTabData()
-        }, currentWeekKey)
-      }
-    };
-  }
-
-  return {
-    version: 4,
-    currentWeekKey,
-    weeks: {
-      [currentWeekKey]: mergeLegacyStoriesIntoGravar(cloudData, currentWeekKey)
-    }
-  };
-};
-
-const getRecordingTag = (value) => (value === 'com_alguem' ? 'Dois' : 'Sozinho');
-const getContentTypeTag = (value) => {
-  if (value === 'stories') return 'Stories';
-  if (value === 'estatico') return 'Estático';
-  if (value === 'carrossel') return 'Carrossel';
-  if (value === 'video_longo') return 'Vídeo Longo';
-  return 'Vídeo Curto';
-};
-const getProfileTag = (value) => (value === 'marco' ? 'Marco' : 'OPA');
-
-const STATUS_META = {
-  para_gravar:     { label: 'Para gravar',      dot: 'bg-blue-500',    chip: 'bg-blue-100 text-blue-700' },
-  gravado:         { label: 'Gravado',          dot: 'bg-cyan-500',    chip: 'bg-cyan-100 text-cyan-700' },
-  em_edicao:       { label: 'Em edição',        dot: 'bg-amber-500',   chip: 'bg-amber-100 text-amber-700' },
-  pronto_postar:   { label: 'Pronto p/ postar', dot: 'bg-emerald-500', chip: 'bg-emerald-100 text-emerald-700' },
-  postado:         { label: 'Postado',          dot: 'bg-green-700',   chip: 'bg-green-200 text-green-900' },
-  atrasado_gravar: { label: 'Atrasado: gravar', dot: 'bg-rose-600',    chip: 'bg-rose-100 text-rose-700' },
-  atrasado_editar: { label: 'Atrasado: editar', dot: 'bg-rose-600',    chip: 'bg-rose-100 text-rose-700' },
-  atrasado_postar: { label: 'Atrasado: postar', dot: 'bg-rose-600',    chip: 'bg-rose-100 text-rose-700' }
-};
-
-const KANBAN_COLUMNS = [
-  { id: 'atrasado',      label: 'Atrasados',        accent: 'border-rose-400 bg-rose-50/40' },
-  { id: 'para_gravar',   label: 'Para gravar',      accent: 'border-blue-200 bg-blue-50/40' },
-  { id: 'em_edicao',     label: 'Em edição',        accent: 'border-amber-200 bg-amber-50/40' },
-  { id: 'pronto_postar', label: 'Pronto p/ postar', accent: 'border-emerald-200 bg-emerald-50/40' },
-  { id: 'postado',       label: 'Postado',          accent: 'border-green-300 bg-green-50/40' }
-];
-
-const deriveStatus = (item, todayKey) => {
-  const tab = item.tabKey || 'gravar';
-  const completed = !!item.completed;
-  if (tab === 'postar' && completed) return 'postado';
-  if (tab === 'postar') return (item.postDate && item.postDate < todayKey) ? 'atrasado_postar' : 'pronto_postar';
-  if (tab === 'editar') return (item.postDate && item.postDate < todayKey) ? 'atrasado_editar' : 'em_edicao';
-  if (completed) return 'gravado';
-  return (item.recordingDate && item.recordingDate < todayKey) ? 'atrasado_gravar' : 'para_gravar';
-};
-
-const statusToKanbanColumn = (status) => {
-  if (status.startsWith('atrasado_')) return 'atrasado';
-  if (status === 'gravado') return 'em_edicao';
-  return status;
-};
-
-const getAllItemsFlat = (planner) => {
-  const out = [];
-  Object.entries(planner.weeks || {}).forEach(([weekKey, week]) => {
-    daysOfWeek.forEach(d => {
-      (week.gravar?.[d.id] || []).forEach(item => out.push({ item, weekKey, dayId: d.id, tab: 'gravar' }));
-      (week.postar?.[d.id] || []).forEach(item => out.push({ item, weekKey, dayId: d.id, tab: 'postar' }));
-    });
-    (week.editar?.geral || []).forEach(item => out.push({ item, weekKey, dayId: 'geral', tab: 'editar' }));
-  });
-  return out;
-};
-
-const buildMonthGrid = (anchorDate) => {
-  const first = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), 1);
-  const startWeekday = first.getDay();
-  const startOffset = startWeekday === 0 ? -6 : 1 - startWeekday;
-  const gridStart = new Date(first);
-  gridStart.setDate(first.getDate() + startOffset);
-  const cells = [];
-  for (let i = 0; i < 42; i++) {
-    const d = new Date(gridStart);
-    d.setDate(gridStart.getDate() + i);
-    cells.push(d);
-  }
-  return cells;
-};
-
-const MONTH_NAMES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+import { firebaseConfig, firestoreDatabaseId } from './lib/firebase';
+import {
+  daysOfWeek,
+  toDateKey,
+  addDays,
+  getWeekKey,
+  parseWeekKey,
+  formatDateShort,
+  formatWeekRange,
+  getTodayDayId,
+  getWeekKeyAndDayId
+} from './lib/dates';
+import {
+  tabConfig,
+  getRecordingTag,
+  getContentTypeTag,
+  getContentTypeBadgeClass,
+  getProfileTag,
+  getProfileBadgeClass,
+  profileMatchesFilter
+} from './lib/tags';
+import LoginScreen from './components/LoginScreen';
+import SummaryModal from './components/SummaryModal';
+import AddItemModal from './components/AddItemModal';
+import EditItemModal from './components/EditItemModal';
+import MonthView from './components/MonthView';
+import KanbanView from './components/KanbanView';
+import {
+  emptyTabData,
+  emptyWeekData,
+  newId,
+  defaultItem,
+  createPlanner,
+  normalizeUrl,
+  normalizePlanner,
+  stripHtml
+} from './lib/planner';
 
 const App = () => {
   const [user, setUser] = useState(null);
@@ -428,8 +113,14 @@ const App = () => {
   const [password, setPassword] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
   const [authError, setAuthError] = useState(null);
-  const [profileFilter, setProfileFilter] = useState('todos');
-  const [editorFilter, setEditorFilter] = useState('todos');
+  const [profileFilter, setProfileFilter] = useState(() => {
+    try { return localStorage.getItem('profileFilter') || 'todos'; } catch { return 'todos'; }
+  });
+  const [editorFilter, setEditorFilter] = useState(() => {
+    try { return localStorage.getItem('editorFilter') || 'todos'; } catch { return 'todos'; }
+  });
+  useEffect(() => { try { localStorage.setItem('profileFilter', profileFilter); } catch {} }, [profileFilter]);
+  useEffect(() => { try { localStorage.setItem('editorFilter', editorFilter); } catch {} }, [editorFilter]);
   const [panoramaMode, setPanoramaMode] = useState(() => {
     try { return localStorage.getItem('panoramaMode') === 'true'; } catch { return false; }
   });
@@ -476,7 +167,7 @@ const App = () => {
   });
 
   const getFilteredGravarPostar = (tabData) => {
-    return Object.values(tabData).flat().filter(item => profileFilter === 'todos' || (item.profile || 'opa') === profileFilter);
+    return Object.values(tabData).flat().filter(item => profileMatchesFilter(item.profile, profileFilter));
   };
 
   const gravarSlimEchoes = {};
@@ -524,7 +215,7 @@ const App = () => {
   
   const allFilteredItems = activeTab === 'editar' 
       ? allEditarItemsGlobal.filter(item => 
-          (profileFilter === 'todos' || (item.profile || 'opa') === profileFilter) &&
+          (profileMatchesFilter(item.profile, profileFilter)) &&
           (editorFilter === 'todos' || (item.editor || 'allyson') === editorFilter)
         )
       : getFilteredGravarPostar(currentWeekData[activeTab]);
@@ -573,13 +264,20 @@ const App = () => {
     };
   }, []);
 
-  const saveToCloud = async (nextPlanner) => {
+  const saveTimerRef = useRef(null);
+  const pendingPlannerRef = useRef(null);
+
+  const flushSave = async () => {
+    const nextPlanner = pendingPlannerRef.current;
+    if (!nextPlanner) return;
+    pendingPlannerRef.current = null;
+
     if (!user || !firebaseReady) {
-      localStorage.setItem('local_weekly_data', JSON.stringify(nextPlanner));
+      try { localStorage.setItem('local_weekly_data', JSON.stringify(nextPlanner)); } catch {}
+      setSaving(false);
       return;
     }
 
-    setSaving(true);
     try {
       const db = getFirestore(getApp(), firestoreDatabaseId);
       const docRef = doc(db, 'artifacts', 'organizador-semanal', 'users', user.uid, 'weeklyData', 'current');
@@ -587,9 +285,27 @@ const App = () => {
     } catch (saveError) {
       console.error('Save error:', saveError);
     } finally {
-      setTimeout(() => setSaving(false), 600);
+      setTimeout(() => setSaving(false), 400);
     }
   };
+
+  const saveToCloud = (nextPlanner) => {
+    pendingPlannerRef.current = nextPlanner;
+    setSaving(true);
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(flushSave, 600);
+  };
+
+  useEffect(() => {
+    const onUnload = () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        flushSave();
+      }
+    };
+    window.addEventListener('beforeunload', onUnload);
+    return () => window.removeEventListener('beforeunload', onUnload);
+  });
 
   const updatePlanner = (updater) => {
     const nextPlanner = updater(planner);
@@ -755,7 +471,7 @@ const App = () => {
     const stage = newItem.initialStage || (isEstatico ? 'editar' : 'gravar');
 
     const item = {
-      id: Date.now(),
+      id: newId(),
       objective: newItem.objective,
       summary: newItem.summary,
       primaryLink: normalizeUrl(newItem.primaryLink),
@@ -1006,7 +722,7 @@ const App = () => {
             
             <div className="flex flex-wrap items-center gap-2 mt-2">
             {item.contentType && (
-                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black uppercase ${activeTab === 'gravar' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black uppercase ${getContentTypeBadgeClass(item.contentType, activeTab === 'gravar' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700')}`}>
                 {getContentTypeTag(item.contentType)}
                 </span>
             )}
@@ -1016,7 +732,7 @@ const App = () => {
                 </span>
             )}
             {item.profile && (
-                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black uppercase ${item.profile === 'marco' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
+                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black uppercase ${getProfileBadgeClass(item.profile)}`}>
                 {getProfileTag(item.profile)}
                 </span>
             )}
@@ -1113,209 +829,11 @@ const App = () => {
   const todayKey = toDateKey(new Date());
 
   const matchesPanoramaFilters = (item) => {
-    if (profileFilter !== 'todos' && (item.profile || 'opa') !== profileFilter) return false;
+    if (!profileMatchesFilter(item.profile, profileFilter)) return false;
     if (editorFilter !== 'todos' && (item.editor || 'allyson') !== editorFilter) return false;
     return true;
   };
 
-  const renderMonthView = () => {
-    const cells = buildMonthGrid(panoramaMonth);
-    const monthIdx = panoramaMonth.getMonth();
-    const yearLabel = panoramaMonth.getFullYear();
-
-    const itemsByDate = {};
-    getAllItemsFlat(planner).forEach(({ item, weekKey, dayId }) => {
-      if (!matchesPanoramaFilters(item)) return;
-      const dateKey = calendarDateField === 'recordingDate'
-        ? (item.recordingDate || null)
-        : (item.postDate || item.recordingDate || null);
-      if (!dateKey) return;
-      if (!itemsByDate[dateKey]) itemsByDate[dateKey] = [];
-      itemsByDate[dateKey].push({ item, weekKey, dayId });
-    });
-
-    const goPrev = () => setPanoramaMonth(new Date(yearLabel, monthIdx - 1, 1));
-    const goNext = () => setPanoramaMonth(new Date(yearLabel, monthIdx + 1, 1));
-    const goToday = () => { const d = new Date(); setPanoramaMonth(new Date(d.getFullYear(), d.getMonth(), 1)); };
-
-    const weekdayLabels = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
-
-    return (
-      <div className="bg-white border border-slate-100 rounded-[32px] p-4 md:p-6 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-          <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Visão mensal</p>
-            <h2 className="text-2xl md:text-3xl font-black text-slate-900 uppercase">{MONTH_NAMES[monthIdx]} {yearLabel}</h2>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="bg-slate-50 p-1 rounded-xl flex items-center">
-              <button onClick={() => setCalendarDateField('postDate')} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition ${calendarDateField === 'postDate' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>Por postagem</button>
-              <button onClick={() => setCalendarDateField('recordingDate')} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition ${calendarDateField === 'recordingDate' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>Por gravação</button>
-            </div>
-            <button onClick={goPrev} className="w-9 h-9 flex items-center justify-center bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-xl"><ChevronLeft className="w-4 h-4" /></button>
-            <button onClick={goToday} className="px-3 h-9 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl font-black text-[10px] uppercase">Hoje</button>
-            <button onClick={goNext} className="w-9 h-9 flex items-center justify-center bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-xl"><ChevronRight className="w-4 h-4" /></button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-7 gap-1 mb-2">
-          {weekdayLabels.map(d => (
-            <div key={d} className="text-center text-[10px] font-black text-slate-400 uppercase py-2">{d}</div>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-7 gap-1">
-          {cells.map((cellDate, idx) => {
-            const cellKey = toDateKey(cellDate);
-            const inMonth = cellDate.getMonth() === monthIdx;
-            const isToday = cellKey === todayKey;
-            const dayItems = itemsByDate[cellKey] || [];
-            const hasOverdue = dayItems.some(({ item }) => deriveStatus(item, todayKey).startsWith('atrasado_'));
-            return (
-              <div
-                key={idx}
-                className={`min-h-[88px] md:min-h-[110px] p-1.5 rounded-xl border ${inMonth ? 'bg-white' : 'bg-slate-50/40'} ${isToday ? 'border-blue-500 ring-2 ring-blue-200' : hasOverdue ? 'border-rose-300' : 'border-slate-100'}`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className={`text-[11px] font-black ${inMonth ? (isToday ? 'text-blue-600' : 'text-slate-700') : 'text-slate-300'}`}>{cellDate.getDate()}</span>
-                  {dayItems.length > 0 && (
-                    <span className="text-[8px] font-black text-slate-400">{dayItems.length}</span>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  {dayItems.slice(0, 3).map(({ item, weekKey, dayId }) => {
-                    const status = deriveStatus(item, todayKey);
-                    const meta = STATUS_META[status];
-                    const overdue = status.startsWith('atrasado_');
-                    return (
-                      <div
-                        key={`${weekKey}-${dayId}-${item.id}`}
-                        onClick={() => openItemFromPanorama(item, dayId, weekKey)}
-                        className={`text-[9px] font-black uppercase truncate px-1.5 py-1 rounded cursor-pointer ${meta.chip} ${overdue ? 'ring-1 ring-rose-400 animate-pulse' : ''} ${item.completed ? 'line-through opacity-60' : ''}`}
-                        title={`${item.objective} — ${meta.label}`}
-                      >
-                        {item.objective}
-                      </div>
-                    );
-                  })}
-                  {dayItems.length > 3 && (
-                    <div className="text-[8px] font-black text-slate-400 px-1">+{dayItems.length - 3} mais</div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="mt-5 pt-4 border-t border-slate-100 flex flex-wrap gap-3">
-          {Object.entries(STATUS_META).map(([k, m]) => (
-            <div key={k} className="flex items-center gap-1.5">
-              <span className={`w-2.5 h-2.5 rounded-full ${m.dot}`} />
-              <span className="text-[10px] font-black text-slate-500 uppercase">{m.label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  const renderKanbanView = () => {
-    const weekStart = parseWeekKey(currentWeekKey);
-    const weekEnd = addDays(weekStart, 6);
-    const weekStartKey = toDateKey(weekStart);
-    const weekEndKey = toDateKey(weekEnd);
-
-    const grouped = { atrasado: [], para_gravar: [], em_edicao: [], pronto_postar: [], postado: [] };
-
-    getAllItemsFlat(planner).forEach(({ item, weekKey, dayId }) => {
-      if (!matchesPanoramaFilters(item)) return;
-      const status = deriveStatus(item, todayKey);
-      const col = statusToKanbanColumn(status);
-      const refDate = item.postDate || item.recordingDate;
-      const inWeek = refDate && refDate >= weekStartKey && refDate <= weekEndKey;
-      if (col === 'atrasado') {
-        grouped.atrasado.push({ item, weekKey, dayId, status });
-      } else if (col === 'postado') {
-        if (inWeek) grouped.postado.push({ item, weekKey, dayId, status });
-      } else if (inWeek) {
-        grouped[col].push({ item, weekKey, dayId, status });
-      }
-    });
-
-    Object.keys(grouped).forEach(k => {
-      grouped[k].sort((a, b) => {
-        const da = a.item.postDate || a.item.recordingDate || '';
-        const db = b.item.postDate || b.item.recordingDate || '';
-        return da.localeCompare(db);
-      });
-    });
-
-    return (
-      <div className="bg-white border border-slate-100 rounded-[32px] p-4 md:p-6 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-          <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Kanban — {formatWeekRange(currentWeekKey)}</p>
-            <h2 className="text-2xl md:text-3xl font-black text-slate-900 uppercase">Panorama da semana</h2>
-            <p className="text-[10px] font-black text-slate-400 mt-1">Atrasados aparecem aqui mesmo se forem de outras semanas.</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-          {KANBAN_COLUMNS.map(col => {
-            const items = grouped[col.id];
-            return (
-              <div key={col.id} className={`rounded-2xl border-2 ${col.accent} p-3 min-h-[200px]`}>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-[11px] font-black text-slate-700 uppercase">{col.label}</h3>
-                  <span className="text-[10px] font-black text-slate-500 bg-white/70 px-2 py-0.5 rounded-full">{items.length}</span>
-                </div>
-                <div className="space-y-2">
-                  {items.length === 0 && (
-                    <p className="text-[10px] font-black text-slate-300 uppercase text-center py-6">Vazio</p>
-                  )}
-                  {items.map(({ item, weekKey, dayId, status }) => {
-                    const meta = STATUS_META[status];
-                    const overdue = status.startsWith('atrasado_');
-                    return (
-                      <div
-                        key={`${weekKey}-${dayId}-${item.id}`}
-                        onClick={() => openItemFromPanorama(item, dayId, weekKey)}
-                        className={`bg-white p-2.5 rounded-xl shadow-sm border cursor-pointer hover:shadow-md transition ${overdue ? 'border-rose-300' : 'border-slate-100'}`}
-                      >
-                        <div className="flex items-start gap-2">
-                          <span className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${meta.dot} ${overdue ? 'animate-pulse' : ''}`} />
-                          <div className="flex-1 min-w-0">
-                            <p className={`text-xs font-black text-slate-800 line-clamp-2 ${item.completed ? 'line-through opacity-60' : ''}`}>{item.objective}</p>
-                            <div className="flex flex-wrap items-center gap-1 mt-1.5">
-                              {item.profile && (
-                                <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded ${item.profile === 'marco' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>{getProfileTag(item.profile)}</span>
-                              )}
-                              {item.postDate && (
-                                <span className="text-[8px] font-black uppercase text-slate-400 flex items-center gap-1">
-                                  <Calendar className="w-2.5 h-2.5" />
-                                  {formatDateShort(item.postDate)}
-                                </span>
-                              )}
-                              {overdue && (
-                                <span className="text-[8px] font-black uppercase text-rose-600 flex items-center gap-1">
-                                  <AlertTriangle className="w-2.5 h-2.5" />
-                                  {meta.label.replace('Atrasado: ', '')}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
 
   const renderPreviewCard = (item, sourceWeekKey) => (
     <motion.div
@@ -1336,7 +854,7 @@ const App = () => {
           </p>
           <div className="flex flex-wrap items-center gap-2 mt-1.5">
             {item.contentType && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black uppercase bg-amber-100 text-amber-700">
+              <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black uppercase ${getContentTypeBadgeClass(item.contentType, 'bg-amber-100 text-amber-700')}`}>
                 {getContentTypeTag(item.contentType)}
               </span>
             )}
@@ -1394,72 +912,14 @@ const App = () => {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-white p-10 rounded-[40px] shadow-2xl border border-slate-100 text-center">
-          <div className="inline-flex items-center justify-center p-5 bg-blue-50 rounded-3xl mb-8">
-            <Calendar className="w-12 h-12 text-blue-600" />
-          </div>
-          <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-4 uppercase leading-none">
-            Meu <span className="text-blue-600">Plano</span><br />Semanal
-          </h1>
-          <p className="text-slate-500 font-medium mb-8 text-sm">
-            {isRegistering ? 'Crie sua conta para comecar a organizar seus conteudos.' : 'Entre para comecar a organizar seus conteudos com seguranca.'}
-          </p>
-
-          <form onSubmit={handleEmailAuth} className="space-y-4 mb-6 text-left">
-            <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase mb-1.5 ml-1">E-mail</label>
-              <input
-                type="email"
-                placeholder="seu@email.com"
-                className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-800"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase mb-1.5 ml-1">Senha</label>
-              <input
-                type="password"
-                placeholder="********"
-                className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-800"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-
-            {authError && (
-              <div className="flex items-center space-x-2 text-rose-500 bg-rose-50 p-3 rounded-xl border border-rose-100">
-                <AlertCircle className="w-4 h-4" />
-                <p className="text-xs font-bold uppercase">{authError}</p>
-              </div>
-            )}
-
-            <button type="submit" className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl hover:bg-blue-700 text-lg">
-              {isRegistering ? 'Criar Conta' : 'Entrar'}
-            </button>
-          </form>
-
-          <button
-            onClick={handleLogin}
-            className="w-full flex items-center justify-center space-x-3 bg-white border-2 border-slate-100 text-slate-900 font-black py-4 rounded-2xl hover:bg-slate-50 text-lg"
-          >
-            <LogIn className="w-5 h-5 text-blue-600" />
-            <span>Entrar com Google</span>
-          </button>
-
-          <button
-            onClick={() => {
-              setIsRegistering(!isRegistering);
-              setAuthError(null);
-            }}
-            className="mt-6 text-[10px] text-blue-600 font-black uppercase hover:underline"
-          >
-            {isRegistering ? 'Ja tem uma conta? Entrar' : 'Nao tem conta? Criar conta'}
-          </button>
-          {error && <p className="mt-4 text-xs text-rose-500 font-bold uppercase">{error}</p>}
-        </div>
-      </div>
+      <LoginScreen
+        email={email} setEmail={setEmail}
+        password={password} setPassword={setPassword}
+        isRegistering={isRegistering} setIsRegistering={setIsRegistering}
+        authError={authError} setAuthError={setAuthError}
+        handleEmailAuth={handleEmailAuth} handleLogin={handleLogin}
+        error={error}
+      />
     );
   }
 
@@ -1521,6 +981,19 @@ const App = () => {
               </button>
               <button onClick={() => changeWeek(1)} className="w-11 h-11 flex items-center justify-center bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-2xl">
                 <ChevronRight className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => {
+                  const next = !panoramaMode;
+                  setPanoramaMode(next);
+                  try { localStorage.setItem('panoramaMode', String(next)); } catch {}
+                  if (!next) setViewMode('semanal');
+                }}
+                className={`h-11 px-4 flex items-center gap-2 rounded-2xl font-black text-[10px] uppercase transition-all ${panoramaMode ? 'bg-rose-500 hover:bg-rose-600 text-white shadow-md' : 'bg-slate-50 hover:bg-slate-100 text-slate-600'}`}
+                title="Alternar modo Panorama (visão mensal e kanban)"
+              >
+                <LayoutGrid className="w-4 h-4" />
+                Panorama
               </button>
               <button onClick={exportMonthlyCsv} className="h-11 px-4 flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-black text-[10px] uppercase">
                 <Download className="w-4 h-4" />
@@ -1611,8 +1084,27 @@ const App = () => {
           )}
         </div>
 
-        {panoramaMode && viewMode === 'mes' && renderMonthView()}
-        {panoramaMode && viewMode === 'kanban' && renderKanbanView()}
+        {panoramaMode && viewMode === 'mes' && (
+          <MonthView
+            planner={planner}
+            panoramaMonth={panoramaMonth}
+            setPanoramaMonth={setPanoramaMonth}
+            calendarDateField={calendarDateField}
+            setCalendarDateField={setCalendarDateField}
+            matchesPanoramaFilters={matchesPanoramaFilters}
+            todayKey={todayKey}
+            openItemFromPanorama={openItemFromPanorama}
+          />
+        )}
+        {panoramaMode && viewMode === 'kanban' && (
+          <KanbanView
+            planner={planner}
+            currentWeekKey={currentWeekKey}
+            matchesPanoramaFilters={matchesPanoramaFilters}
+            todayKey={todayKey}
+            openItemFromPanorama={openItemFromPanorama}
+          />
+        )}
 
         {(!panoramaMode || viewMode === 'semanal') && (
         <motion.div className="space-y-8">
@@ -1630,7 +1122,7 @@ const App = () => {
                             <div className="pt-4 mt-4 border-t border-slate-100 space-y-1.5">
                               <p className="text-[9px] font-black text-slate-300 uppercase mb-2">Concluídos</p>
                               {editarSlimEchoes
-                                .filter(e => (profileFilter === 'todos' || (e.item.profile || 'opa') === profileFilter) && (editorFilter === 'todos' || (e.item.editor || 'allyson') === editorFilter))
+                                .filter(e => (profileMatchesFilter(e.item.profile, profileFilter)) && (editorFilter === 'todos' || (e.item.editor || 'allyson') === editorFilter))
                                 .map(e => renderSlimCard(e.item, e.livesIn.dayId, e.livesIn.weekKey, e.stageLabel))}
                             </div>
                           )}
@@ -1639,10 +1131,10 @@ const App = () => {
               </div>
           ) : (
             daysOfWeek.map((day, dayIndex) => {
-              const allDayItems = (currentWeekData[activeTab][day.id] || []).filter(item => profileFilter === 'todos' || (item.profile || 'opa') === profileFilter);
+              const allDayItems = (currentWeekData[activeTab][day.id] || []).filter(item => profileMatchesFilter(item.profile, profileFilter));
               const filteredDayItems = activeTab === 'postar' ? allDayItems.filter(item => !item.completed) : allDayItems;
               const completedPostarItems = activeTab === 'postar' ? allDayItems.filter(item => item.completed) : [];
-              const dayEchoes = activeTab === 'gravar' ? (gravarSlimEchoes[day.id] || []).filter(e => profileFilter === 'todos' || (e.item.profile || 'opa') === profileFilter) : [];
+              const dayEchoes = activeTab === 'gravar' ? (gravarSlimEchoes[day.id] || []).filter(e => profileMatchesFilter(e.item.profile, profileFilter)) : [];
               const dayPreviews = activeTab === 'postar'
                 ? (editarPreviewsByDay[day.id] || []).filter(p =>
                     (profileFilter === 'todos' || (p.item.profile || 'opa') === profileFilter) &&
@@ -1804,432 +1296,16 @@ const App = () => {
         </div>
       </nav>
 
-      {/* MODAL ADICIONAR TAREFA GLOBAL */}
-      <AnimatePresence>
-        {isAdding && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsAdding(false)}>
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} onClick={(e) => e.stopPropagation()} className="bg-slate-900 rounded-[32px] p-6 md:p-8 max-w-2xl w-full shadow-2xl relative border border-slate-700 max-h-[90vh] overflow-y-auto">
-              <button onClick={() => setIsAdding(false)} className="absolute top-6 right-6 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-full z-10">
-                <X className="w-5 h-5" />
-              </button>
-              
-              <h3 className="text-2xl font-black text-white uppercase mb-6 pr-10">Nova Tarefa</h3>
+      <AddItemModal isAdding={isAdding} setIsAdding={setIsAdding} newItem={newItem} setNewItem={setNewItem} addItem={addItem} />
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Começar em qual etapa?</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { id: 'gravar', label: 'Gravar', hint: 'Ainda vai gravar', cls: 'bg-blue-500 border-blue-400 shadow-blue-500/30' },
-                      { id: 'editar', label: 'Editar', hint: 'Ja gravado', cls: 'bg-amber-500 border-amber-400 shadow-amber-500/30' },
-                      { id: 'postar', label: 'Postar', hint: 'Ja editado', cls: 'bg-emerald-500 border-emerald-400 shadow-emerald-500/30' }
-                    ].map(s => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        onClick={() => setNewItem({ ...newItem, initialStage: s.id })}
-                        className={`p-3 rounded-xl font-black uppercase text-xs border-2 transition-all ${newItem.initialStage === s.id ? `${s.cls} text-white shadow-lg` : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-600'}`}
-                      >
-                        {s.label}<br /><span className="text-[9px] font-bold normal-case opacity-90">{s.hint}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
+      <SummaryModal
+        summaryModal={summaryModal}
+        onClose={() => setSummaryModal({ isOpen: false, item: null })}
+        handleCopy={handleCopy}
+        copiedState={copiedState}
+      />
 
-                <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Título da Tarefa</label>
-                  <input
-                    type="text"
-                    placeholder="Ex: Video sobre organização"
-                    className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-base placeholder:text-slate-600"
-                    value={newItem.objective}
-                    onChange={(e) => setNewItem({ ...newItem, objective: e.target.value })}
-                    autoFocus
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Roteiro / Resumo</label>
-                  <div className="bg-white text-slate-800 rounded-xl overflow-hidden mb-2">
-                    <ReactQuill 
-                      theme="snow"
-                      value={newItem.summary} 
-                      onChange={(content) => setNewItem({ ...newItem, summary: content })} 
-                      placeholder="GANCHO, PROMESSA, TOPICOS E FECHAMENTO"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Tipo</label>
-                    <select
-                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm appearance-none"
-                      value={newItem.contentType}
-                      onChange={(e) => setNewItem({ ...newItem, contentType: e.target.value })}
-                    >
-                      <option value="video_curto">Video curto</option>
-                      <option value="video_longo">Vídeo Longo</option>
-                      <option value="stories">Stories</option>
-                      <option value="estatico">Estático</option>
-                      <option value="carrossel">Carrossel</option>
-                    </select>
-                  </div>
-                  {newItem.contentType === 'stories' && (
-                    <div className="md:col-span-3">
-                      <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Modo do Story</label>
-                      <div className="grid grid-cols-2 gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setNewItem({ ...newItem, storyMode: 'aovivo' })}
-                          className={`p-4 rounded-xl font-black uppercase text-sm border-2 transition-all ${newItem.storyMode === 'aovivo' ? 'bg-rose-500 text-white border-rose-400 shadow-lg shadow-rose-500/30' : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-rose-500/50'}`}
-                        >
-                          🔴 Ao vivo<br /><span className="text-[9px] font-bold normal-case opacity-90">Gravar e postar agora</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setNewItem({ ...newItem, storyMode: 'banco' })}
-                          className={`p-4 rounded-xl font-black uppercase text-sm border-2 transition-all ${newItem.storyMode === 'banco' ? 'bg-violet-500 text-white border-violet-400 shadow-lg shadow-violet-500/30' : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-violet-500/50'}`}
-                        >
-                          📦 Banco<br /><span className="text-[9px] font-bold normal-case opacity-90">Guardar para depois</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Perfil</label>
-                    <select
-                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm appearance-none"
-                      value={newItem.profile}
-                      onChange={(e) => setNewItem({ ...newItem, profile: e.target.value })}
-                    >
-                      <option value="opa">OPA</option>
-                      <option value="marco">Marco</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Participacao</label>
-                    <select
-                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm appearance-none"
-                      value={newItem.recordingType}
-                      onChange={(e) => setNewItem({ ...newItem, recordingType: e.target.value })}
-                    >
-                      <option value="sozinho">Sozinho</option>
-                      <option value="com_alguem">Dois</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Dia para Gravar</label>
-                    <input
-                      type="date"
-                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm"
-                      value={newItem.recordingDate}
-                      onChange={(e) => setNewItem({ ...newItem, recordingDate: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Dia para Postar</label>
-                    <input
-                      type="date"
-                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm"
-                      value={newItem.postDate}
-                      onChange={(e) => setNewItem({ ...newItem, postDate: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Responsável Edição</label>
-                    <select
-                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm appearance-none"
-                      value={newItem.editor}
-                      onChange={(e) => setNewItem({ ...newItem, editor: e.target.value })}
-                    >
-                      <option value="allyson">Allyson</option>
-                      <option value="kallyl">Kallyl</option>
-                      <option value="natalia">Natalia</option>
-                      <option value="torres">★ Torres (Externo)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Horario da Postagem</label>
-                    <input
-                      type="text"
-                      placeholder="Ex: 14:00"
-                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm placeholder:text-slate-600"
-                      value={newItem.time}
-                      onChange={(e) => setNewItem({ ...newItem, time: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Link do Vídeo Bruto</label>
-                    <input
-                      type="text"
-                      placeholder="Link do drive"
-                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm placeholder:text-slate-600"
-                      value={newItem.primaryLink}
-                      onChange={(e) => setNewItem({ ...newItem, primaryLink: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Link do Arquivo Editado</label>
-                    <input
-                      type="text"
-                      placeholder="Pasta completa (já deixarei preenchido)"
-                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm placeholder:text-slate-600"
-                      value={newItem.editedVideoLink}
-                      onChange={(e) => setNewItem({ ...newItem, editedVideoLink: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                {(newItem.initialStage === 'postar' || newItem.initialStage === 'editar') && (
-                  <>
-                    <div>
-                      <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Legenda do post</label>
-                      <textarea
-                        rows={3}
-                        className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm resize-none placeholder:text-slate-600"
-                        value={newItem.postCaption}
-                        onChange={(e) => setNewItem({ ...newItem, postCaption: e.target.value })}
-                        placeholder="Escreva a legenda aqui..."
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Primeiro comentário</label>
-                      <textarea
-                        rows={2}
-                        className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-sm resize-none placeholder:text-slate-600"
-                        value={newItem.firstComment}
-                        onChange={(e) => setNewItem({ ...newItem, firstComment: e.target.value })}
-                        placeholder="Comentário fixado / link / CTA..."
-                      />
-                    </div>
-                  </>
-                )}
-
-                <div className="flex flex-col sm:flex-row gap-3 pt-4 mt-4 border-t border-slate-800">
-                  <button onClick={addItem} className="flex-1 bg-blue-600 text-white font-black py-4 rounded-xl hover:bg-blue-700 text-sm uppercase">
-                    Salvar Tarefa
-                  </button>
-                  <button onClick={() => setIsAdding(false)} className="px-8 bg-slate-800 text-white font-black py-4 rounded-xl hover:bg-slate-700 text-sm uppercase">
-                    Cancelar
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* SUMMARY MODAL */}
-      <AnimatePresence>
-        {summaryModal.isOpen && summaryModal.item && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setSummaryModal({ isOpen: false, item: null })}>
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} onClick={(e) => e.stopPropagation()} className="bg-white rounded-[32px] p-8 max-w-lg w-full shadow-2xl relative">
-              <button onClick={() => setSummaryModal({ isOpen: false, item: null })} className="absolute top-6 right-6 text-slate-400 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 p-2 rounded-full">
-                <X className="w-5 h-5" />
-              </button>
-              <h3 className="text-2xl font-black text-slate-800 uppercase mb-4 pr-10">{summaryModal.item.objective}</h3>
-              <div className="bg-slate-50 p-5 rounded-2xl mb-6 max-h-[50vh] overflow-y-auto">
-                <div className="ql-snow">
-                  <div 
-                    className="ql-editor text-slate-700 text-base leading-relaxed break-normal" 
-                    dangerouslySetInnerHTML={{ __html: summaryModal.item.summary.replace(/&nbsp;/g, ' ') }} 
-                  />
-                </div>
-              </div>
-              <button onClick={handleCopy} className={`w-full font-black py-4 rounded-xl text-sm uppercase flex items-center justify-center space-x-2 ${copiedState ? 'bg-emerald-500 text-white' : 'bg-blue-600 text-white'}`}>
-                {copiedState ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
-                <span>{copiedState ? 'Copiado!' : 'Copiar roteiro'}</span>
-              </button>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* EDIT MODAL */}
-      <AnimatePresence>
-        {editModal.isOpen && editModal.item && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setEditModal({ isOpen: false, dayId: null, item: null, itemWeekKey: null })}>
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} onClick={(e) => e.stopPropagation()} className="bg-slate-900 rounded-[32px] p-6 md:p-8 max-w-xl w-full shadow-2xl relative border border-slate-700">
-              <button onClick={() => setEditModal({ isOpen: false, dayId: null, item: null, itemWeekKey: null })} className="absolute top-6 right-6 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-full">
-                <X className="w-5 h-5" />
-              </button>
-
-              <h3 className="text-xl font-black text-white uppercase mb-6 pr-10">Editar tarefa</h3>
-
-              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Título da Tarefa</label>
-                    <input
-                      type="text"
-                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-base"
-                      value={editModal.item.objective || ''}
-                      onChange={(e) => setEditModal({ ...editModal, item: { ...editModal.item, objective: e.target.value } })}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Etapa Atual</label>
-                    <select
-                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm appearance-none"
-                      value={editModal.item.tabKey || 'gravar'}
-                      onChange={(e) => setEditModal({ ...editModal, item: { ...editModal.item, tabKey: e.target.value } })}
-                    >
-                      <option value="gravar">Gravar</option>
-                      <option value="editar">Editar</option>
-                      <option value="postar">Postar</option>
-                    </select>
-                  </div>
-                </div>
-
-                {editModal.item.contentType === 'stories' && (
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Modo do Story</label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setEditModal({ ...editModal, item: { ...editModal.item, storyMode: 'aovivo' } })}
-                        className={`p-4 rounded-xl font-black uppercase text-sm border-2 transition-all ${(editModal.item.storyMode || 'aovivo') === 'aovivo' ? 'bg-rose-500 text-white border-rose-400 shadow-lg shadow-rose-500/30' : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-rose-500/50'}`}
-                      >
-                        🔴 Ao vivo<br /><span className="text-[9px] font-bold normal-case opacity-90">Gravar e postar agora</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEditModal({ ...editModal, item: { ...editModal.item, storyMode: 'banco' } })}
-                        className={`p-4 rounded-xl font-black uppercase text-sm border-2 transition-all ${editModal.item.storyMode === 'banco' ? 'bg-violet-500 text-white border-violet-400 shadow-lg shadow-violet-500/30' : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-violet-500/50'}`}
-                      >
-                        📦 Banco<br /><span className="text-[9px] font-bold normal-case opacity-90">Guardar para depois</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Roteiro / Resumo</label>
-                    <div className="bg-white text-slate-800 rounded-xl overflow-hidden mb-2">
-                      <ReactQuill 
-                        theme="snow"
-                        value={editModal.item.summary || ''} 
-                        onChange={(content) => setEditModal({ ...editModal, item: { ...editModal.item, summary: content } })} 
-                      />
-                    </div>
-                </div>
-                
-                {(activeTab === 'postar' || activeTab === 'editar') && (
-                    <div>
-                        <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Legenda do post</label>
-                        <textarea
-                            rows={4}
-                            className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm resize-none"
-                            value={editModal.item.postCaption || ''}
-                            onChange={(e) => setEditModal({ ...editModal, item: { ...editModal.item, postCaption: e.target.value } })}
-                            placeholder="Escreva a legenda aqui..."
-                        />
-                    </div>
-                )}
-
-                {(activeTab === 'postar' || activeTab === 'editar') && (
-                    <div>
-                        <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Primeiro comentário</label>
-                        <textarea
-                            rows={3}
-                            className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-sm resize-none"
-                            value={editModal.item.firstComment || ''}
-                            onChange={(e) => setEditModal({ ...editModal, item: { ...editModal.item, firstComment: e.target.value } })}
-                            placeholder="Comentário fixado / link / CTA..."
-                        />
-                    </div>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Dia para Gravar</label>
-                    <input
-                      type="date"
-                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm"
-                      value={editModal.item.recordingDate || ''}
-                      onChange={(e) => setEditModal({ ...editModal, item: { ...editModal.item, recordingDate: e.target.value } })}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Dia para Postar</label>
-                    <input
-                      type="date"
-                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm"
-                      value={editModal.item.postDate || ''}
-                      onChange={(e) => setEditModal({ ...editModal, item: { ...editModal.item, postDate: e.target.value } })}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Responsável Edição</label>
-                        <select
-                        className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm appearance-none"
-                        value={editModal.item.editor || 'allyson'}
-                        onChange={(e) => setEditModal({ ...editModal, item: { ...editModal.item, editor: e.target.value } })}
-                        >
-                        <option value="allyson">Allyson</option>
-                        <option value="kallyl">Kallyl</option>
-                        <option value="natalia">Natalia</option>
-                        <option value="torres">★ Torres (Externo)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Horario da postagem</label>
-                        <input
-                        type="text"
-                        className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm"
-                        value={editModal.item.time || ''}
-                        onChange={(e) => setEditModal({ ...editModal, item: { ...editModal.item, time: e.target.value } })}
-                        />
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Link do Vídeo Bruto</label>
-                    <input
-                      type="text"
-                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm"
-                      value={editModal.item.primaryLink || ''}
-                      onChange={(e) => setEditModal({ ...editModal, item: { ...editModal.item, primaryLink: e.target.value } })}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-2">Link do Arquivo Editado</label>
-                    <input
-                      type="text"
-                      className="w-full p-4 bg-slate-800 text-white rounded-xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm"
-                      value={editModal.item.editedVideoLink || ''}
-                      onChange={(e) => setEditModal({ ...editModal, item: { ...editModal.item, editedVideoLink: e.target.value } })}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-3 pt-6">
-                <button onClick={handleSaveEdit} className="flex-1 bg-blue-600 text-white font-black py-4 rounded-xl hover:bg-blue-700 text-sm uppercase">
-                  Salvar alteracoes
-                </button>
-                <button onClick={() => setEditModal({ isOpen: false, dayId: null, item: null, itemWeekKey: null })} className="px-8 bg-slate-800 text-white font-black py-4 rounded-xl hover:bg-slate-700 text-sm uppercase">
-                  Cancelar
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <EditItemModal editModal={editModal} setEditModal={setEditModal} activeTab={activeTab} handleSaveEdit={handleSaveEdit} />
     </div>
   );
 };
