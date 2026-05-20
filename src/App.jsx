@@ -159,11 +159,30 @@ const App = () => {
   const allEditarItemsGlobal = Object.entries(planner.weeks).flatMap(([weekKey, weekData]) => {
      return weekData.editar.geral.map(item => ({ ...item, _sourceWeekKey: weekKey }));
   });
-  
+
   allEditarItemsGlobal.sort((a, b) => {
      const dateA = a.postDate ? new Date(a.postDate + 'T12:00:00') : new Date(a._sourceWeekKey + 'T12:00:00');
      const dateB = b.postDate ? new Date(b.postDate + 'T12:00:00') : new Date(b._sourceWeekKey + 'T12:00:00');
      return dateA - dateB;
+  });
+
+  // Fila global de gravação (todas as semanas, em sequência) — respeita filtro de perfil
+  const allGravarGlobal = Object.entries(planner.weeks).flatMap(([weekKey, weekData]) => {
+    return daysOfWeek.flatMap(d => {
+      return (weekData.gravar?.[d.id] || [])
+        .filter(item => profileMatchesFilter(item.profile, profileFilter))
+        .map(item => ({ ...item, _sourceWeekKey: weekKey, _sourceDayId: d.id }));
+    });
+  });
+
+  allGravarGlobal.sort((a, b) => {
+    const dateA = a.recordingDate
+      ? new Date(a.recordingDate + 'T12:00:00')
+      : new Date(a._sourceWeekKey + 'T12:00:00');
+    const dateB = b.recordingDate
+      ? new Date(b.recordingDate + 'T12:00:00')
+      : new Date(b._sourceWeekKey + 'T12:00:00');
+    return dateA - dateB;
   });
 
   const getFilteredGravarPostar = (tabData) => {
@@ -213,12 +232,16 @@ const App = () => {
     });
   });
   
-  const allFilteredItems = activeTab === 'editar' 
-      ? allEditarItemsGlobal.filter(item => 
+  const isGravarList = activeTab === 'gravar';
+
+  const allFilteredItems = activeTab === 'editar'
+      ? allEditarItemsGlobal.filter(item =>
           (profileMatchesFilter(item.profile, profileFilter)) &&
           (editorFilter === 'todos' || (item.editor || 'allyson') === editorFilter)
         )
-      : getFilteredGravarPostar(currentWeekData[activeTab]);
+      : isGravarList
+        ? allGravarGlobal
+        : getFilteredGravarPostar(currentWeekData[activeTab]);
 
   useEffect(() => {
     let unsubscribeAuth;
@@ -679,7 +702,7 @@ const App = () => {
     <motion.div
         layout
         key={item.id}
-        draggable={activeTab !== 'editar'}
+        draggable={activeTab !== 'editar' && !isGravarList}
         onDragStart={() => handleDragStart(dayId, item, itemWeekKey)}
         onClick={() => setEditModal({ isOpen: true, dayId, item: { ...item }, itemWeekKey })}
         className={`group/item relative flex items-start md:items-center justify-between p-4 md:p-5 rounded-[20px] border-2 ${item.completed ? 'bg-slate-50/50 border-transparent opacity-50' : isEditarAoVivo ? 'bg-rose-50/40 border-rose-300 border-l-[6px] border-l-rose-500 shadow-sm' : 'bg-white border-slate-50 hover:border-blue-200 shadow-sm'} cursor-pointer`}
@@ -691,7 +714,7 @@ const App = () => {
           </div>
         )}
         <div className="flex items-start md:items-center space-x-3 md:space-x-4 flex-1 min-w-0">
-        {activeTab !== 'editar' && (
+        {activeTab !== 'editar' && !isGravarList && (
             <div className="text-slate-300 cursor-grab active:cursor-grabbing mt-1 md:mt-0">
                 <GripVertical className="w-5 h-5" />
             </div>
@@ -1126,6 +1149,19 @@ const App = () => {
                                 .map(e => renderSlimCard(e.item, e.livesIn.dayId, e.livesIn.weekKey, e.stageLabel))}
                             </div>
                           )}
+                      </div>
+                  )}
+              </div>
+          ) : isGravarList ? (
+              <div className="bg-white border border-slate-100 rounded-[32px] p-5 md:p-8 shadow-sm">
+                  <h2 className="text-2xl font-black text-slate-800 uppercase mb-6 text-center">Fila de Gravação</h2>
+                  {allGravarGlobal.length === 0 ? (
+                      <div className="text-center py-12 text-slate-300 font-black uppercase bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-100 text-sm">
+                          Nenhum conteúdo para gravar
+                      </div>
+                  ) : (
+                      <div className="space-y-4">
+                          {allGravarGlobal.map(item => renderCard(item, item._sourceDayId, item._sourceWeekKey))}
                       </div>
                   )}
               </div>
