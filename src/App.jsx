@@ -91,6 +91,7 @@ const App = () => {
   const [copiedState, setCopiedState] = useState(false);
   const [captionCopiedId, setCaptionCopiedId] = useState(null);
   const [firstCommentCopiedId, setFirstCommentCopiedId] = useState(null);
+  const [gravarListFilter, setGravarListFilter] = useState('pendentes');
 
   const handleCopyCaption = (e, item) => {
     e.stopPropagation();
@@ -183,6 +184,31 @@ const App = () => {
       ? new Date(b.recordingDate + 'T12:00:00')
       : new Date(b._sourceWeekKey + 'T12:00:00');
     return dateA - dateB;
+  });
+
+  // Itens já gravados (originaram no gravar, agora em editar/postar) — respeita filtro de perfil
+  const allGravarConcluidosGlobal = [];
+  Object.entries(planner.weeks).forEach(([weekKey, weekData]) => {
+    (weekData.editar?.geral || []).forEach(item => {
+      if (item._gravarOrigin && profileMatchesFilter(item.profile, profileFilter)) {
+        allGravarConcluidosGlobal.push({
+          item,
+          livesIn: { weekKey, dayId: 'geral' },
+          stageLabel: 'Em edição'
+        });
+      }
+    });
+    Object.entries(weekData.postar || {}).forEach(([livesDayId, items]) => {
+      (items || []).forEach(item => {
+        if (item._gravarOrigin && profileMatchesFilter(item.profile, profileFilter)) {
+          allGravarConcluidosGlobal.push({
+            item,
+            livesIn: { weekKey, dayId: livesDayId },
+            stageLabel: item.completed ? 'Postado' : 'Para postar'
+          });
+        }
+      });
+    });
   });
 
   const getFilteredGravarPostar = (tabData) => {
@@ -1155,14 +1181,42 @@ const App = () => {
           ) : isGravarList ? (
               <div className="bg-white border border-slate-100 rounded-[32px] p-5 md:p-8 shadow-sm">
                   <h2 className="text-2xl font-black text-slate-800 uppercase mb-6 text-center">Fila de Gravação</h2>
-                  {allGravarGlobal.length === 0 ? (
-                      <div className="text-center py-12 text-slate-300 font-black uppercase bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-100 text-sm">
-                          Nenhum conteúdo para gravar
+                  <div className="flex items-center justify-center mb-6">
+                      <div className="inline-flex items-center bg-slate-50 rounded-full p-1 text-[10px] font-black uppercase">
+                          <button
+                              onClick={() => setGravarListFilter('pendentes')}
+                              className={`px-3 py-1.5 rounded-full transition-colors ${gravarListFilter === 'pendentes' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                          >
+                              Pendentes ({allGravarGlobal.length})
+                          </button>
+                          <button
+                              onClick={() => setGravarListFilter('concluidos')}
+                              className={`px-3 py-1.5 rounded-full transition-colors ${gravarListFilter === 'concluidos' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                          >
+                              Concluídos ({allGravarConcluidosGlobal.length})
+                          </button>
                       </div>
+                  </div>
+                  {gravarListFilter === 'pendentes' ? (
+                      allGravarGlobal.length === 0 ? (
+                          <div className="text-center py-12 text-slate-300 font-black uppercase bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-100 text-sm">
+                              Nenhum conteúdo para gravar
+                          </div>
+                      ) : (
+                          <div className="space-y-4">
+                              {allGravarGlobal.map(item => renderCard(item, item._sourceDayId, item._sourceWeekKey))}
+                          </div>
+                      )
                   ) : (
-                      <div className="space-y-4">
-                          {allGravarGlobal.map(item => renderCard(item, item._sourceDayId, item._sourceWeekKey))}
-                      </div>
+                      allGravarConcluidosGlobal.length === 0 ? (
+                          <div className="text-center py-12 text-slate-300 font-black uppercase bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-100 text-sm">
+                              Nenhuma gravação concluída ainda
+                          </div>
+                      ) : (
+                          <div className="space-y-1.5">
+                              {allGravarConcluidosGlobal.map(e => renderSlimCard(e.item, e.livesIn.dayId, e.livesIn.weekKey, e.stageLabel))}
+                          </div>
+                      )
                   )}
               </div>
           ) : (
