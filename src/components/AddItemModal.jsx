@@ -190,7 +190,10 @@ const AddItemModal = ({ isAdding, setIsAdding, newItem, setNewItem, addItem }) =
                   <input
                     type="checkbox"
                     checked={Boolean(newItem.banco)}
-                    onChange={(e) => update({ banco: e.target.checked })}
+                    onChange={(e) => {
+                      const banco = e.target.checked;
+                      update(banco ? { banco, recordingDate: '', postDate: '' } : { banco });
+                    }}
                     className="w-4 h-4 accent-blue-600"
                   />
                   <div className="flex-1">

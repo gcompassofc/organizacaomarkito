@@ -192,7 +192,10 @@ const EditItemModal = ({ editModal, setEditModal, activeTab, handleSaveEdit }) =
                 <input
                   type="checkbox"
                   checked={Boolean(item.banco)}
-                  onChange={(e) => patch({ banco: e.target.checked })}
+                  onChange={(e) => {
+                    const banco = e.target.checked;
+                    patch(banco ? { banco, recordingDate: '', postDate: '' } : { banco });
+                  }}
                   className="w-4 h-4 accent-blue-600"
                 />
                 <div className="flex-1">

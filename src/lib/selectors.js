@@ -42,9 +42,13 @@ export const getAllItems = (planner, profileFilter, editorFilter, search) => {
 const dateOrFallback = (dateStr, fallbackWeekKey) =>
   new Date((dateStr || fallbackWeekKey) + 'T12:00:00');
 
+const notBanco = (item) => !item.banco;
+
 export const getEditarQueue = (planner, profileFilter, editorFilter) => {
   const items = Object.entries(planner.weeks).flatMap(([weekKey, weekData]) =>
-    (weekData.editar?.geral || []).map(item => ({ ...item, _sourceWeekKey: weekKey }))
+    (weekData.editar?.geral || [])
+      .filter(notBanco)
+      .map(item => ({ ...item, _sourceWeekKey: weekKey }))
   );
 
   items.sort((a, b) =>
@@ -61,6 +65,7 @@ export const getGravarQueue = (planner, profileFilter) => {
   const items = Object.entries(planner.weeks).flatMap(([weekKey, weekData]) =>
     daysOfWeek.flatMap(d =>
       (weekData.gravar?.[d.id] || [])
+        .filter(notBanco)
         .filter(item => profileMatchesFilter(item.profile, profileFilter))
         .map(item => ({ ...item, _sourceWeekKey: weekKey, _sourceDayId: d.id }))
     )
@@ -77,13 +82,13 @@ export const getGravarConcluidos = (planner, profileFilter) => {
   const out = [];
   Object.entries(planner.weeks).forEach(([weekKey, weekData]) => {
     (weekData.editar?.geral || []).forEach(item => {
-      if (item._gravarOrigin && profileMatchesFilter(item.profile, profileFilter)) {
+      if (item._gravarOrigin && !item.banco && profileMatchesFilter(item.profile, profileFilter)) {
         out.push({ item, livesIn: { weekKey, dayId: 'geral' }, stageLabel: 'Em edição' });
       }
     });
     Object.entries(weekData.postar || {}).forEach(([livesDayId, items]) => {
       (items || []).forEach(item => {
-        if (item._gravarOrigin && profileMatchesFilter(item.profile, profileFilter)) {
+        if (item._gravarOrigin && !item.banco && profileMatchesFilter(item.profile, profileFilter)) {
           out.push({
             item,
             livesIn: { weekKey, dayId: livesDayId },
@@ -103,6 +108,7 @@ export const getGravarSlimEchoes = (planner, currentWeekKey) => {
   Object.entries(planner.weeks).forEach(([weekKey, weekData]) => {
     (weekData.editar?.geral || []).forEach(item => {
       const origin = item._gravarOrigin;
+      if (item.banco) return;
       if (origin && origin.weekKey === currentWeekKey && byDay[origin.dayId]) {
         byDay[origin.dayId].push({
           item,
@@ -114,6 +120,7 @@ export const getGravarSlimEchoes = (planner, currentWeekKey) => {
     Object.entries(weekData.postar || {}).forEach(([livesDayId, items]) => {
       (items || []).forEach(item => {
         const origin = item._gravarOrigin;
+        if (item.banco) return;
         if (origin && origin.weekKey === currentWeekKey && byDay[origin.dayId]) {
           byDay[origin.dayId].push({
             item,
@@ -133,7 +140,7 @@ export const getEditarSlimEchoes = (planner) => {
   Object.entries(planner.weeks).forEach(([weekKey, weekData]) => {
     Object.entries(weekData.postar || {}).forEach(([livesDayId, items]) => {
       (items || []).forEach(item => {
-        if (item._editarOrigin) {
+        if (item._editarOrigin && !item.banco) {
           out.push({
             item,
             livesIn: { weekKey, dayId: livesDayId },
@@ -156,6 +163,7 @@ export const getEditarPreviewsByDay = (planner, currentWeekKey) => {
 
   Object.entries(planner.weeks).forEach(([weekKey, weekData]) => {
     (weekData.editar?.geral || []).forEach(item => {
+      if (item.banco) return;
       if (!item.postDate) return;
       const idx = weekDayKeys.indexOf(item.postDate);
       if (idx >= 0) {

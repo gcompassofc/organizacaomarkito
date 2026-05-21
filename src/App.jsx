@@ -143,7 +143,7 @@ const App = () => {
   const isGravarList = activeTab === 'gravar';
 
   const getFilteredGravarPostar = (tabData) =>
-    Object.values(tabData).flat().filter(item => profileMatchesFilter(item.profile, effectiveProfileFilter));
+    Object.values(tabData).flat().filter(item => !item.banco && profileMatchesFilter(item.profile, effectiveProfileFilter));
 
   const allFilteredItems = activeTab === 'editar'
     ? allEditarItemsGlobal
@@ -404,6 +404,7 @@ const App = () => {
     const isEstatico = newItem.contentType === 'estatico' || newItem.contentType === 'carrossel';
     const stage = newItem.initialStage || (isEstatico ? 'editar' : 'gravar');
 
+    const banco = Boolean(newItem.banco);
     const item = {
       id: newId(),
       objective: newItem.objective,
@@ -414,13 +415,13 @@ const App = () => {
       postCaption: newItem.postCaption,
       firstComment: newItem.firstComment,
       editor: newItem.editor,
-      recordingDate: newItem.recordingDate,
-      postDate: newItem.postDate,
+      recordingDate: banco ? '' : newItem.recordingDate,
+      postDate: banco ? '' : newItem.postDate,
       contentType: newItem.contentType,
       recordingType: newItem.recordingType,
       profile: newItem.profile,
       pilar: newItem.pilar || '',
-      banco: Boolean(newItem.banco),
+      banco,
       storyMode: newItem.storyMode || 'aovivo',
       time: newItem.time,
       completed: false,
@@ -886,7 +887,7 @@ const App = () => {
               const thisWeekKey = getWeekKey();
               const todayId = getTodayDayId();
               return daysOfWeek.map((day, dayIndex) => {
-              const allDayItems = (currentWeekData[activeTab][day.id] || []).filter(item => profileMatchesFilter(item.profile, effectiveProfileFilter));
+              const allDayItems = (currentWeekData[activeTab][day.id] || []).filter(item => !item.banco && profileMatchesFilter(item.profile, effectiveProfileFilter));
               const filteredDayItems = activeTab === 'postar' ? allDayItems.filter(item => !item.completed) : allDayItems;
               const completedPostarItems = activeTab === 'postar' ? allDayItems.filter(item => item.completed) : [];
               const dayEchoes = activeTab === 'gravar' ? (gravarSlimEchoes[day.id] || []).filter(e => profileMatchesFilter(e.item.profile, effectiveProfileFilter)) : [];
