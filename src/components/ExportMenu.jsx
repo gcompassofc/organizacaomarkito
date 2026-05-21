@@ -1,6 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Download } from 'lucide-react';
 import { MONTH_NAMES, toDateKey } from '../lib/dates';
+import { IconButton } from './ui/IconButton';
+import { Button } from './ui/Button';
+import { Input, Field } from './ui/Input';
+import { text } from '../lib/ui';
 
 export const ExportMenu = ({ onExport, onWipe }) => {
   const [open, setOpen] = useState(false);
@@ -42,13 +46,14 @@ export const ExportMenu = ({ onExport, onWipe }) => {
 
   return (
     <div ref={ref} className="relative">
-      <button
+      <IconButton
+        icon={Download}
+        label="Exportar"
+        tone="neutral"
+        size="md"
         onClick={() => setOpen(o => !o)}
-        className={`p-2 hover:bg-slate-50 rounded-lg transition-colors ${open ? 'text-slate-700 bg-slate-50' : 'text-slate-300 hover:text-slate-700'}`}
-        title="Exportar CSV"
-      >
-        <Download className="w-4 h-4" />
-      </button>
+        className={open ? 'bg-slate-100 text-slate-700' : ''}
+      />
 
       {open && (
         <div className="absolute top-full right-0 mt-2 z-30 w-72 bg-white border border-slate-100 rounded-2xl shadow-xl shadow-slate-900/10 p-2">
@@ -56,80 +61,71 @@ export const ExportMenu = ({ onExport, onWipe }) => {
             onClick={exportAll}
             className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-slate-50 text-left transition-colors"
           >
-            <span className="text-[11px] font-black uppercase text-slate-700">Tudo</span>
-            <span className="text-[9px] font-bold text-slate-400 uppercase">todos os itens</span>
+            <span className="text-sm font-semibold text-slate-700">Tudo</span>
+            <span className={`${text.microMeta} text-slate-400`}>todos os itens</span>
           </button>
           <button
             onClick={exportThisMonth}
             className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-slate-50 text-left transition-colors"
           >
-            <span className="text-[11px] font-black uppercase text-slate-700">Este mês</span>
-            <span className="text-[9px] font-bold text-slate-400 uppercase">{monthLabel}</span>
+            <span className="text-sm font-semibold text-slate-700">Este mês</span>
+            <span className={`${text.microMeta} text-slate-400`}>{monthLabel}</span>
           </button>
 
           <div className="border-t border-slate-100 mt-1 pt-3 px-3 pb-2">
-            <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-3">
+            <p className={`${text.microMeta} text-slate-400 mb-3`}>
               Período personalizado
             </p>
-            <div className="space-y-2.5">
-              <div>
-                <label className="text-[9px] font-black uppercase text-slate-400 block mb-1.5">De</label>
-                <input
-                  type="date"
-                  value={from}
-                  onChange={(e) => setFrom(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:border-blue-300 transition-colors"
-                />
-              </div>
-              <div>
-                <label className="text-[9px] font-black uppercase text-slate-400 block mb-1.5">Até</label>
-                <input
-                  type="date"
-                  value={to}
-                  onChange={(e) => setTo(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:border-blue-300 transition-colors"
-                />
-              </div>
-              <button
+            <div className="space-y-3">
+              <Field label="De">
+                <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+              </Field>
+              <Field label="Até">
+                <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+              </Field>
+              <Button
+                variant="primary"
+                size="sm"
                 onClick={exportRange}
                 disabled={!from && !to}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase py-2 rounded-lg transition-colors disabled:bg-slate-200 disabled:cursor-not-allowed disabled:text-slate-400 tracking-wider"
+                className="w-full"
               >
                 Baixar período
-              </button>
+              </Button>
             </div>
           </div>
 
           {onWipe && (
             <div className="border-t border-rose-100 mt-1 pt-3 px-3 pb-2">
-              <p className="text-[9px] font-black uppercase text-rose-400 tracking-widest mb-2">
+              <p className={`${text.microMeta} text-rose-400 mb-2`}>
                 Zona perigosa
               </p>
               {!confirmWipe ? (
-                <button
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={() => setConfirmWipe(true)}
-                  className="w-full text-[10px] font-black uppercase text-rose-600 hover:bg-rose-50 py-2 rounded-lg border border-rose-100 transition-colors tracking-wider"
+                  className="w-full border-rose-100 text-rose-600 hover:bg-rose-50"
                 >
                   Apagar todos os conteúdos
-                </button>
+                </Button>
               ) : (
                 <div className="space-y-2">
-                  <p className="text-[10px] font-bold text-rose-700 leading-snug px-1">
+                  <p className="text-xs text-rose-700 leading-snug px-1 font-normal">
                     Isso apaga TUDO de todas as semanas e não tem volta.
                   </p>
                   <div className="flex gap-2">
-                    <button
-                      onClick={() => setConfirmWipe(false)}
-                      className="flex-1 text-[10px] font-black uppercase text-slate-500 hover:bg-slate-50 py-2 rounded-lg border border-slate-200 tracking-wider transition-colors"
-                    >
+                    <Button variant="secondary" size="sm" onClick={() => setConfirmWipe(false)} className="flex-1">
                       Cancelar
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
                       onClick={() => { onWipe(); setConfirmWipe(false); setOpen(false); }}
-                      className="flex-1 text-[10px] font-black uppercase bg-rose-600 hover:bg-rose-700 text-white py-2 rounded-lg tracking-wider transition-colors"
+                      className="flex-1"
                     >
                       Sim, apagar
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
