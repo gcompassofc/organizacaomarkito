@@ -4,6 +4,12 @@ import { X } from 'lucide-react';
 import ReactQuill from 'react-quill-new';
 import { pilaresForProfile } from '../lib/tags';
 
+const STAGES = [
+  { id: 'gravar', label: 'Gravar', hint: 'Ainda vai gravar', selected: 'bg-blue-500 border-blue-400 text-white shadow-lg shadow-blue-500/20' },
+  { id: 'editar', label: 'Editar', hint: 'Já gravado', selected: 'bg-amber-500 border-amber-400 text-white shadow-lg shadow-amber-500/20' },
+  { id: 'postar', label: 'Postar', hint: 'Já editado', selected: 'bg-emerald-500 border-emerald-400 text-white shadow-lg shadow-emerald-500/20' }
+];
+
 const inputBase =
   'w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-400 focus:bg-white transition-colors';
 
@@ -26,7 +32,8 @@ const EditItemModal = ({ editModal, setEditModal, activeTab, handleSaveEdit }) =
   const item = editModal.item;
   const close = () => setEditModal({ isOpen: false, dayId: null, item: null, itemWeekKey: null, sourceStage: null });
   const patch = (p) => setEditModal({ ...editModal, item: { ...item, ...p } });
-  const showPostFields = activeTab === 'postar' || activeTab === 'editar';
+  const currentStage = item.tabKey || activeTab || 'gravar';
+  const showPostFields = currentStage === 'postar' || currentStage === 'editar';
   const changeProfile = (profile) => {
     const validIds = pilaresForProfile(profile).map(p => p.id);
     const pilar = validIds.includes(item.pilar) ? item.pilar : '';
@@ -51,7 +58,7 @@ const EditItemModal = ({ editModal, setEditModal, activeTab, handleSaveEdit }) =
             <div>
               <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Editar tarefa</h3>
               <p className="text-[10px] font-bold text-slate-400 uppercase mt-0.5 tracking-wider">
-                Atualize os campos que precisar
+                Qualquer campo pode ser alterado a qualquer momento
               </p>
             </div>
             <button
@@ -64,28 +71,37 @@ const EditItemModal = ({ editModal, setEditModal, activeTab, handleSaveEdit }) =
 
           <div className="flex-1 overflow-y-auto px-7 py-6 space-y-8">
             <Section title="Identidade">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="md:col-span-2">
-                  <Label>Título da Tarefa</Label>
-                  <input
-                    type="text"
-                    className={inputBase + ' text-base'}
-                    value={item.objective || ''}
-                    onChange={(e) => patch({ objective: e.target.value })}
-                  />
+              <div>
+                <Label>Etapa atual</Label>
+                <div className="grid grid-cols-3 gap-3">
+                  {STAGES.map(s => {
+                    const active = currentStage === s.id;
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => patch({ tabKey: s.id })}
+                        className={`p-3.5 rounded-xl font-black uppercase text-xs border-2 transition-all ${active ? s.selected : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-300 hover:bg-white'}`}
+                      >
+                        {s.label}
+                        <br />
+                        <span className={`text-[9px] font-bold normal-case ${active ? 'opacity-90' : 'opacity-70'}`}>
+                          {s.hint}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
-                <div>
-                  <Label>Etapa atual</Label>
-                  <select
-                    className={inputBase + ' appearance-none'}
-                    value={item.tabKey || 'gravar'}
-                    onChange={(e) => patch({ tabKey: e.target.value })}
-                  >
-                    <option value="gravar">Gravar</option>
-                    <option value="editar">Editar</option>
-                    <option value="postar">Postar</option>
-                  </select>
-                </div>
+              </div>
+
+              <div>
+                <Label>Título da Tarefa</Label>
+                <input
+                  type="text"
+                  className={inputBase + ' text-base'}
+                  value={item.objective || ''}
+                  onChange={(e) => patch({ objective: e.target.value })}
+                />
               </div>
 
               <div>
@@ -95,12 +111,41 @@ const EditItemModal = ({ editModal, setEditModal, activeTab, handleSaveEdit }) =
                     theme="snow"
                     value={item.summary || ''}
                     onChange={(content) => patch({ summary: content })}
+                    placeholder="Gancho, promessa, tópicos e fechamento"
                   />
                 </div>
               </div>
             </Section>
 
             <Section title="Classificação">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label>Tipo</Label>
+                  <select className={inputBase + ' appearance-none'} value={item.contentType || 'video_curto'} onChange={(e) => patch({ contentType: e.target.value })}>
+                    <option value="video_curto">Vídeo curto</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="stories">Stories</option>
+                    <option value="estatico">Estático</option>
+                    <option value="carrossel">Carrossel</option>
+                  </select>
+                </div>
+                <div>
+                  <Label>Perfil</Label>
+                  <select className={inputBase + ' appearance-none'} value={item.profile || 'opa'} onChange={(e) => changeProfile(e.target.value)}>
+                    <option value="opa">OPA</option>
+                    <option value="marco">Marco</option>
+                    <option value="collab">Collab (OPA + Marco)</option>
+                  </select>
+                </div>
+                <div>
+                  <Label>Participação</Label>
+                  <select className={inputBase + ' appearance-none'} value={item.recordingType || 'sozinho'} onChange={(e) => patch({ recordingType: e.target.value })}>
+                    <option value="sozinho">Sozinho</option>
+                    <option value="com_alguem">Dois</option>
+                  </select>
+                </div>
+              </div>
+
               {item.contentType === 'stories' && (
                 <div>
                   <Label>Modo do Story</Label>
@@ -127,43 +172,6 @@ const EditItemModal = ({ editModal, setEditModal, activeTab, handleSaveEdit }) =
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <Label>Perfil</Label>
-                  <select
-                    className={inputBase + ' appearance-none'}
-                    value={item.profile || 'opa'}
-                    onChange={(e) => changeProfile(e.target.value)}
-                  >
-                    <option value="opa">OPA</option>
-                    <option value="marco">Marco</option>
-                    <option value="collab">Collab (OPA + Marco)</option>
-                  </select>
-                </div>
-                <div>
-                  <Label>Responsável edição</Label>
-                  <select
-                    className={inputBase + ' appearance-none'}
-                    value={item.editor || 'allyson'}
-                    onChange={(e) => patch({ editor: e.target.value })}
-                  >
-                    <option value="allyson">Allyson</option>
-                    <option value="kallyl">Kallyl</option>
-                    <option value="natalia">Natalia</option>
-                    <option value="torres">★ Torres (Externo)</option>
-                  </select>
-                </div>
-                <div>
-                  <Label>Horário da postagem</Label>
-                  <input
-                    type="text"
-                    className={inputBase}
-                    value={item.time || ''}
-                    onChange={(e) => patch({ time: e.target.value })}
-                  />
-                </div>
-              </div>
-
               <div>
                 <Label>Pilar de conteúdo</Label>
                 <select
@@ -179,7 +187,7 @@ const EditItemModal = ({ editModal, setEditModal, activeTab, handleSaveEdit }) =
               </div>
             </Section>
 
-            <Section title="Agenda">
+            <Section title="Agenda & Equipe">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label>Dia para gravar</Label>
@@ -200,6 +208,32 @@ const EditItemModal = ({ editModal, setEditModal, activeTab, handleSaveEdit }) =
                   />
                 </div>
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Responsável edição</Label>
+                  <select
+                    className={inputBase + ' appearance-none'}
+                    value={item.editor || 'allyson'}
+                    onChange={(e) => patch({ editor: e.target.value })}
+                  >
+                    <option value="allyson">Allyson</option>
+                    <option value="kallyl">Kallyl</option>
+                    <option value="natalia">Natalia</option>
+                    <option value="torres">★ Torres (Externo)</option>
+                  </select>
+                </div>
+                <div>
+                  <Label>Horário da postagem</Label>
+                  <input
+                    type="text"
+                    placeholder="Ex: 14:00"
+                    className={inputBase}
+                    value={item.time || ''}
+                    onChange={(e) => patch({ time: e.target.value })}
+                  />
+                </div>
+              </div>
             </Section>
 
             <Section title="Links">
@@ -208,6 +242,7 @@ const EditItemModal = ({ editModal, setEditModal, activeTab, handleSaveEdit }) =
                   <Label>Link do vídeo bruto</Label>
                   <input
                     type="text"
+                    placeholder="Link do Drive"
                     className={inputBase}
                     value={item.primaryLink || ''}
                     onChange={(e) => patch({ primaryLink: e.target.value })}
@@ -217,6 +252,7 @@ const EditItemModal = ({ editModal, setEditModal, activeTab, handleSaveEdit }) =
                   <Label>Link do arquivo editado</Label>
                   <input
                     type="text"
+                    placeholder="Pasta completa"
                     className={inputBase}
                     value={item.editedVideoLink || ''}
                     onChange={(e) => patch({ editedVideoLink: e.target.value })}
