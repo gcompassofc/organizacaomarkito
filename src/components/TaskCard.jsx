@@ -59,11 +59,11 @@ export const TaskCard = ({
   const draggable = activeTab !== 'editar' && !isGravarList;
   // Conteúdo "extra" só aparece no mobile quando expandido; no desktop sempre visível
   const extraVisible = expandedMobile ? '' : 'hidden md:block';
+  // Links de ação (subir/baixar vídeo) ficam SEMPRE visíveis fora do "Mais detalhes" —
+  // são a ação principal de cada etapa, não detalhe escondido.
   const hasExtras =
     Boolean(item.summary) ||
-    (activeTab === 'gravar' && item.primaryLink) ||
-    (activeTab === 'editar' && (item.primaryLink || item.editedVideoLink)) ||
-    (activeTab === 'postar' && (item.editedVideoLink || item.postCaption || item.firstComment));
+    (activeTab === 'postar' && (item.postCaption || item.firstComment));
 
   return (
     <motion.div
@@ -178,32 +178,69 @@ export const TaskCard = ({
             )}
           </div>
 
-          <div className={extraVisible}>
-            {activeTab === 'gravar' && item.primaryLink && (
-              <a href={item.primaryLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center text-[10px] font-semibold tracking-wider mt-3 mr-3 uppercase underline decoration-2 underline-offset-4 text-blue-600 hover:text-blue-700">
-                <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
-                Suba o vídeo aqui
-              </a>
+          <div className="flex flex-wrap items-center gap-2 mt-3">
+            {activeTab === 'gravar' && (
+              item.primaryLink ? (
+                <a
+                  href={item.primaryLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold transition-colors"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" strokeWidth={2.5} />
+                  Suba o vídeo aqui
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onClick(dayId, item, itemWeekKey); }}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-slate-50 hover:bg-blue-50 hover:text-blue-700 border border-dashed border-slate-300 hover:border-blue-300 text-slate-500 text-xs font-semibold transition-colors"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" strokeWidth={2.5} />
+                  + Link pra subir o vídeo
+                </button>
+              )
             )}
             {activeTab === 'editar' && item.primaryLink && (
-              <a href={item.primaryLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center text-[10px] font-semibold tracking-wider mt-3 mr-3 uppercase underline decoration-2 underline-offset-4 text-blue-600 hover:text-blue-700">
-                <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
-                Baixe o vídeo bruto aqui
+              <a
+                href={item.primaryLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold transition-colors"
+              >
+                <ExternalLink className="w-3.5 h-3.5" strokeWidth={2.5} />
+                Baixe o vídeo bruto
               </a>
             )}
             {activeTab === 'editar' && item.editedVideoLink && (
-              <a href={item.editedVideoLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center text-[10px] font-semibold tracking-wider mt-3 mr-3 uppercase underline decoration-2 underline-offset-4 text-emerald-600 hover:text-emerald-700">
-                <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+              <a
+                href={item.editedVideoLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold transition-colors"
+              >
+                <ExternalLink className="w-3.5 h-3.5" strokeWidth={2.5} />
                 Arquivo editado
               </a>
             )}
             {activeTab === 'postar' && item.editedVideoLink && (
-              <a href={item.editedVideoLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center text-[10px] font-semibold tracking-wider mt-3 mr-3 uppercase underline decoration-2 underline-offset-4 text-emerald-600 hover:text-emerald-700">
-                <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
-                Baixe o vídeo editado aqui
+              <a
+                href={item.editedVideoLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold transition-colors"
+              >
+                <ExternalLink className="w-3.5 h-3.5" strokeWidth={2.5} />
+                Baixe o vídeo editado
               </a>
             )}
+          </div>
 
+          <div className={extraVisible}>
             {activeTab === 'postar' && item.postCaption && (
               <div className="mt-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
                 <div className="flex items-center justify-between mb-2">
