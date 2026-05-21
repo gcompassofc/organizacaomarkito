@@ -4,26 +4,26 @@ import { Check, ChevronDown } from 'lucide-react';
 const PROFILES = [
   { id: 'todos', label: 'Todos', dot: 'bg-slate-300' },
   { id: 'marco', label: 'Marco', dot: 'bg-emerald-500' },
-  { id: 'opa', label: 'OPA', dot: 'bg-blue-500' }
+  { id: 'opa',   label: 'OPA',   dot: 'bg-blue-500' }
 ];
 
 const EDITORS = [
-  { id: 'todos', label: 'Todos', dot: 'bg-slate-300' },
+  { id: 'todos',      label: 'Todos',      dot: 'bg-slate-300' },
   { id: 'indefinido', label: 'Indefinido', dot: 'bg-slate-400' },
-  { id: 'allyson', label: 'Allyson', dot: 'bg-amber-500' },
-  { id: 'kallyl', label: 'Kallyl', dot: 'bg-amber-500' },
-  { id: 'natalia', label: 'Natalia', dot: 'bg-amber-500' },
-  { id: 'torres', label: 'Torres', dot: 'bg-violet-500', tag: 'Externo' }
+  { id: 'allyson',    label: 'Allyson',    dot: 'bg-amber-500' },
+  { id: 'kallyl',     label: 'Kallyl',     dot: 'bg-amber-500' },
+  { id: 'natalia',    label: 'Natalia',    dot: 'bg-amber-500' },
+  { id: 'torres',     label: 'Torres',     dot: 'bg-violet-500', tag: 'Externo' }
 ];
 
 const accent = (id, opts) => {
   if (id === 'todos') return 'text-slate-500';
   const opt = opts.find(o => o.id === id);
   if (!opt) return 'text-slate-500';
-  if (opt.dot.includes('emerald')) return 'text-emerald-600';
-  if (opt.dot.includes('blue')) return 'text-blue-600';
-  if (opt.dot.includes('amber')) return 'text-amber-600';
-  if (opt.dot.includes('violet')) return 'text-violet-600';
+  if (opt.dot.includes('emerald')) return 'text-emerald-700';
+  if (opt.dot.includes('blue'))    return 'text-blue-700';
+  if (opt.dot.includes('amber'))   return 'text-amber-700';
+  if (opt.dot.includes('violet'))  return 'text-violet-700';
   return 'text-slate-500';
 };
 
@@ -51,18 +51,18 @@ const Popover = ({ label, value, options, onChange }) => {
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className={`group flex items-center gap-2.5 pl-3 pr-2.5 py-2 rounded-full border transition-all ${isActive ? 'border-slate-200 bg-white shadow-sm' : 'border-slate-100 bg-white hover:border-slate-200'}`}
+        className={`group inline-flex items-center gap-2 pl-3 pr-2.5 h-9 rounded-full border transition-colors ${isActive ? 'border-slate-200 bg-white shadow-sm' : 'border-slate-100 bg-white hover:border-slate-200'}`}
       >
         <span className={`w-2 h-2 rounded-full ${current.dot}`} />
-        <span className="flex items-baseline gap-1.5">
-          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{label}</span>
-          <span className={`text-[11px] font-black uppercase ${accent(value, options)}`}>{current.label}</span>
+        <span className="inline-flex items-baseline gap-1.5">
+          <span className="text-[10px] font-semibold tracking-wider uppercase text-slate-400">{label}</span>
+          <span className={`text-xs font-semibold ${accent(value, options)}`}>{current.label}</span>
         </span>
         <ChevronDown className={`w-3.5 h-3.5 text-slate-300 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={3} />
       </button>
 
       {open && (
-        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-30 w-44 bg-white border border-slate-100 rounded-2xl shadow-xl shadow-slate-900/10 p-1.5">
+        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-30 w-48 bg-white border border-slate-100 rounded-2xl shadow-xl shadow-slate-900/10 p-1.5">
           {options.map(opt => {
             const selected = opt.id === value;
             return (
@@ -73,11 +73,11 @@ const Popover = ({ label, value, options, onChange }) => {
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left transition-colors ${selected ? 'bg-slate-50' : 'hover:bg-slate-50'}`}
               >
                 <span className={`w-2 h-2 rounded-full ${opt.dot}`} />
-                <span className={`flex-1 text-[11px] font-black uppercase ${selected ? accent(opt.id, options) : 'text-slate-600'}`}>
+                <span className={`flex-1 text-sm font-medium ${selected ? accent(opt.id, options) : 'text-slate-700'}`}>
                   {opt.label}
                 </span>
                 {opt.tag && (
-                  <span className="text-[8px] font-black uppercase text-violet-500 tracking-wider">{opt.tag}</span>
+                  <span className="text-[9px] font-semibold tracking-wider uppercase text-violet-500">{opt.tag}</span>
                 )}
                 {selected && <Check className="w-3.5 h-3.5 text-slate-500" strokeWidth={3} />}
               </button>
@@ -95,12 +95,13 @@ export const FilterBar = ({
   profileFilter,
   onProfileChange,
   editorFilter,
-  onEditorChange
+  onEditorChange,
+  inline = false
 }) => {
   if (!visible) return null;
 
   return (
-    <div className="mb-8 flex items-center justify-center gap-3">
+    <div className={inline ? 'inline-flex items-center gap-2' : 'mb-8 flex items-center justify-center gap-3'}>
       <Popover
         label="Perfil"
         value={profileFilter}
@@ -109,7 +110,7 @@ export const FilterBar = ({
       />
       {showEditor && (
         <Popover
-          label="Quem edita"
+          label="Edita"
           value={editorFilter}
           options={EDITORS}
           onChange={onEditorChange}
