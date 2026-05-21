@@ -865,11 +865,11 @@ const App = () => {
                       className="w-full flex items-center gap-4 px-5 py-3 text-left outline-none"
                     >
                       <span className={`w-2 h-2 rounded-full ${day.color} flex-shrink-0`} />
-                      <span className="text-sm font-black text-slate-500 uppercase tracking-wide flex-shrink-0">{day.label}</span>
-                      <span className="text-[10px] font-black text-slate-300 uppercase">{dateLabel}</span>
+                      <span className="text-sm font-semibold text-slate-700 flex-shrink-0">{day.label}</span>
+                      <span className={`${text.microMeta} text-slate-400`}>{dateLabel}</span>
                       <span className="flex-1" />
-                      <span className="text-[10px] font-black text-slate-300 uppercase">Vazio</span>
-                      <ChevronDown className="w-4 h-4 text-slate-200" strokeWidth={3} />
+                      <span className={`${text.microMeta} text-slate-300`}>Vazio</span>
+                      <ChevronDown className="w-4 h-4 text-slate-300" strokeWidth={3} />
                     </button>
                   </div>
                 );
@@ -883,11 +883,11 @@ const App = () => {
                 className={`group relative bg-white ${radius.big} transition-shadow duration-500 ${isToday ? 'border-2 border-emerald-300 ring-4 ring-emerald-100' : 'border border-slate-100'} ${isExpanded && !isToday ? 'shadow-2xl ring-4 ring-blue-50' : isExpanded ? 'shadow-2xl' : 'shadow-sm hover:shadow-xl hover:border-slate-200'} ${isDropTarget ? 'border-dashed border-2 border-blue-300' : ''}`}
               >
                 <div className="absolute -top-3 left-8 z-10 flex items-center gap-2">
-                  <span className={`${day.color} text-white text-[11px] font-black px-5 py-1.5 rounded-full uppercase shadow-lg`}>
+                  <span className={`${day.color} text-white ${text.meta} px-4 py-1.5 rounded-full shadow-md`}>
                     {day.id.substring(0, 3)}
                   </span>
                   {isToday && (
-                    <span className="inline-flex items-center gap-1.5 bg-emerald-500 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase shadow-md">
+                    <span className={`inline-flex items-center gap-1.5 bg-emerald-500 text-white ${text.microMeta} px-3 py-1 rounded-full shadow-sm`}>
                       <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                       Hoje
                     </span>
@@ -896,33 +896,33 @@ const App = () => {
 
                 <button onClick={() => toggleDay(day.id)} className="w-full flex items-start justify-between p-5 md:p-6 text-left outline-none">
                   <div className="flex flex-col min-w-0 flex-1">
-                    <h2 className="text-2xl font-black text-slate-800 uppercase">{day.label}</h2>
-                    <p className="text-[10px] text-slate-400 font-black uppercase mt-1">
-                      {dateLabel} - {filteredDayItems.length} {filteredDayItems.length === 1 ? 'Conteudo' : 'Conteudos'}
+                    <h2 className={`${text.h2} text-slate-900`}>{day.label}</h2>
+                    <p className={`${text.microMeta} text-slate-400 mt-1.5`}>
+                      {dateLabel} · {filteredDayItems.length} {filteredDayItems.length === 1 ? 'conteúdo' : 'conteúdos'}
                       {dayPreviews.length > 0 && (
-                        <span className="ml-2 inline-flex items-center gap-1 text-amber-600">
+                        <span className="ml-2 inline-flex items-center gap-1 text-amber-600 normal-case">
                           <Scissors className="w-2.5 h-2.5" />
                           +{dayPreviews.length} em edição
                         </span>
                       )}
                     </p>
                     {!isExpanded && previewItems.length > 0 && (
-                      <ul className="mt-3 space-y-1">
+                      <ul className="mt-3 space-y-1.5">
                         {previewItems.map(it => (
-                          <li key={it.id} className="flex items-center gap-2 text-xs text-slate-500 font-medium truncate">
+                          <li key={it.id} className="flex items-center gap-2 text-sm text-slate-500 font-normal truncate">
                             <span className="w-1 h-1 rounded-full bg-slate-300 flex-shrink-0" />
                             <span className="truncate">{it.objective}</span>
                           </li>
                         ))}
                         {moreCount > 0 && (
-                          <li className="text-[10px] font-black text-slate-300 uppercase ml-3">
+                          <li className={`${text.microMeta} text-slate-400 ml-3`}>
                             +{moreCount} mais
                           </li>
                         )}
                       </ul>
                     )}
                   </div>
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all flex-shrink-0 ${isExpanded ? 'bg-blue-600 text-white rotate-180' : 'bg-slate-50 text-slate-300 group-hover:bg-slate-100'}`}>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all flex-shrink-0 ${isExpanded ? 'bg-blue-600 text-white rotate-180' : 'bg-slate-50 text-slate-400 group-hover:bg-slate-100'}`}>
                     <ChevronDown className="w-5 h-5" strokeWidth={3} />
                   </div>
                 </button>
@@ -933,7 +933,7 @@ const App = () => {
                       <div className="px-5 md:px-6 pb-6 border-t border-slate-50">
                         <div className="space-y-3 mt-5">
                           {filteredDayItems.length === 0 && completedPostarItems.length === 0 && dayEchoes.length === 0 && dayPreviews.length === 0 && (
-                            <div className="text-center py-8 text-slate-300 font-black uppercase bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-100 text-sm">
+                            <div className={emptyState}>
                               Sem planos para hoje
                             </div>
                           )}
@@ -946,18 +946,18 @@ const App = () => {
                               <>
                                 {videos.length > 0 && (
                                   <div className="mb-6">
-                                    <h4 className="text-[10px] font-black text-slate-400 uppercase mb-3 ml-2">Vídeos</h4>
+                                    <h4 className={`${text.microMeta} text-slate-400 mb-3 ml-2`}>Vídeos</h4>
                                     <div className="space-y-3">
                                       {(() => { const peerIds = videos.map(v => v.id); return videos.map((item, idx) => renderCard(item, day.id, currentWeekKey, { reorderable: activeTab === 'postar', index: idx, total: videos.length, peerIds })); })()}
                                     </div>
                                   </div>
                                 )}
                                 {storiesAoVivo.length > 0 && activeTab === 'gravar' && (
-                                  <div className="mb-6 -mx-2 px-3 py-3 rounded-2xl bg-gradient-to-br from-rose-50 to-rose-100/50 border-2 border-rose-200">
+                                  <div className="mb-6 -mx-2 px-3 py-3 rounded-2xl bg-rose-50/60 border border-rose-200">
                                     <div className="flex items-center gap-2 mb-3 ml-1">
-                                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-rose-500 text-white text-[11px] animate-pulse">●</span>
-                                      <h4 className="text-xs font-black text-rose-700 uppercase tracking-wide">Stories — Ao vivo</h4>
-                                      <span className="text-[9px] font-bold text-rose-500 uppercase">Postar agora</span>
+                                      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-rose-500 text-white text-[10px] animate-pulse">●</span>
+                                      <h4 className="text-sm font-semibold text-rose-700">Stories ao vivo</h4>
+                                      <span className={`${text.microMeta} text-rose-500/80`}>postar agora</span>
                                     </div>
                                     <div className="space-y-3">
                                       {storiesAoVivo.map((item) => renderCard(item, day.id, currentWeekKey))}
@@ -965,11 +965,11 @@ const App = () => {
                                   </div>
                                 )}
                                 {storiesBanco.length > 0 && activeTab === 'gravar' && (
-                                  <div className="mb-6 -mx-2 px-3 py-3 rounded-2xl bg-gradient-to-br from-violet-50 to-violet-100/40 border-2 border-violet-200">
+                                  <div className="mb-6 -mx-2 px-3 py-3 rounded-2xl bg-violet-50/60 border border-violet-200">
                                     <div className="flex items-center gap-2 mb-3 ml-1">
-                                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-violet-500 text-white text-[12px]">📦</span>
-                                      <h4 className="text-xs font-black text-violet-700 uppercase tracking-wide">Stories — Banco</h4>
-                                      <span className="text-[9px] font-bold text-violet-500 uppercase">Guardar para depois</span>
+                                      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-violet-500 text-white text-[11px]">📦</span>
+                                      <h4 className="text-sm font-semibold text-violet-700">Stories — banco</h4>
+                                      <span className={`${text.microMeta} text-violet-500/80`}>guardar para depois</span>
                                     </div>
                                     <div className="space-y-3">
                                       {storiesBanco.map((item) => renderCard(item, day.id, currentWeekKey))}
@@ -978,7 +978,7 @@ const App = () => {
                                 )}
                                 {(storiesAoVivo.length > 0 || storiesBanco.length > 0) && activeTab !== 'gravar' && (
                                   <div className="mb-6">
-                                    <h4 className="text-[10px] font-black text-slate-400 uppercase mb-3 ml-2">Stories</h4>
+                                    <h4 className={`${text.microMeta} text-slate-400 mb-3 ml-2`}>Stories</h4>
                                     <div className="space-y-3">
                                       {(() => { const all = [...storiesAoVivo, ...storiesBanco]; const peerIds = all.map(v => v.id); return all.map((item, idx) => renderCard(item, day.id, currentWeekKey, { reorderable: activeTab === 'postar', index: idx, total: all.length, peerIds })); })()}
                                     </div>
@@ -992,8 +992,8 @@ const App = () => {
                             <div className="pt-4 mt-4 border-t border-dashed border-amber-200 space-y-3">
                               <div className="flex items-center gap-2 ml-1">
                                 <Scissors className="w-3.5 h-3.5 text-amber-500" />
-                                <h4 className="text-[10px] font-black text-amber-700 uppercase">Chegando do editor ({dayPreviews.length})</h4>
-                                <span className="text-[9px] font-bold text-amber-500/80 normal-case">prévia — só liberado após editar</span>
+                                <h4 className={`${text.microMeta} text-amber-700`}>Chegando do editor ({dayPreviews.length})</h4>
+                                <span className="text-xs text-amber-500/80 italic font-normal normal-case">prévia — só liberado após editar</span>
                               </div>
                               <div className="space-y-3 pt-2">
                                 {dayPreviews.map(p => renderPreviewCard(p.item, p.sourceWeekKey))}
@@ -1003,7 +1003,7 @@ const App = () => {
 
                           {(dayEchoes.length > 0 || completedPostarItems.length > 0) && (
                             <div className="pt-3 mt-3 border-t border-slate-100 space-y-1.5">
-                              <h4 className="text-[9px] font-black text-slate-300 uppercase mb-2 ml-1">Concluídos</h4>
+                              <h4 className={`${text.microMeta} text-slate-400 mb-2 ml-1`}>Concluídos</h4>
                               {dayEchoes.map(e => renderSlimCard(e.item, e.livesIn.dayId, e.livesIn.weekKey, e.stageLabel))}
                               {completedPostarItems.map(item => renderSlimCard(item, day.id, currentWeekKey, 'Postado'))}
                             </div>
