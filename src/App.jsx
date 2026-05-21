@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Calendar,
-  CalendarDays,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -12,7 +11,6 @@ import {
   Download,
   ExternalLink,
   GripVertical,
-  LayoutGrid,
   Loader2,
   LogOut,
   Plus,
@@ -60,8 +58,6 @@ import LoginScreen from './components/LoginScreen';
 import SummaryModal from './components/SummaryModal';
 import AddItemModal from './components/AddItemModal';
 import EditItemModal from './components/EditItemModal';
-import MonthView from './components/MonthView';
-import KanbanView from './components/KanbanView';
 import {
   emptyTabData,
   emptyWeekData,
@@ -121,38 +117,9 @@ const App = () => {
     try { return localStorage.getItem('editorFilter') || 'todos'; } catch { return 'todos'; }
   });
   useEffect(() => { try { localStorage.setItem('profileFilter', profileFilter); } catch {} }, [profileFilter]);
+  // Gravar é sempre só do Marco — o filtro é ignorado nessa aba.
+  const effectiveProfileFilter = activeTab === 'gravar' ? 'todos' : profileFilter;
   useEffect(() => { try { localStorage.setItem('editorFilter', editorFilter); } catch {} }, [editorFilter]);
-  const [panoramaMode, setPanoramaMode] = useState(() => {
-    try { return localStorage.getItem('panoramaMode') === 'true'; } catch { return false; }
-  });
-  const [viewMode, setViewMode] = useState('semanal');
-  const [panoramaMonth, setPanoramaMonth] = useState(() => {
-    const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth(), 1);
-  });
-  const [calendarDateField, setCalendarDateField] = useState('postDate');
-  const titleClicksRef = useRef({ count: 0, lastTime: 0 });
-
-  const handleTitleClick = () => {
-    const now = Date.now();
-    const ref = titleClicksRef.current;
-    if (now - ref.lastTime > 1500) ref.count = 0;
-    ref.count += 1;
-    ref.lastTime = now;
-    if (ref.count >= 5) {
-      const next = !panoramaMode;
-      setPanoramaMode(next);
-      try { localStorage.setItem('panoramaMode', String(next)); } catch {}
-      ref.count = 0;
-      if (!next) setViewMode('semanal');
-    }
-  };
-
-  const openItemFromPanorama = (item, dayId, weekKey) => {
-    setActiveTab(item.tabKey || 'gravar');
-    setEditModal({ isOpen: true, dayId: dayId || 'geral', item: { ...item }, itemWeekKey: weekKey });
-  };
-
   const currentWeekKey = planner.currentWeekKey;
   const currentWeekData = planner.weeks[currentWeekKey] || emptyWeekData();
   
@@ -171,7 +138,7 @@ const App = () => {
   const allGravarGlobal = Object.entries(planner.weeks).flatMap(([weekKey, weekData]) => {
     return daysOfWeek.flatMap(d => {
       return (weekData.gravar?.[d.id] || [])
-        .filter(item => profileMatchesFilter(item.profile, profileFilter))
+        .filter(item => profileMatchesFilter(item.profile, effectiveProfileFilter))
         .map(item => ({ ...item, _sourceWeekKey: weekKey, _sourceDayId: d.id }));
     });
   });
@@ -190,7 +157,7 @@ const App = () => {
   const allGravarConcluidosGlobal = [];
   Object.entries(planner.weeks).forEach(([weekKey, weekData]) => {
     (weekData.editar?.geral || []).forEach(item => {
-      if (item._gravarOrigin && profileMatchesFilter(item.profile, profileFilter)) {
+      if (item._gravarOrigin && profileMatchesFilter(item.profile, effectiveProfileFilter)) {
         allGravarConcluidosGlobal.push({
           item,
           livesIn: { weekKey, dayId: 'geral' },
@@ -200,7 +167,7 @@ const App = () => {
     });
     Object.entries(weekData.postar || {}).forEach(([livesDayId, items]) => {
       (items || []).forEach(item => {
-        if (item._gravarOrigin && profileMatchesFilter(item.profile, profileFilter)) {
+        if (item._gravarOrigin && profileMatchesFilter(item.profile, effectiveProfileFilter)) {
           allGravarConcluidosGlobal.push({
             item,
             livesIn: { weekKey, dayId: livesDayId },
@@ -212,7 +179,7 @@ const App = () => {
   });
 
   const getFilteredGravarPostar = (tabData) => {
-    return Object.values(tabData).flat().filter(item => profileMatchesFilter(item.profile, profileFilter));
+    return Object.values(tabData).flat().filter(item => profileMatchesFilter(item.profile, effectiveProfileFilter));
   };
 
   const gravarSlimEchoes = {};
@@ -262,7 +229,7 @@ const App = () => {
 
   const allFilteredItems = activeTab === 'editar'
       ? allEditarItemsGlobal.filter(item =>
-          (profileMatchesFilter(item.profile, profileFilter)) &&
+          (profileMatchesFilter(item.profile, effectiveProfileFilter)) &&
           (editorFilter === 'todos' || (item.editor || 'allyson') === editorFilter)
         )
       : isGravarList
@@ -877,13 +844,6 @@ const App = () => {
 
   const todayKey = toDateKey(new Date());
 
-  const matchesPanoramaFilters = (item) => {
-    if (!profileMatchesFilter(item.profile, profileFilter)) return false;
-    if (editorFilter !== 'todos' && (item.editor || 'allyson') !== editorFilter) return false;
-    return true;
-  };
-
-
   const renderPreviewCard = (item, sourceWeekKey) => (
     <motion.div
       layout
@@ -974,188 +934,125 @@ const App = () => {
 
   return (
     <div className="min-h-screen bg-[#FAFAFA] font-sans text-slate-900 p-6 md:p-12 selection:bg-blue-100">
-      <div className="max-w-4xl mx-auto pb-24 md:pb-0">
-        <header className="flex flex-col md:flex-row justify-between items-start mb-10 gap-6">
-          <div className="flex-1">
-            <h1
-              onClick={handleTitleClick}
-              className="text-5xl md:text-7xl leading-[0.85] font-black uppercase cursor-pointer select-none"
-              title={panoramaMode ? 'Modo panorama ativo' : ''}
-            >
-              Meu <span className="text-blue-600">Plano</span><br />Semanal
-              {panoramaMode && <span className="ml-3 inline-block w-2 h-2 rounded-full bg-rose-500 align-top mt-2" />}
-            </h1>
-            <p className="mt-4 text-slate-400 font-bold uppercase text-xs flex items-center">
-              <span className="w-8 h-[2px] bg-blue-600 mr-3" />
-              Bem vindo, {user.displayName ? user.displayName.split(' ')[0] : user.email.split('@')[0]}
-            </p>
-          </div>
-
-          <div className="flex flex-col items-end gap-3 self-end md:self-start">
-            <div className="flex items-center space-x-3">
-              {firebaseReady && (
-                <div className="flex items-center space-x-2 bg-emerald-50 border border-emerald-100 px-4 py-2 rounded-full shadow-sm">
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-[10px] font-black text-emerald-700 uppercase">{saving ? 'Salvando' : 'Sincronizado'}</span>
-                </div>
-              )}
-              <button onClick={handleLogout} className="p-2 text-slate-300 hover:text-slate-900 hover:bg-slate-100 rounded-full transition-all" title="Sair">
-                <LogOut className="w-5 h-5" />
-              </button>
-            </div>
-            <p className="text-[10px] text-slate-300 font-mono font-bold uppercase">
-              ID: {user.uid.substring(0, 8)}
-            </p>
+      <div className="max-w-4xl mx-auto pb-24 md:pb-32">
+        <header className="flex items-center justify-between mb-8 pt-2">
+          <h1 className="text-xl md:text-2xl font-black uppercase tracking-tight text-slate-900">
+            Meu <span className="text-blue-600">Plano</span>
+          </h1>
+          <div className="flex items-center gap-3 text-slate-300">
+            {firebaseReady && (
+              <span className="flex items-center gap-1.5 text-[10px] font-black uppercase text-slate-400" title={saving ? 'Salvando' : 'Sincronizado'}>
+                <span className={`w-1.5 h-1.5 rounded-full ${saving ? 'bg-amber-400 animate-pulse' : 'bg-emerald-500'}`} />
+                {saving ? 'Salvando' : 'Sync'}
+              </span>
+            )}
+            <button onClick={handleLogout} className="p-1.5 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors" title="Sair">
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         </header>
 
-        <section className="mb-8 bg-white border border-slate-100 rounded-[28px] p-4 md:p-5 shadow-sm">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <p className="text-[10px] text-slate-400 font-black uppercase mb-1">Calendario semanal</p>
-              <h2 className="text-2xl md:text-3xl font-black text-slate-900 uppercase">
-                Semana {formatWeekRange(currentWeekKey)}
-              </h2>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <button onClick={() => setIsAdding(true)} className="h-11 px-5 flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-[10px] uppercase shadow-md transition-transform hover:scale-105">
-                <Plus className="w-4 h-4" />
-                Nova Tarefa
+        <section className="mb-10 flex items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <h2 className="text-sm font-black uppercase tracking-wide text-slate-900 whitespace-nowrap">
+              Semana <span className="text-blue-600">{formatWeekRange(currentWeekKey)}</span>
+            </h2>
+            <div className="flex items-center text-slate-300">
+              <button onClick={() => changeWeek(-1)} className="p-1 hover:text-slate-700" title="Semana anterior">
+                <ChevronLeft className="w-4 h-4" />
               </button>
-              <button onClick={() => changeWeek(-1)} className="w-11 h-11 flex items-center justify-center bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-2xl">
-                <ChevronLeft className="w-5 h-5" />
+              <button onClick={goToCurrentWeek} className="px-2 text-[10px] font-black uppercase text-slate-400 hover:text-blue-600">
+                Hoje
               </button>
-              <button onClick={goToCurrentWeek} className="px-4 h-11 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-2xl font-black text-[10px] uppercase">
-                Semana atual
-              </button>
-              <button onClick={() => changeWeek(1)} className="w-11 h-11 flex items-center justify-center bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-2xl">
-                <ChevronRight className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => {
-                  const next = !panoramaMode;
-                  setPanoramaMode(next);
-                  try { localStorage.setItem('panoramaMode', String(next)); } catch {}
-                  if (!next) setViewMode('semanal');
-                }}
-                className={`h-11 px-4 flex items-center gap-2 rounded-2xl font-black text-[10px] uppercase transition-all ${panoramaMode ? 'bg-rose-500 hover:bg-rose-600 text-white shadow-md' : 'bg-slate-50 hover:bg-slate-100 text-slate-600'}`}
-                title="Alternar modo Panorama (visão mensal e kanban)"
-              >
-                <LayoutGrid className="w-4 h-4" />
-                Panorama
-              </button>
-              <button onClick={exportMonthlyCsv} className="h-11 px-4 flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-black text-[10px] uppercase">
-                <Download className="w-4 h-4" />
-                Exportar mes
+              <button onClick={() => changeWeek(1)} className="p-1 hover:text-slate-700" title="Próxima semana">
+                <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>
-          {panoramaMode && (
-            <div className="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center gap-2">
-              <span className="text-[10px] font-black text-slate-400 uppercase mr-1">Modo Panorama:</span>
-              <button onClick={() => setViewMode('semanal')} className={`h-9 px-4 flex items-center gap-1.5 rounded-xl font-black text-[10px] uppercase transition-all ${viewMode === 'semanal' ? 'bg-slate-900 text-white shadow-sm' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>
-                <Calendar className="w-3.5 h-3.5" /> Semanal
-              </button>
-              <button onClick={() => setViewMode('mes')} className={`h-9 px-4 flex items-center gap-1.5 rounded-xl font-black text-[10px] uppercase transition-all ${viewMode === 'mes' ? 'bg-slate-900 text-white shadow-sm' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>
-                <CalendarDays className="w-3.5 h-3.5" /> Mês
-              </button>
-              <button onClick={() => setViewMode('kanban')} className={`h-9 px-4 flex items-center gap-1.5 rounded-xl font-black text-[10px] uppercase transition-all ${viewMode === 'kanban' ? 'bg-slate-900 text-white shadow-sm' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>
-                <LayoutGrid className="w-3.5 h-3.5" /> Kanban
-              </button>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <button onClick={exportMonthlyCsv} className="p-2 text-slate-300 hover:text-slate-700 hover:bg-slate-50 rounded-lg" title="Exportar mês (CSV)">
+              <Download className="w-4 h-4" />
+            </button>
+            <button onClick={() => setIsAdding(true)} className="h-9 px-4 flex items-center gap-1.5 bg-slate-900 hover:bg-blue-600 text-white rounded-full font-black text-[10px] uppercase transition-colors">
+              <Plus className="w-3.5 h-3.5" />
+              Nova
+            </button>
+          </div>
         </section>
 
-        {(!panoramaMode || viewMode === 'semanal') && (
-        <div className="mb-12 hidden md:flex justify-center">
-          <div className="bg-slate-100 p-1.5 rounded-[24px] flex items-center relative w-full max-w-lg">
-            <motion.div
-              className="absolute top-1.5 bottom-1.5 rounded-[20px] shadow-sm"
-              initial={false}
-              animate={{
-                left: activeTab === 'gravar' ? '6px' : activeTab === 'editar' ? 'calc(33.33% + 2px)' : 'calc(66.66% - 2px)',
-                width: 'calc(33.33% - 4px)',
-                backgroundColor: activeTab === 'gravar' ? '#2563eb' : activeTab === 'editar' ? '#f59e0b' : '#059669'
-              }}
-            />
-            <button onClick={() => setActiveTab('gravar')} className="relative flex-1 py-4 text-xs font-black uppercase">
-              <motion.span animate={{ color: activeTab === 'gravar' ? '#ffffff' : '#94a3b8' }}>Gravar</motion.span>
-            </button>
-            <button onClick={() => setActiveTab('editar')} className="relative flex-1 py-4 text-xs font-black uppercase">
-              <motion.span animate={{ color: activeTab === 'editar' ? '#ffffff' : '#94a3b8' }}>Editar</motion.span>
-            </button>
-            <button onClick={() => setActiveTab('postar')} className="relative flex-1 py-4 text-xs font-black uppercase">
-              <motion.span animate={{ color: activeTab === 'postar' ? '#ffffff' : '#94a3b8' }}>Postar</motion.span>
-            </button>
+        {activeTab !== 'gravar' && (
+          <div className="mb-8 flex flex-col items-center gap-3">
+            {activeTab === 'editar' ? (
+              <div className="bg-white border border-slate-100 rounded-2xl px-5 py-4 shadow-sm flex flex-col md:flex-row md:items-center gap-4 md:gap-8">
+                <div className="flex items-center gap-3">
+                  <span className="text-[9px] font-black uppercase text-slate-300 tracking-widest">Perfil</span>
+                  <div className="flex items-center gap-4 text-[11px] font-black uppercase">
+                    {[
+                      { id: 'todos', label: 'Todos', color: 'text-slate-900', underline: 'bg-slate-900' },
+                      { id: 'marco', label: 'Marco', color: 'text-emerald-600', underline: 'bg-emerald-600' },
+                      { id: 'opa', label: 'OPA', color: 'text-blue-600', underline: 'bg-blue-600' }
+                    ].map(p => {
+                      const active = profileFilter === p.id;
+                      return (
+                        <button
+                          key={p.id}
+                          onClick={() => setProfileFilter(p.id)}
+                          className={`relative pb-1 transition-colors ${active ? p.color : 'text-slate-300 hover:text-slate-500'}`}
+                        >
+                          {p.label}
+                          {active && <span className={`absolute left-0 right-0 -bottom-0 h-[2px] ${p.underline}`} />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="hidden md:block w-px h-5 bg-slate-100" />
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="text-[9px] font-black uppercase text-slate-300 tracking-widest">Quem edita</span>
+                  <div className="flex items-center gap-4 text-[11px] font-black uppercase">
+                    {['todos', 'allyson', 'kallyl', 'natalia', 'torres'].map(ed => {
+                      const isTorres = ed === 'torres';
+                      const active = editorFilter === ed;
+                      const activeColor = isTorres ? 'text-violet-600' : ed === 'todos' ? 'text-slate-900' : 'text-amber-500';
+                      const underlineColor = isTorres ? 'bg-violet-600' : ed === 'todos' ? 'bg-slate-900' : 'bg-amber-500';
+                      return (
+                        <button
+                          key={ed}
+                          onClick={() => setEditorFilter(ed)}
+                          className={`relative pb-1 transition-colors ${active ? activeColor : 'text-slate-300 hover:text-slate-500'}`}
+                        >
+                          {ed === 'todos' ? 'Todos' : isTorres ? 'Torres' : ed}
+                          {active && <span className={`absolute left-0 right-0 -bottom-0 h-[2px] ${underlineColor}`} />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-6 text-[11px] font-black uppercase tracking-wide">
+                {[
+                  { id: 'todos', label: 'Todos', color: 'text-slate-900', underline: 'bg-slate-900' },
+                  { id: 'marco', label: 'Marco', color: 'text-emerald-600', underline: 'bg-emerald-600' },
+                  { id: 'opa', label: 'OPA', color: 'text-blue-600', underline: 'bg-blue-600' }
+                ].map(p => {
+                  const active = profileFilter === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => setProfileFilter(p.id)}
+                      className={`relative pb-1.5 transition-colors ${active ? p.color : 'text-slate-300 hover:text-slate-500'}`}
+                    >
+                      {p.label}
+                      {active && <span className={`absolute left-0 right-0 -bottom-0 h-[2px] ${p.underline}`} />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        </div>
         )}
 
-        <div className="mb-8 flex flex-col items-center justify-center space-y-4">
-          <div className="bg-white border-2 border-slate-100 p-1.5 rounded-[20px] flex items-center space-x-1 shadow-sm w-full max-w-md md:max-w-[320px]">
-            <button 
-              onClick={() => setProfileFilter('todos')} 
-              className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${profileFilter === 'todos' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}
-            >
-              Todos
-            </button>
-            <button 
-              onClick={() => setProfileFilter('marco')} 
-              className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${profileFilter === 'marco' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}
-            >
-              Marco
-            </button>
-            <button 
-              onClick={() => setProfileFilter('opa')} 
-              className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${profileFilter === 'opa' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}
-            >
-              OPA
-            </button>
-          </div>
-          
-          {activeTab === 'editar' && (
-            <div className="bg-white border-2 border-slate-100 p-1.5 rounded-[20px] flex items-center space-x-1 shadow-sm w-full max-w-md md:max-w-[400px]">
-              {['todos', 'allyson', 'kallyl', 'natalia', 'torres'].map(ed => {
-                const isTorres = ed === 'torres';
-                const activeCls = isTorres ? 'bg-violet-600 text-white shadow-md' : 'bg-amber-500 text-white shadow-md';
-                const idleCls = isTorres ? 'text-violet-600 hover:bg-violet-50' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600';
-                return (
-                  <button
-                    key={ed}
-                    onClick={() => setEditorFilter(ed)}
-                    className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${editorFilter === ed ? activeCls : idleCls}`}
-                  >
-                    {ed === 'todos' ? 'Todos Editores' : isTorres ? 'Torres • Ext' : ed}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {panoramaMode && viewMode === 'mes' && (
-          <MonthView
-            planner={planner}
-            panoramaMonth={panoramaMonth}
-            setPanoramaMonth={setPanoramaMonth}
-            calendarDateField={calendarDateField}
-            setCalendarDateField={setCalendarDateField}
-            matchesPanoramaFilters={matchesPanoramaFilters}
-            todayKey={todayKey}
-            openItemFromPanorama={openItemFromPanorama}
-          />
-        )}
-        {panoramaMode && viewMode === 'kanban' && (
-          <KanbanView
-            planner={planner}
-            currentWeekKey={currentWeekKey}
-            matchesPanoramaFilters={matchesPanoramaFilters}
-            todayKey={todayKey}
-            openItemFromPanorama={openItemFromPanorama}
-          />
-        )}
-
-        {(!panoramaMode || viewMode === 'semanal') && (
         <motion.div className="space-y-8">
           {activeTab === 'editar' ? (
               <div className="bg-white border border-slate-100 rounded-[32px] p-5 md:p-8 shadow-sm">
@@ -1171,7 +1068,7 @@ const App = () => {
                             <div className="pt-4 mt-4 border-t border-slate-100 space-y-1.5">
                               <p className="text-[9px] font-black text-slate-300 uppercase mb-2">Concluídos</p>
                               {editarSlimEchoes
-                                .filter(e => (profileMatchesFilter(e.item.profile, profileFilter)) && (editorFilter === 'todos' || (e.item.editor || 'allyson') === editorFilter))
+                                .filter(e => (profileMatchesFilter(e.item.profile, effectiveProfileFilter)) && (editorFilter === 'todos' || (e.item.editor || 'allyson') === editorFilter))
                                 .map(e => renderSlimCard(e.item, e.livesIn.dayId, e.livesIn.weekKey, e.stageLabel))}
                             </div>
                           )}
@@ -1221,13 +1118,13 @@ const App = () => {
               </div>
           ) : (
             daysOfWeek.map((day, dayIndex) => {
-              const allDayItems = (currentWeekData[activeTab][day.id] || []).filter(item => profileMatchesFilter(item.profile, profileFilter));
+              const allDayItems = (currentWeekData[activeTab][day.id] || []).filter(item => profileMatchesFilter(item.profile, effectiveProfileFilter));
               const filteredDayItems = activeTab === 'postar' ? allDayItems.filter(item => !item.completed) : allDayItems;
               const completedPostarItems = activeTab === 'postar' ? allDayItems.filter(item => item.completed) : [];
-              const dayEchoes = activeTab === 'gravar' ? (gravarSlimEchoes[day.id] || []).filter(e => profileMatchesFilter(e.item.profile, profileFilter)) : [];
+              const dayEchoes = activeTab === 'gravar' ? (gravarSlimEchoes[day.id] || []).filter(e => profileMatchesFilter(e.item.profile, effectiveProfileFilter)) : [];
               const dayPreviews = activeTab === 'postar'
                 ? (editarPreviewsByDay[day.id] || []).filter(p =>
-                    (profileFilter === 'todos' || (p.item.profile || 'opa') === profileFilter) &&
+                    (effectiveProfileFilter === 'todos' || (p.item.profile || 'opa') === effectiveProfileFilter) &&
                     (editorFilter === 'todos' || (p.item.editor || 'allyson') === editorFilter)
                   )
                 : [];
@@ -1353,7 +1250,6 @@ const App = () => {
             })
           )}
         </motion.div>
-        )}
 
         <footer className="mt-20 mb-16 flex flex-col md:flex-row items-center justify-between border-t border-slate-100 pt-10 gap-6">
           <div className="flex items-center space-x-8 text-slate-400">
@@ -1383,6 +1279,41 @@ const App = () => {
             <Calendar className="w-5 h-5" />
             <span className="text-[10px] font-black uppercase">Postar</span>
           </button>
+        </div>
+      </nav>
+
+      <nav className="hidden md:block fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
+        <div className="bg-white/95 backdrop-blur border border-slate-100 shadow-xl shadow-slate-900/10 rounded-full px-2 py-2 flex items-center relative">
+          <motion.div
+            className="absolute top-2 bottom-2 rounded-full"
+            initial={false}
+            animate={{
+              left: activeTab === 'gravar' ? '8px' : activeTab === 'editar' ? '124px' : '240px',
+              width: '112px',
+              backgroundColor: activeTab === 'gravar' ? '#2563eb' : activeTab === 'editar' ? '#f59e0b' : '#059669'
+            }}
+            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+          />
+          {[
+            { id: 'gravar', label: 'Gravar', Icon: Video },
+            { id: 'editar', label: 'Editar', Icon: Scissors },
+            { id: 'postar', label: 'Postar', Icon: Calendar }
+          ].map(t => {
+            const active = activeTab === t.id;
+            const Icon = t.Icon;
+            return (
+              <button
+                key={t.id}
+                onClick={() => setActiveTab(t.id)}
+                className="relative w-28 h-10 flex items-center justify-center gap-2 text-xs font-black uppercase"
+              >
+                <motion.span animate={{ color: active ? '#ffffff' : '#94a3b8' }} className="flex items-center gap-2">
+                  <Icon className="w-4 h-4" />
+                  {t.label}
+                </motion.span>
+              </button>
+            );
+          })}
         </div>
       </nav>
 
