@@ -11,6 +11,7 @@ import {
 import {
   MONTH_NAMES,
   addDays,
+  daysOfWeek,
   getMonday,
   toDateKey,
   formatDateShort
@@ -26,6 +27,31 @@ const stageClass = (item) => {
 };
 
 const anchorDate = (item) => item.postDate || item.recordingDate || null;
+
+const weekdayIndex = (date) => {
+  const jsDay = date.getDay();
+  return jsDay === 0 ? 6 : jsDay - 1;
+};
+
+const groupByDay = (weekItems, weekMonday) => {
+  const buckets = daysOfWeek.map((d, idx) => ({
+    dayId: d.id,
+    label: d.label,
+    color: d.color,
+    date: addDays(weekMonday, idx),
+    items: []
+  }));
+  weekItems.forEach(item => {
+    const anchor = anchorDate(item);
+    if (!anchor) return;
+    const date = new Date(anchor + 'T12:00:00');
+    buckets[weekdayIndex(date)].items.push(item);
+  });
+  buckets.forEach(b =>
+    b.items.sort((a, b) => (a.time || '').localeCompare(b.time || ''))
+  );
+  return buckets.filter(b => b.items.length > 0);
+};
 
 const buildMonthGroups = (items, year, month, includeUndated) => {
   const first = new Date(year, month, 1);
@@ -61,6 +87,8 @@ const buildMonthGroups = (items, year, month, includeUndated) => {
     const week = weeks.find(w => w.key === itemMondayKey);
     if (week) week.items.push(item);
   });
+
+  weeks.forEach(w => { w.days = groupByDay(w.items, w.monday); });
 
   return {
     weeks,
@@ -221,14 +249,18 @@ export const Planilha = ({ items, search, onSearchChange, onRowClick, onAddClick
     else next.add(key);
     return next;
   });
-  const expandAll = () => {
-    const all = new Set(groups.weeks.map(w => w.key));
-    if (groups.undated.length > 0) all.add('undated');
-    setExpanded(all);
-  };
+  const allSectionKeys = useMemo(() => {
+    const out = [];
+    if (groups.undated.length > 0) out.push('undated');
+    groups.weeks.forEach(w => {
+      out.push(w.key);
+      w.days.forEach(d => out.push(`${w.key}__${d.dayId}`));
+    });
+    return out;
+  }, [groups]);
+  const expandAll = () => setExpanded(new Set(allSectionKeys));
   const collapseAll = () => setExpanded(new Set());
-  const allExpanded =
-    expanded.size === groups.weeks.length + (groups.undated.length > 0 ? 1 : 0);
+  const allExpanded = expanded.size === allSectionKeys.length && allSectionKeys.length > 0;
 
   return (
     <div className="space-y-4">
@@ -330,26 +362,88 @@ export const Planilha = ({ items, search, onSearchChange, onRowClick, onAddClick
               </SectionTbody>
             )}
 
-            {groups.weeks.map(w => (
-              <SectionTbody
-                key={w.key}
-                title={`Semana ${w.n}`}
-                subtitle={`${formatDateShort(w.monday)} - ${formatDateShort(w.sunday)}`}
-                count={w.items.length}
-                tone="slate"
-                expanded={expanded.has(w.key)}
-                onToggle={() => toggle(w.key)}
-                isEmpty={w.items.length === 0}
-              >
-                {w.items.map(item => (
-                  <Row
-                    key={`${w.key}-${item._stage}-${item._sourceWeekKey}-${item._sourceDayId}-${item.id}`}
-                    item={item}
-                    onClick={onRowClick}
-                  />
-                ))}
-              </SectionTbody>
-            ))}
+            {groups.weeks.map(w => {
+              const isWeekExpanded = expanded.has(w.key);
+              return (
+                <React.Fragment key={w.key}>
+                  <tbody>
+                    <tr className="border-b border-slate-100">
+                      <td colSpan={9} className="p-0">
+                        <button
+                          type="button"
+                          onClick={() => toggle(w.key)}
+                          className="w-full flex items-center gap-3 pl-4 pr-4 py-2.5 text-left bg-slate-50/40 hover:bg-slate-100/60 transition-colors"
+                        >
+                          <ChevronDown
+                            className={`w-3.5 h-3.5 text-slate-400 transition-transform flex-shrink-0 ${isWeekExpanded ? '' : '-rotate-90'}`}
+                            strokeWidth={3}
+                          />
+                          <span className="text-[11px] font-black uppercase tracking-wider text-slate-700">
+                            Semana {w.n}
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-400 uppercase truncate">
+                            {formatDateShort(w.monday)} - {formatDateShort(w.sunday)}
+                          </span>
+                          <span className="ml-auto inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded-full bg-white border border-slate-200 text-[10px] font-black text-slate-500">
+                            {w.items.length}
+                          </span>
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+
+                  {isWeekExpanded && w.days.map(d => {
+                    const dayKey = `${w.key}__${d.dayId}`;
+                    const isDayExpanded = expanded.has(dayKey);
+                    return (
+                      <tbody key={dayKey}>
+                        <tr className="border-b border-slate-100">
+                          <td colSpan={9} className="p-0">
+                            <button
+                              type="button"
+                              onClick={() => toggle(dayKey)}
+                              className="w-full flex items-center gap-3 pl-12 pr-4 py-2 text-left bg-white hover:bg-slate-50 transition-colors"
+                            >
+                              <ChevronDown
+                                className={`w-3 h-3 text-slate-400 transition-transform flex-shrink-0 ${isDayExpanded ? '' : '-rotate-90'}`}
+                                strokeWidth={3}
+                              />
+                              <span className={`w-1.5 h-1.5 rounded-full ${d.color} flex-shrink-0`} />
+                              <span className="text-[11px] font-black uppercase tracking-wider text-slate-600">
+                                {d.label}
+                              </span>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase">
+                                {formatDateShort(d.date)}
+                              </span>
+                              <span className="ml-auto inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded-full bg-slate-50 border border-slate-200 text-[10px] font-black text-slate-500">
+                                {d.items.length}
+                              </span>
+                            </button>
+                          </td>
+                        </tr>
+                        {isDayExpanded && d.items.map(item => (
+                          <Row
+                            key={`${dayKey}-${item._stage}-${item._sourceWeekKey}-${item._sourceDayId}-${item.id}`}
+                            item={item}
+                            onClick={onRowClick}
+                          />
+                        ))}
+                      </tbody>
+                    );
+                  })}
+
+                  {isWeekExpanded && w.days.length === 0 && (
+                    <tbody>
+                      <tr>
+                        <td colSpan={9} className="text-center py-3 text-[10px] font-black text-slate-300 uppercase italic">
+                          Sem itens nesta semana
+                        </td>
+                      </tr>
+                    </tbody>
+                  )}
+                </React.Fragment>
+              );
+            })}
 
             {totalVisible === 0 && (
               <tbody>
