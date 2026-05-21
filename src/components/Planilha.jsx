@@ -109,6 +109,15 @@ const Row = ({ item, onClick }) => (
     onClick={() => onClick(item)}
     className={`border-b border-slate-50 last:border-b-0 hover:bg-slate-50 cursor-pointer transition-colors ${item.completed ? 'opacity-60' : ''}`}
   >
+    <Td>
+      {item.code ? (
+        <span className="font-mono text-[11px] font-bold text-slate-500 bg-slate-50 border border-slate-200 px-2 py-1 rounded-md tracking-wider">
+          {item.code}
+        </span>
+      ) : (
+        <span className="text-xs text-slate-300">—</span>
+      )}
+    </Td>
     <Td className="font-semibold text-slate-800 max-w-[420px]">
       <span className={`truncate block ${item.completed ? 'line-through italic text-slate-400' : ''}`}>
         {item.objective || <span className="text-slate-300">Sem título</span>}
@@ -171,7 +180,7 @@ const SectionTbody = ({ icon, title, subtitle, count, tone, expanded, onToggle, 
   return (
     <tbody>
       <tr className="border-b border-slate-100">
-        <td colSpan={9} className="p-0">
+        <td colSpan={10} className="p-0">
           <button
             type="button"
             onClick={onToggle}
@@ -195,7 +204,7 @@ const SectionTbody = ({ icon, title, subtitle, count, tone, expanded, onToggle, 
       {expanded && !isEmpty && children}
       {expanded && isEmpty && (
         <tr>
-          <td colSpan={9} className="text-center py-3 text-[10px] font-black text-slate-300 uppercase italic">
+          <td colSpan={10} className="text-center py-3 text-[10px] font-black text-slate-300 uppercase italic">
             Sem itens nesta semana
           </td>
         </tr>
@@ -329,7 +338,8 @@ export const Planilha = ({ items, search, onSearchChange, onRowClick, onAddClick
           <table className="w-full text-left">
             <thead className="bg-slate-50/60 border-b border-slate-100">
               <tr>
-                <Th className="w-[28%] min-w-[260px]">Título</Th>
+                <Th className="w-[90px]">ID</Th>
+                <Th className="min-w-[260px]">Título</Th>
                 <Th>Estágio</Th>
                 <Th>Tipo</Th>
                 <Th>Perfil</Th>
@@ -368,7 +378,7 @@ export const Planilha = ({ items, search, onSearchChange, onRowClick, onAddClick
                 <React.Fragment key={w.key}>
                   <tbody>
                     <tr className="border-b border-slate-100">
-                      <td colSpan={9} className="p-0">
+                      <td colSpan={10} className="p-0">
                         <button
                           type="button"
                           onClick={() => toggle(w.key)}
@@ -398,7 +408,7 @@ export const Planilha = ({ items, search, onSearchChange, onRowClick, onAddClick
                     return (
                       <tbody key={dayKey}>
                         <tr className="border-b border-slate-100">
-                          <td colSpan={9} className="p-0">
+                          <td colSpan={10} className="p-0">
                             <button
                               type="button"
                               onClick={() => toggle(dayKey)}
@@ -435,7 +445,7 @@ export const Planilha = ({ items, search, onSearchChange, onRowClick, onAddClick
                   {isWeekExpanded && w.days.length === 0 && (
                     <tbody>
                       <tr>
-                        <td colSpan={9} className="text-center py-3 text-[10px] font-black text-slate-300 uppercase italic">
+                        <td colSpan={10} className="text-center py-3 text-[10px] font-black text-slate-300 uppercase italic">
                           Sem itens nesta semana
                         </td>
                       </tr>
@@ -448,7 +458,7 @@ export const Planilha = ({ items, search, onSearchChange, onRowClick, onAddClick
             {totalVisible === 0 && (
               <tbody>
                 <tr>
-                  <td colSpan={9} className={`text-center py-10 ${text.badge} text-slate-300`}>
+                  <td colSpan={10} className={`text-center py-10 ${text.badge} text-slate-300`}>
                     Nenhum item neste mês — clique em "Nova página" pra começar
                   </td>
                 </tr>

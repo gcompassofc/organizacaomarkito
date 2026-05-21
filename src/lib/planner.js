@@ -14,6 +14,62 @@ export const newId = () => (
     : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 );
 
+const CODE_PREFIX = { marco: 'M', collab: 'C', opa: 'O' };
+
+export const codePrefix = (profile) => CODE_PREFIX[profile] || CODE_PREFIX.opa;
+
+export const formatCode = (profile, seq) => `${codePrefix(profile)}-${String(seq).padStart(3, '0')}`;
+
+const emptyCounters = () => ({ marco: 0, opa: 0, collab: 0 });
+
+const parseSeqFromCode = (code) => {
+  if (!code) return null;
+  const m = String(code).match(/-(\d+)$/);
+  return m ? parseInt(m[1], 10) : null;
+};
+
+const backfillCodes = (planner) => {
+  const itemsByProfile = { marco: [], opa: [], collab: [] };
+  const collect = (item) => {
+    const p = item.profile || 'opa';
+    if (itemsByProfile[p]) itemsByProfile[p].push(item);
+  };
+
+  Object.values(planner.weeks || {}).forEach((week) => {
+    daysOfWeek.forEach((d) => {
+      (week.gravar?.[d.id] || []).forEach(collect);
+      (week.postar?.[d.id] || []).forEach(collect);
+    });
+    (week.editar?.geral || []).forEach(collect);
+  });
+
+  const counters = { ...emptyCounters(), ...(planner.counters || {}) };
+
+  Object.entries(itemsByProfile).forEach(([profile, items]) => {
+    let max = counters[profile] || 0;
+    items.forEach((it) => {
+      const s = parseSeqFromCode(it.code);
+      if (s !== null && s > max) max = s;
+    });
+
+    const missing = items.filter((it) => !it.code);
+    missing.sort((a, b) => {
+      const da = a.postDate || a.recordingDate || '';
+      const db = b.postDate || b.recordingDate || '';
+      if (da !== db) return da.localeCompare(db);
+      return (a.id || '').localeCompare(b.id || '');
+    });
+    missing.forEach((it) => {
+      max += 1;
+      it.code = formatCode(profile, max);
+    });
+    counters[profile] = max;
+  });
+
+  planner.counters = counters;
+  return planner;
+};
+
 export const defaultItem = () => {
   const today = new Date();
   const tomorrow = new Date();
@@ -41,8 +97,9 @@ export const defaultItem = () => {
 };
 
 export const createPlanner = (currentWeekKey = getWeekKey()) => ({
-  version: 4,
+  version: 5,
   currentWeekKey,
+  counters: emptyCounters(),
   weeks: {
     [currentWeekKey]: emptyWeekData()
   }
@@ -56,6 +113,7 @@ export const normalizeUrl = (value) => {
 export const normalizeItem = (item = {}, tabKey = 'gravar', forcedContentType, weekKeyStr, fallbackDayId) => {
   const norm = {
     id: item.id || newId(),
+    code: item.code || '',
     objective: item.objective || '',
     summary: item.summary || '',
     primaryLink: item.primaryLink || item.uploadLink || item.folderLink || item.link || '',
@@ -124,33 +182,36 @@ export const normalizePlanner = (cloudData) => {
       return acc;
     }, {});
 
-    return {
-      version: 4,
+    return backfillCodes({
+      version: 5,
       currentWeekKey: cloudData.currentWeekKey || currentWeekKey,
+      counters: cloudData.counters || emptyCounters(),
       weeks: Object.keys(weeks).length ? weeks : { [currentWeekKey]: emptyWeekData() }
-    };
+    });
   }
 
   if (cloudData.segunda && !cloudData.gravar) {
-    return {
-      version: 4,
+    return backfillCodes({
+      version: 5,
       currentWeekKey,
+      counters: emptyCounters(),
       weeks: {
         [currentWeekKey]: mergeLegacyStoriesIntoGravar({
           gravar: cloudData,
           postar: emptyTabData()
         }, currentWeekKey)
       }
-    };
+    });
   }
 
-  return {
-    version: 4,
+  return backfillCodes({
+    version: 5,
     currentWeekKey,
+    counters: emptyCounters(),
     weeks: {
       [currentWeekKey]: mergeLegacyStoriesIntoGravar(cloudData, currentWeekKey)
     }
-  };
+  });
 };
 
 export const getAllItemsFlat = (planner) => {

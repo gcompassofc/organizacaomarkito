@@ -63,7 +63,8 @@ import {
   createPlanner,
   normalizeUrl,
   normalizePlanner,
-  stripHtml
+  stripHtml,
+  formatCode
 } from './lib/planner';
 import {
   getEditarQueue,
@@ -427,6 +428,10 @@ const App = () => {
 
     updatePlanner((prev) => {
       const next = { ...prev };
+      const counters = { marco: 0, opa: 0, collab: 0, ...(prev.counters || {}) };
+      counters[item.profile] = (counters[item.profile] || 0) + 1;
+      next.counters = counters;
+      item.code = formatCode(item.profile, counters[item.profile]);
 
       if (stage === 'editar') {
          const { weekKey } = getWeekKeyAndDayId(item.postDate);
