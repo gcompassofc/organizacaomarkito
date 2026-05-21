@@ -2,15 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   Calendar,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Loader2,
-  LogOut,
   Plus,
-  Table2,
-  Video,
-  Scissors,
-  X
+  Scissors
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { getApp, getApps, initializeApp } from 'firebase/app';
@@ -24,7 +18,6 @@ import {
   signOut
 } from 'firebase/auth';
 import { doc, getFirestore, onSnapshot, setDoc } from 'firebase/firestore';
-import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 import { firebaseConfig, firestoreDatabaseId } from './lib/firebase';
 import {
@@ -52,10 +45,18 @@ import SummaryModal from './components/SummaryModal';
 import AddItemModal from './components/AddItemModal';
 import EditItemModal from './components/EditItemModal';
 import { TaskCard, PreviewCard, SlimCard } from './components/TaskCard';
-import { FilterBar } from './components/FilterBar';
 import { Planilha } from './components/Planilha';
-import { ExportMenu } from './components/ExportMenu';
-import { radius, emptyState } from './lib/ui';
+import {
+  HeaderBar,
+  SectionBar,
+  MobileBottomNav,
+  FloatingDesktopNav,
+  PageFooter,
+  StageQueue,
+  QueueEmpty,
+  QueueTabs
+} from './components/layout';
+import { radius, text, emptyState } from './lib/ui';
 import {
   emptyWeekData,
   newId,
@@ -739,69 +740,26 @@ const App = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] font-sans text-slate-900 p-6 md:p-12 selection:bg-blue-100">
+    <div className="min-h-screen bg-[#FAFAFA] font-sans text-slate-900 p-6 md:p-10 selection:bg-blue-100">
       <div className={`${showPlanilha ? 'w-full' : 'max-w-4xl mx-auto'} pb-24 md:pb-32`}>
-        <header className="flex items-center justify-between mb-8 pt-2">
-          <h1 className="text-xl md:text-2xl font-black uppercase tracking-tight text-slate-900">
-            Meu <span className="text-blue-600">Plano</span>
-          </h1>
-          <div className="flex items-center gap-3 text-slate-300">
-            {firebaseReady && (
-              <span
-                className={`flex items-center gap-1.5 text-[10px] font-black uppercase ${saveError ? 'text-rose-600' : 'text-slate-400'}`}
-                title={saveError ? 'Falha ao salvar — alterações podem estar fora de sincronia' : (saving ? 'Salvando' : 'Sincronizado')}
-              >
-                <span className={`w-1.5 h-1.5 rounded-full ${saveError ? 'bg-rose-500 animate-pulse' : saving ? 'bg-amber-400 animate-pulse' : 'bg-emerald-500'}`} />
-                {saveError ? 'Erro' : saving ? 'Salvando' : 'Sync'}
-              </span>
-            )}
-            <button onClick={handleLogout} className="p-1.5 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors" title="Sair">
-              <LogOut className="w-4 h-4" />
-            </button>
-          </div>
-        </header>
+        <HeaderBar
+          firebaseReady={firebaseReady}
+          saving={saving}
+          saveError={saveError}
+          onLogout={handleLogout}
+        />
 
-        <section className="mb-10 flex items-center justify-between gap-3 border-b border-slate-100 pb-4">
-          <div className="flex items-center gap-3 min-w-0">
-            {showPlanilha ? (
-              <h2 className="text-sm font-black uppercase tracking-wide text-slate-900 whitespace-nowrap">
-                <span className="text-blue-600">Controle</span> — todas postagens
-              </h2>
-            ) : (
-              <>
-                <h2 className="text-sm font-black uppercase tracking-wide text-slate-900 whitespace-nowrap">
-                  Semana <span className="text-blue-600">{formatWeekRange(currentWeekKey)}</span>
-                </h2>
-                <div className="flex items-center text-slate-300">
-                  <button onClick={() => changeWeek(-1)} className="p-1 hover:text-slate-700" title="Semana anterior">
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <button onClick={goToCurrentWeek} className="px-2 text-[10px] font-black uppercase text-slate-400 hover:text-blue-600">
-                    Hoje
-                  </button>
-                  <button onClick={() => changeWeek(1)} className="p-1 hover:text-slate-700" title="Próxima semana">
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <ExportMenu onExport={exportCsv} onWipe={wipeAllContent} />
-            <button
-              onClick={() => setShowPlanilha(s => !s)}
-              className={`h-9 px-4 flex items-center gap-1.5 rounded-full font-black text-[10px] uppercase transition-colors ${showPlanilha ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-slate-900 hover:bg-blue-600 text-white'}`}
-              title={showPlanilha ? 'Voltar pra visualização' : 'Abrir planilha de controle'}
-            >
-              {showPlanilha ? <X className="w-3.5 h-3.5" /> : <Table2 className="w-3.5 h-3.5" />}
-              {showPlanilha ? 'Voltar' : 'Planilha'}
-            </button>
-          </div>
-        </section>
-
-        <FilterBar
-          visible={showPlanilha || activeTab !== 'gravar'}
-          showEditor={showPlanilha || activeTab === 'editar'}
+        <SectionBar
+          showPlanilha={showPlanilha}
+          weekRangeLabel={formatWeekRange(currentWeekKey)}
+          onPrevWeek={() => changeWeek(-1)}
+          onNextWeek={() => changeWeek(1)}
+          onGoToCurrentWeek={goToCurrentWeek}
+          onTogglePlanilha={() => setShowPlanilha(s => !s)}
+          onExportCsv={exportCsv}
+          onWipeAll={wipeAllContent}
+          showFilters={showPlanilha || activeTab !== 'gravar'}
+          showEditorFilter={showPlanilha || activeTab === 'editar'}
           profileFilter={profileFilter}
           onProfileChange={setProfileFilter}
           editorFilter={editorFilter}
@@ -821,18 +779,15 @@ const App = () => {
         ) : (
         <motion.div className="space-y-8">
           {activeTab === 'editar' ? (
-              <div className={`bg-white border border-slate-100 ${radius.big} p-5 md:p-8 shadow-sm`}>
-                  <h2 className="text-2xl font-black text-slate-800 uppercase mb-6 text-center">Fila Global de Edição</h2>
+              <StageQueue title="Fila global de edição">
                   {allFilteredItems.length === 0 && editarSlimEchoes.length === 0 ? (
-                      <div className={emptyState}>
-                          Nenhum conteúdo para editar no momento
-                      </div>
+                      <QueueEmpty>Nenhum conteúdo para editar no momento</QueueEmpty>
                   ) : (
                       <div className="space-y-4">
                           {allFilteredItems.map(item => renderCard(item, 'geral', item._sourceWeekKey))}
                           {editarSlimEchoes.length > 0 && (
                             <div className="pt-4 mt-4 border-t border-slate-100 space-y-1.5">
-                              <p className="text-[9px] font-black text-slate-300 uppercase mb-2">Concluídos</p>
+                              <p className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase mb-2">Concluídos</p>
                               {editarSlimEchoes
                                 .filter(e => (profileMatchesFilter(e.item.profile, effectiveProfileFilter)) && (editorFilter === 'todos' || (e.item.editor || 'allyson') === editorFilter))
                                 .map(e => renderSlimCard(e.item, e.livesIn.dayId, e.livesIn.weekKey, e.stageLabel))}
@@ -840,31 +795,20 @@ const App = () => {
                           )}
                       </div>
                   )}
-              </div>
+              </StageQueue>
           ) : isGravarList ? (
-              <div className={`bg-white border border-slate-100 ${radius.big} p-5 md:p-8 shadow-sm`}>
-                  <h2 className="text-2xl font-black text-slate-800 uppercase mb-6 text-center">Fila de Gravação</h2>
-                  <div className="flex items-center justify-center mb-6">
-                      <div className="inline-flex items-center bg-slate-50 rounded-full p-1 text-[10px] font-black uppercase">
-                          <button
-                              onClick={() => setGravarListFilter('pendentes')}
-                              className={`px-3 py-1.5 rounded-full transition-colors ${gravarListFilter === 'pendentes' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                          >
-                              Pendentes ({allGravarGlobal.length})
-                          </button>
-                          <button
-                              onClick={() => setGravarListFilter('concluidos')}
-                              className={`px-3 py-1.5 rounded-full transition-colors ${gravarListFilter === 'concluidos' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                          >
-                              Concluídos ({allGravarConcluidosGlobal.length})
-                          </button>
-                      </div>
-                  </div>
+              <StageQueue title="Fila de gravação">
+                  <QueueTabs
+                      value={gravarListFilter}
+                      onChange={setGravarListFilter}
+                      options={[
+                          { value: 'pendentes',  label: `Pendentes (${allGravarGlobal.length})` },
+                          { value: 'concluidos', label: `Concluídos (${allGravarConcluidosGlobal.length})` }
+                      ]}
+                  />
                   {gravarListFilter === 'pendentes' ? (
                       allGravarGlobal.length === 0 ? (
-                          <div className={emptyState}>
-                              Nenhum conteúdo para gravar
-                          </div>
+                          <QueueEmpty>Nenhum conteúdo para gravar</QueueEmpty>
                       ) : (
                           <div className="space-y-4">
                               {allGravarGlobal.map(item => renderCard(item, item._sourceDayId, item._sourceWeekKey))}
@@ -872,16 +816,14 @@ const App = () => {
                       )
                   ) : (
                       allGravarConcluidosGlobal.length === 0 ? (
-                          <div className={emptyState}>
-                              Nenhuma gravação concluída ainda
-                          </div>
+                          <QueueEmpty>Nenhuma gravação concluída ainda</QueueEmpty>
                       ) : (
                           <div className="space-y-1.5">
                               {allGravarConcluidosGlobal.map(e => renderSlimCard(e.item, e.livesIn.dayId, e.livesIn.weekKey, e.stageLabel))}
                           </div>
                       )
                   )}
-              </div>
+              </StageQueue>
           ) : (
             (() => {
               const thisWeekKey = getWeekKey();
@@ -1079,71 +1021,22 @@ const App = () => {
         </motion.div>
         )}
 
-        <footer className="mt-20 mb-16 flex flex-col md:flex-row items-center justify-between border-t border-slate-100 pt-10 gap-6">
-          <div className="flex items-center space-x-8 text-slate-400">
-            <div className="flex items-center space-x-2">
-              <span className="w-2 h-2 rounded-full bg-blue-200" />
-              <span className="text-[11px] font-black uppercase">Total: {allFilteredItems.length} itens</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
-              <span className="text-[11px] font-black uppercase">{allFilteredItems.filter((item) => item.completed).length} concluidos</span>
-            </div>
-          </div>
-        </footer>
+        <PageFooter
+          totalCount={allFilteredItems.length}
+          completedCount={allFilteredItems.filter((item) => item.completed).length}
+        />
       </div>
 
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 z-40">
-        <div className="flex items-center justify-around h-16">
-          <button onClick={() => { setActiveTab('gravar'); setShowPlanilha(false); }} className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${activeTab === 'gravar' && !showPlanilha ? 'text-blue-600' : 'text-slate-400'}`}>
-            <Video className="w-5 h-5" />
-            <span className="text-[10px] font-black uppercase">Gravar</span>
-          </button>
-          <button onClick={() => { setActiveTab('editar'); setShowPlanilha(false); }} className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${activeTab === 'editar' && !showPlanilha ? 'text-amber-600' : 'text-slate-400'}`}>
-            <Scissors className="w-5 h-5" />
-            <span className="text-[10px] font-black uppercase">Editar</span>
-          </button>
-          <button onClick={() => { setActiveTab('postar'); setShowPlanilha(false); }} className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${activeTab === 'postar' && !showPlanilha ? 'text-emerald-600' : 'text-slate-400'}`}>
-            <Calendar className="w-5 h-5" />
-            <span className="text-[10px] font-black uppercase">Postar</span>
-          </button>
-        </div>
-      </nav>
+      <MobileBottomNav
+        activeTab={activeTab}
+        showPlanilha={showPlanilha}
+        onChangeTab={(t) => { setActiveTab(t); setShowPlanilha(false); }}
+      />
 
-      <nav className="hidden md:block fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
-        <div className="bg-white/95 backdrop-blur border border-slate-100 shadow-xl shadow-slate-900/10 rounded-full px-2 py-2 flex items-center relative">
-          <motion.div
-            className="absolute top-2 bottom-2 rounded-full"
-            initial={false}
-            animate={{
-              left: activeTab === 'gravar' ? '8px' : activeTab === 'editar' ? '124px' : '240px',
-              width: '112px',
-              backgroundColor: activeTab === 'gravar' ? '#2563eb' : activeTab === 'editar' ? '#f59e0b' : '#059669'
-            }}
-            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-          />
-          {[
-            { id: 'gravar', label: 'Gravar', Icon: Video },
-            { id: 'editar', label: 'Editar', Icon: Scissors },
-            { id: 'postar', label: 'Postar', Icon: Calendar }
-          ].map(t => {
-            const active = activeTab === t.id;
-            const Icon = t.Icon;
-            return (
-              <button
-                key={t.id}
-                onClick={() => { setActiveTab(t.id); setShowPlanilha(false); }}
-                className="relative w-28 h-10 flex items-center justify-center gap-2 text-xs font-black uppercase"
-              >
-                <motion.span animate={{ color: active ? '#ffffff' : '#94a3b8' }} className="flex items-center gap-2">
-                  <Icon className="w-4 h-4" />
-                  {t.label}
-                </motion.span>
-              </button>
-            );
-          })}
-        </div>
-      </nav>
+      <FloatingDesktopNav
+        activeTab={activeTab}
+        onChangeTab={(t) => { setActiveTab(t); setShowPlanilha(false); }}
+      />
 
       <AddItemModal isAdding={isAdding} setIsAdding={setIsAdding} newItem={newItem} setNewItem={setNewItem} addItem={addItem} />
 
