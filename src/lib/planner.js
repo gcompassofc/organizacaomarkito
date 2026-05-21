@@ -1,4 +1,4 @@
-import { daysOfWeek, getWeekKey, getNextDayOfWeek, toDateKey } from './dates';
+import { daysOfWeek, getWeekKey } from './dates';
 
 export const emptyTabData = () => ({ segunda: [], terca: [], quarta: [], quinta: [], sexta: [], sabado: [], domingo: [] });
 
@@ -70,32 +70,27 @@ const backfillCodes = (planner) => {
   return planner;
 };
 
-export const defaultItem = () => {
-  const today = new Date();
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  return {
-    objective: '',
-    summary: '',
-    primaryLink: '',
-    secondaryLink: '',
-    editedVideoLink: '',
-    postCaption: '',
-    firstComment: '',
-    contentType: 'video_curto',
-    recordingType: 'sozinho',
-    profile: 'opa',
-    pilar: '',
-    banco: false,
-    storyMode: 'aovivo',
-    time: '',
-    editor: 'allyson',
-    recordingDate: toDateKey(today),
-    postDate: toDateKey(tomorrow),
-    status: 'gravar',
-    initialStage: 'gravar'
-  };
-};
+export const defaultItem = () => ({
+  objective: '',
+  summary: '',
+  primaryLink: '',
+  secondaryLink: '',
+  editedVideoLink: '',
+  postCaption: '',
+  firstComment: '',
+  contentType: 'video_curto',
+  recordingType: 'sozinho',
+  profile: 'opa',
+  pilar: '',
+  banco: false,
+  storyMode: 'aovivo',
+  time: '',
+  editor: 'allyson',
+  recordingDate: '',
+  postDate: '',
+  status: 'gravar',
+  initialStage: 'gravar'
+});
 
 export const createPlanner = (currentWeekKey = getWeekKey()) => ({
   version: 5,
@@ -136,17 +131,11 @@ export const normalizeItem = (item = {}, tabKey = 'gravar', forcedContentType, w
     _editarOrigin: item._editarOrigin || null
   };
 
-  if (!item.recordingDate && weekKeyStr) {
-    norm.recordingDate = getNextDayOfWeek(weekKeyStr, item.recordingDayId || fallbackDayId || 'segunda');
-  } else {
-    norm.recordingDate = item.recordingDate || toDateKey(new Date());
-  }
-
-  if (!item.postDate && weekKeyStr) {
-    norm.postDate = getNextDayOfWeek(weekKeyStr, item.postDayId || fallbackDayId || 'segunda');
-  } else {
-    norm.postDate = item.postDate || toDateKey(new Date());
-  }
+  // Itens sem data são intencionais — não auto-preenche.
+  // Quem está no banco fica sem data; quem foi criado/editado com o campo
+  // apagado também. A UI lida com data vazia mostrando "Sem data" / seção Banco.
+  norm.recordingDate = item.recordingDate || '';
+  norm.postDate = item.postDate || '';
 
   return norm;
 };
