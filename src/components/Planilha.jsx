@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Plus, Search, ChevronLeft, ChevronRight, ChevronDown, Archive } from 'lucide-react';
+import { Plus, Search, ChevronLeft, ChevronRight, ChevronDown, Archive, Trash2, X } from 'lucide-react';
 import {
   getContentTypeTag,
   getContentTypeBadgeClass,
@@ -100,10 +100,10 @@ const Td = ({ children, className = '' }) => (
   <td className={`px-4 py-3 whitespace-nowrap ${className}`}>{children}</td>
 );
 
-const Row = ({ item, onClick }) => (
+const Row = ({ item, onClick, onDeleteRequest }) => (
   <tr
     onClick={() => onClick(item)}
-    className={`border-b border-slate-50 last:border-b-0 hover:bg-slate-50 cursor-pointer transition-colors ${item.completed ? 'opacity-60' : ''}`}
+    className={`group/row border-b border-slate-50 last:border-b-0 hover:bg-slate-50 cursor-pointer transition-colors ${item.completed ? 'opacity-60' : ''}`}
   >
     <Td>
       {item.code ? (
@@ -148,7 +148,11 @@ const Row = ({ item, onClick }) => (
       )}
     </Td>
     <Td>
-      {item.editor ? (
+      {item.editor === 'indefinido' ? (
+        <span className={`inline-flex items-center px-2 py-0.5 rounded ${text.badge} bg-slate-100 text-slate-500 italic`}>
+          Indefinido
+        </span>
+      ) : item.editor ? (
         item.editor === 'torres' ? (
           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded ${text.badge} bg-violet-600 text-white`}>
             <span className="w-1.5 h-1.5 rounded-full bg-white" />
@@ -164,6 +168,15 @@ const Row = ({ item, onClick }) => (
     <Td className="text-xs text-slate-500">{item.recordingDate ? formatDateShort(item.recordingDate) : <span className="text-slate-300">—</span>}</Td>
     <Td className="text-xs text-slate-500">{item.postDate ? formatDateShort(item.postDate) : <span className="text-slate-300">—</span>}</Td>
     <Td className="text-xs text-slate-500">{item.time || <span className="text-slate-300">—</span>}</Td>
+    <Td className="text-right">
+      <button
+        onClick={(e) => { e.stopPropagation(); onDeleteRequest(item); }}
+        className="p-1.5 rounded-lg text-slate-300 hover:text-rose-600 hover:bg-rose-50 opacity-0 group-hover/row:opacity-100 transition-opacity"
+        title="Excluir"
+      >
+        <Trash2 className="w-3.5 h-3.5" />
+      </button>
+    </Td>
   </tr>
 );
 
@@ -182,7 +195,7 @@ const SectionTbody = ({ icon, title, subtitle, count, tone, expanded, onToggle, 
   return (
     <tbody>
       <tr className="border-b border-slate-100">
-        <td colSpan={10} className="p-0">
+        <td colSpan={11} className="p-0">
           <button
             type="button"
             onClick={onToggle}
@@ -206,7 +219,7 @@ const SectionTbody = ({ icon, title, subtitle, count, tone, expanded, onToggle, 
       {expanded && !isEmpty && children}
       {expanded && isEmpty && (
         <tr>
-          <td colSpan={10} className="text-center py-3 text-[10px] font-black text-slate-300 uppercase italic">
+          <td colSpan={11} className="text-center py-3 text-[10px] font-black text-slate-300 uppercase italic">
             Sem itens nesta semana
           </td>
         </tr>
@@ -215,11 +228,12 @@ const SectionTbody = ({ icon, title, subtitle, count, tone, expanded, onToggle, 
   );
 };
 
-export const Planilha = ({ items, search, onSearchChange, onRowClick, onAddClick }) => {
+export const Planilha = ({ items, search, onSearchChange, onRowClick, onAddClick, onDelete }) => {
   const today = useMemo(() => new Date(), []);
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [expanded, setExpanded] = useState(() => new Set());
+  const [pendingDelete, setPendingDelete] = useState(null);
 
   const isCurrentMonth = viewYear === today.getFullYear() && viewMonth === today.getMonth();
 
@@ -350,6 +364,7 @@ export const Planilha = ({ items, search, onSearchChange, onRowClick, onAddClick
                 <Th>Gravar</Th>
                 <Th>Postar</Th>
                 <Th>Hora</Th>
+                <Th className="w-[60px]"></Th>
               </tr>
             </thead>
 
@@ -369,6 +384,7 @@ export const Planilha = ({ items, search, onSearchChange, onRowClick, onAddClick
                     key={`b-${item._stage}-${item._sourceWeekKey}-${item._sourceDayId}-${item.id}`}
                     item={item}
                     onClick={onRowClick}
+                    onDeleteRequest={setPendingDelete}
                   />
                 ))}
               </SectionTbody>
@@ -380,7 +396,7 @@ export const Planilha = ({ items, search, onSearchChange, onRowClick, onAddClick
                 <React.Fragment key={w.key}>
                   <tbody>
                     <tr className="border-b border-slate-100">
-                      <td colSpan={10} className="p-0">
+                      <td colSpan={11} className="p-0">
                         <button
                           type="button"
                           onClick={() => toggle(w.key)}
@@ -410,7 +426,7 @@ export const Planilha = ({ items, search, onSearchChange, onRowClick, onAddClick
                     return (
                       <tbody key={dayKey}>
                         <tr className="border-b border-slate-100">
-                          <td colSpan={10} className="p-0">
+                          <td colSpan={11} className="p-0">
                             <button
                               type="button"
                               onClick={() => toggle(dayKey)}
@@ -447,7 +463,7 @@ export const Planilha = ({ items, search, onSearchChange, onRowClick, onAddClick
                   {isWeekExpanded && w.days.length === 0 && (
                     <tbody>
                       <tr>
-                        <td colSpan={10} className="text-center py-3 text-[10px] font-black text-slate-300 uppercase italic">
+                        <td colSpan={11} className="text-center py-3 text-[10px] font-black text-slate-300 uppercase italic">
                           Sem itens nesta semana
                         </td>
                       </tr>
@@ -460,7 +476,7 @@ export const Planilha = ({ items, search, onSearchChange, onRowClick, onAddClick
             {totalVisible === 0 && (
               <tbody>
                 <tr>
-                  <td colSpan={10} className={`text-center py-10 ${text.badge} text-slate-300`}>
+                  <td colSpan={11} className={`text-center py-10 ${text.badge} text-slate-300`}>
                     Nenhum item neste mês — clique em "Nova página" pra começar
                   </td>
                 </tr>
@@ -476,6 +492,59 @@ export const Planilha = ({ items, search, onSearchChange, onRowClick, onAddClick
           <span className="text-xs font-medium">Nova página</span>
         </button>
       </div>
+
+      {pendingDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
+          onClick={() => setPendingDelete(null)}
+        >
+          <div
+            className="bg-white rounded-[24px] max-w-md w-full shadow-2xl shadow-slate-900/30 p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-base font-black text-slate-900 uppercase tracking-tight">Excluir conteúdo?</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase mt-1 tracking-wider">
+                  Esta ação não pode ser desfeita
+                </p>
+              </div>
+              <button
+                onClick={() => setPendingDelete(null)}
+                className="text-slate-400 hover:text-slate-700 hover:bg-slate-100 p-1.5 rounded-full transition-colors flex-shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 mb-5">
+              {pendingDelete.code && (
+                <span className="inline-block font-mono text-[11px] font-bold text-slate-500 bg-white border border-slate-200 px-2 py-1 rounded-md tracking-wider mb-2">
+                  {pendingDelete.code}
+                </span>
+              )}
+              <p className="text-sm font-semibold text-slate-800">
+                {pendingDelete.objective || <span className="text-slate-400 italic">Sem título</span>}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setPendingDelete(null)}
+                className="px-5 bg-white border border-slate-200 text-slate-600 font-black py-2.5 rounded-xl hover:bg-slate-50 hover:border-slate-300 text-xs uppercase tracking-wider transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => { onDelete(pendingDelete); setPendingDelete(null); }}
+                className="flex-1 bg-rose-600 text-white font-black py-2.5 rounded-xl hover:bg-rose-700 text-xs uppercase tracking-wider transition-colors shadow-lg shadow-rose-600/20"
+              >
+                Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

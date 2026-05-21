@@ -9,6 +9,7 @@ const PROFILES = [
 
 const EDITORS = [
   { id: 'todos', label: 'Todos', dot: 'bg-slate-300' },
+  { id: 'indefinido', label: 'Indefinido', dot: 'bg-slate-400' },
   { id: 'allyson', label: 'Allyson', dot: 'bg-amber-500' },
   { id: 'kallyl', label: 'Kallyl', dot: 'bg-amber-500' },
   { id: 'natalia', label: 'Natalia', dot: 'bg-amber-500' },

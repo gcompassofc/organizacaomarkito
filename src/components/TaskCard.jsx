@@ -147,6 +147,10 @@ export const TaskCard = ({
                   <span className="w-1.5 h-1.5 rounded-full bg-white" />
                   Torres • Externo
                 </span>
+              ) : item.editor === 'indefinido' ? (
+                <span className={`inline-flex items-center px-2 py-0.5 rounded ${text.badge} bg-slate-100 text-slate-500 italic`}>
+                  Editor indefinido
+                </span>
               ) : (
                 <span className={`inline-flex items-center px-2 py-0.5 rounded ${text.badge} bg-amber-100 text-amber-700`}>
                   Editor: {item.editor}

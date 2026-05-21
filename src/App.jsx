@@ -631,6 +631,23 @@ const App = () => {
     setPlanilhaSearch('');
   };
 
+  const deletePlanilhaItem = (item) => {
+    const stage = item._stage;
+    const wk = item._sourceWeekKey;
+    const did = item._sourceDayId;
+    if (!stage || !wk) return;
+    updatePlanner(prev => {
+      const next = { ...prev };
+      if (!next.weeks[wk]) return prev;
+      if (stage === 'editar') {
+        next.weeks[wk].editar.geral = (next.weeks[wk].editar.geral || []).filter(i => i.id !== item.id);
+      } else if (next.weeks[wk][stage] && next.weeks[wk][stage][did]) {
+        next.weeks[wk][stage][did] = next.weeks[wk][stage][did].filter(i => i.id !== item.id);
+      }
+      return next;
+    });
+  };
+
   const moveItem = (weekKey, dayId, itemId, direction, peerIds) => {
     if (activeTab !== 'postar') return;
     updatePlanner(prev => {
@@ -798,6 +815,7 @@ const App = () => {
             onSearchChange={setPlanilhaSearch}
             onRowClick={(item) => openEdit(item._sourceDayId, item, item._sourceWeekKey, item._stage)}
             onAddClick={() => setIsAdding(true)}
+            onDelete={deletePlanilhaItem}
           />
         ) : (
         <motion.div className="space-y-8">

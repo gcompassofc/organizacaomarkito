@@ -227,9 +227,10 @@ const EditItemModal = ({ editModal, setEditModal, activeTab, handleSaveEdit }) =
                   <Label>Responsável edição</Label>
                   <select
                     className={inputBase + ' appearance-none'}
-                    value={item.editor || 'allyson'}
+                    value={item.editor || 'indefinido'}
                     onChange={(e) => patch({ editor: e.target.value })}
                   >
+                    <option value="indefinido">— Indefinido —</option>
                     <option value="allyson">Allyson</option>
                     <option value="kallyl">Kallyl</option>
                     <option value="natalia">Natalia</option>

@@ -228,6 +228,7 @@ const AddItemModal = ({ isAdding, setIsAdding, newItem, setNewItem, addItem }) =
                       value={newItem.editor}
                       onChange={(e) => update({ editor: e.target.value })}
                     >
+                      <option value="indefinido">— Indefinido —</option>
                       <option value="allyson">Allyson</option>
                       <option value="kallyl">Kallyl</option>
                       <option value="natalia">Natalia</option>
