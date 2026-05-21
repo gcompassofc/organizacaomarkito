@@ -420,6 +420,7 @@ const App = () => {
       recordingType: newItem.recordingType,
       profile: newItem.profile,
       pilar: newItem.pilar || '',
+      banco: Boolean(newItem.banco),
       storyMode: newItem.storyMode || 'aovivo',
       time: newItem.time,
       completed: false,

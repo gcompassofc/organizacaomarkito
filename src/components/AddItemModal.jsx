@@ -186,7 +186,20 @@ const AddItemModal = ({ isAdding, setIsAdding, newItem, setNewItem, addItem }) =
               </Section>
 
               <Section title="Agenda & Equipe">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label className="flex items-center gap-3 p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl cursor-pointer transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(newItem.banco)}
+                    onChange={(e) => update({ banco: e.target.checked })}
+                    className="w-4 h-4 accent-blue-600"
+                  />
+                  <div className="flex-1">
+                    <p className="text-xs font-black uppercase text-slate-700 tracking-wider">Salvar no banco</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">Conteúdo pronto sem data definida — fica disponível pra encaixar depois</p>
+                  </div>
+                </label>
+
+                <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${newItem.banco ? 'opacity-50' : ''}`}>
                   <div>
                     <Label>Dia para gravar</Label>
                     <input

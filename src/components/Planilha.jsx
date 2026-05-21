@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Plus, Search, ChevronLeft, ChevronRight, ChevronDown, CalendarOff } from 'lucide-react';
+import { Plus, Search, ChevronLeft, ChevronRight, ChevronDown, Archive } from 'lucide-react';
 import {
   getContentTypeTag,
   getContentTypeBadgeClass,
@@ -53,7 +53,7 @@ const groupByDay = (weekItems, weekMonday) => {
   return buckets.filter(b => b.items.length > 0);
 };
 
-const buildMonthGroups = (items, year, month, includeUndated) => {
+const buildMonthGroups = (items, year, month) => {
   const first = new Date(year, month, 1);
   const last = new Date(year, month + 1, 0);
   const startMonday = getMonday(first);
@@ -74,14 +74,13 @@ const buildMonthGroups = (items, year, month, includeUndated) => {
     n++;
   }
 
-  const undated = [];
+  const banco = [];
   items.forEach(item => {
-    const anchor = anchorDate(item);
-    if (!anchor) {
-      undated.push(item);
+    if (item.banco || !anchorDate(item)) {
+      banco.push(item);
       return;
     }
-    const date = new Date(anchor + 'T12:00:00');
+    const date = new Date(anchorDate(item) + 'T12:00:00');
     if (date.getFullYear() !== year || date.getMonth() !== month) return;
     const itemMondayKey = toDateKey(getMonday(date));
     const week = weeks.find(w => w.key === itemMondayKey);
@@ -90,10 +89,7 @@ const buildMonthGroups = (items, year, month, includeUndated) => {
 
   weeks.forEach(w => { w.days = groupByDay(w.items, w.monday); });
 
-  return {
-    weeks,
-    undated: includeUndated ? undated : []
-  };
+  return { weeks, banco };
 };
 
 const Th = ({ children, className = '' }) => (
@@ -174,8 +170,14 @@ const Row = ({ item, onClick }) => (
 const SectionTbody = ({ icon, title, subtitle, count, tone, expanded, onToggle, isEmpty, children }) => {
   const toneClass = tone === 'amber'
     ? 'bg-amber-50/40 hover:bg-amber-50/70'
-    : 'bg-slate-50/40 hover:bg-slate-100/60';
-  const titleColor = tone === 'amber' ? 'text-amber-700' : 'text-slate-700';
+    : tone === 'violet'
+      ? 'bg-violet-50/40 hover:bg-violet-50/70'
+      : 'bg-slate-50/40 hover:bg-slate-100/60';
+  const titleColor = tone === 'amber'
+    ? 'text-amber-700'
+    : tone === 'violet'
+      ? 'text-violet-700'
+      : 'text-slate-700';
 
   return (
     <tbody>
@@ -222,12 +224,12 @@ export const Planilha = ({ items, search, onSearchChange, onRowClick, onAddClick
   const isCurrentMonth = viewYear === today.getFullYear() && viewMonth === today.getMonth();
 
   const groups = useMemo(
-    () => buildMonthGroups(items, viewYear, viewMonth, isCurrentMonth),
-    [items, viewYear, viewMonth, isCurrentMonth]
+    () => buildMonthGroups(items, viewYear, viewMonth),
+    [items, viewYear, viewMonth]
   );
 
   const totalVisible =
-    groups.undated.length + groups.weeks.reduce((sum, w) => sum + w.items.length, 0);
+    groups.banco.length + groups.weeks.reduce((sum, w) => sum + w.items.length, 0);
 
   const prevMonth = () => {
     if (viewMonth === 0) {
@@ -260,7 +262,7 @@ export const Planilha = ({ items, search, onSearchChange, onRowClick, onAddClick
   });
   const allSectionKeys = useMemo(() => {
     const out = [];
-    if (groups.undated.length > 0) out.push('undated');
+    if (groups.banco.length > 0) out.push('banco');
     groups.weeks.forEach(w => {
       out.push(w.key);
       w.days.forEach(d => out.push(`${w.key}__${d.dayId}`));
@@ -351,20 +353,20 @@ export const Planilha = ({ items, search, onSearchChange, onRowClick, onAddClick
               </tr>
             </thead>
 
-            {groups.undated.length > 0 && (
+            {groups.banco.length > 0 && (
               <SectionTbody
-                icon={<CalendarOff className="w-3.5 h-3.5 text-amber-500" strokeWidth={2.5} />}
-                title="Sem data agendada"
-                subtitle="precisam de data"
-                count={groups.undated.length}
-                tone="amber"
-                expanded={expanded.has('undated')}
-                onToggle={() => toggle('undated')}
+                icon={<Archive className="w-3.5 h-3.5 text-violet-500" strokeWidth={2.5} />}
+                title="Banco"
+                subtitle="pronto pra encaixar"
+                count={groups.banco.length}
+                tone="violet"
+                expanded={expanded.has('banco')}
+                onToggle={() => toggle('banco')}
                 isEmpty={false}
               >
-                {groups.undated.map(item => (
+                {groups.banco.map(item => (
                   <Row
-                    key={`u-${item._stage}-${item._sourceWeekKey}-${item._sourceDayId}-${item.id}`}
+                    key={`b-${item._stage}-${item._sourceWeekKey}-${item._sourceDayId}-${item.id}`}
                     item={item}
                     onClick={onRowClick}
                   />
