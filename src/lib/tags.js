@@ -61,3 +61,37 @@ export const profileMatchesFilter = (itemProfile, filter) => {
   if (p === 'collab' && (filter === 'marco' || filter === 'opa')) return true;
   return false;
 };
+
+export const PILARES = [
+  { id: 'lifestyle', label: 'Lifestyle', profiles: ['marco'] },
+  { id: 'mercado', label: 'Sobre o Mercado', profiles: ['marco', 'opa'] },
+  { id: 'opiniao', label: 'Opinião Forte', profiles: ['marco'] },
+  { id: 'casas', label: 'Casas', profiles: ['marco'] },
+  { id: 'sobre_opa', label: 'Sobre a OPA', profiles: ['opa'] },
+  { id: 'imoveis_abertos', label: 'Imóveis Abertos', profiles: ['opa'] },
+  { id: 'datas_sazonais', label: 'Datas Sazonais & Eventos', profiles: ['opa'] },
+  { id: 'collabs_corretores', label: 'Collabs com Corretores', profiles: ['opa'] },
+  { id: 'lancamentos', label: 'Lançamentos de Imóveis', profiles: ['opa'] }
+];
+
+export const pilaresForProfile = (profile) => {
+  if (!profile || profile === 'collab') return PILARES;
+  return PILARES.filter(p => p.profiles.includes(profile));
+};
+
+export const getPilarLabel = (id) => PILARES.find(p => p.id === id)?.label || '';
+
+export const getPilarBadgeClass = (id) => {
+  const map = {
+    lifestyle: 'bg-rose-50 text-rose-700',
+    mercado: 'bg-slate-100 text-slate-700',
+    opiniao: 'bg-orange-50 text-orange-700',
+    casas: 'bg-emerald-50 text-emerald-700',
+    sobre_opa: 'bg-indigo-50 text-indigo-700',
+    imoveis_abertos: 'bg-cyan-50 text-cyan-700',
+    datas_sazonais: 'bg-amber-50 text-amber-700',
+    collabs_corretores: 'bg-violet-50 text-violet-700',
+    lancamentos: 'bg-blue-50 text-blue-700'
+  };
+  return map[id] || 'bg-slate-100 text-slate-500';
+};
