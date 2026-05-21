@@ -25,13 +25,7 @@ export const text = {
   bodyMedium:'text-sm font-medium leading-relaxed',
   bodySm:    'text-xs font-normal leading-relaxed',
   meta:      'text-[11px] font-semibold tracking-wider uppercase leading-none',
-  microMeta: 'text-[10px] font-semibold tracking-wider uppercase leading-none',
-
-  // Aliases legados (serão removidos no commit final, após migração completa).
-  micro: 'text-[10px] font-semibold tracking-wider uppercase',
-  badge: 'text-[11px] font-semibold tracking-wider uppercase',
-  label: 'text-[10px] font-semibold tracking-wider uppercase',
-  tab:   'text-[11px] font-semibold tracking-wider uppercase'
+  microMeta: 'text-[10px] font-semibold tracking-wider uppercase leading-none'
 };
 
 // ============================================================================
