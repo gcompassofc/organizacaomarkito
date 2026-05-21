@@ -625,10 +625,28 @@ const App = () => {
     setPlanilhaSearch('');
   };
 
+  const moveItem = (weekKey, dayId, itemId, direction, peerIds) => {
+    if (activeTab !== 'postar') return;
+    updatePlanner(prev => {
+      const next = { ...prev };
+      const list = next.weeks[weekKey]?.postar?.[dayId];
+      if (!list) return prev;
+      const peerIdx = peerIds.indexOf(itemId);
+      const targetPeerIdx = peerIdx + (direction === 'up' ? -1 : 1);
+      if (peerIdx < 0 || targetPeerIdx < 0 || targetPeerIdx >= peerIds.length) return prev;
+      const targetPeerId = peerIds[targetPeerIdx];
+      const a = list.findIndex(i => i.id === itemId);
+      const b = list.findIndex(i => i.id === targetPeerId);
+      if (a < 0 || b < 0) return prev;
+      [list[a], list[b]] = [list[b], list[a]];
+      return next;
+    });
+  };
+
   const openEdit = (dayId, item, itemWeekKey, sourceStage = null) =>
     setEditModal({ isOpen: true, dayId, item: { ...item }, itemWeekKey, sourceStage });
 
-  const renderCard = (item, dayId, itemWeekKey) => (
+  const renderCard = (item, dayId, itemWeekKey, opts = {}) => (
     <TaskCard
       key={item.id}
       item={item}
@@ -637,6 +655,11 @@ const App = () => {
       activeTab={activeTab}
       captionCopiedId={captionCopiedId}
       firstCommentCopiedId={firstCommentCopiedId}
+      reorderable={opts.reorderable === true}
+      canMoveUp={opts.reorderable === true && opts.index > 0}
+      canMoveDown={opts.reorderable === true && opts.index < opts.total - 1}
+      onMoveUp={() => moveItem(itemWeekKey, dayId, item.id, 'up', opts.peerIds || [])}
+      onMoveDown={() => moveItem(itemWeekKey, dayId, item.id, 'down', opts.peerIds || [])}
       onDragStart={handleDragStart}
       onToggleComplete={toggleComplete}
       onClick={openEdit}
@@ -958,7 +981,7 @@ const App = () => {
                                   <div className="mb-6">
                                     <h4 className="text-[10px] font-black text-slate-400 uppercase mb-3 ml-2">Vídeos</h4>
                                     <div className="space-y-3">
-                                      {videos.map((item) => renderCard(item, day.id, currentWeekKey))}
+                                      {(() => { const peerIds = videos.map(v => v.id); return videos.map((item, idx) => renderCard(item, day.id, currentWeekKey, { reorderable: activeTab === 'postar', index: idx, total: videos.length, peerIds })); })()}
                                     </div>
                                   </div>
                                 )}
@@ -990,7 +1013,7 @@ const App = () => {
                                   <div className="mb-6">
                                     <h4 className="text-[10px] font-black text-slate-400 uppercase mb-3 ml-2">Stories</h4>
                                     <div className="space-y-3">
-                                      {[...storiesAoVivo, ...storiesBanco].map((item) => renderCard(item, day.id, currentWeekKey))}
+                                      {(() => { const all = [...storiesAoVivo, ...storiesBanco]; const peerIds = all.map(v => v.id); return all.map((item, idx) => renderCard(item, day.id, currentWeekKey, { reorderable: activeTab === 'postar', index: idx, total: all.length, peerIds })); })()}
                                     </div>
                                   </div>
                                 )}

@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import {
   Calendar,
   Check,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Clock,
   Copy,
   ExternalLink,
@@ -29,6 +31,11 @@ export const TaskCard = ({
   activeTab,
   captionCopiedId,
   firstCommentCopiedId,
+  reorderable = false,
+  canMoveUp = false,
+  canMoveDown = false,
+  onMoveUp,
+  onMoveDown,
   onDragStart,
   onToggleComplete,
   onClick,
@@ -37,12 +44,20 @@ export const TaskCard = ({
   onCopyFirstComment,
   onRemove
 }) => {
+  const [expandedMobile, setExpandedMobile] = useState(false);
   const isGravarList = activeTab === 'gravar';
   const isEditarAoVivo =
     activeTab === 'editar' &&
     item.contentType === 'stories' &&
     (item.storyMode || 'aovivo') === 'aovivo';
   const draggable = activeTab !== 'editar' && !isGravarList;
+  // Conteúdo "extra" só aparece no mobile quando expandido; no desktop sempre visível
+  const extraVisible = expandedMobile ? '' : 'hidden md:block';
+  const hasExtras =
+    Boolean(item.summary) ||
+    (activeTab === 'gravar' && item.primaryLink) ||
+    (activeTab === 'editar' && (item.primaryLink || item.editedVideoLink)) ||
+    (activeTab === 'postar' && (item.editedVideoLink || item.postCaption || item.firstComment));
 
   return (
     <motion.div
@@ -60,11 +75,32 @@ export const TaskCard = ({
         </div>
       )}
       <div className="flex items-start md:items-center space-x-3 md:space-x-4 flex-1 min-w-0">
-        {draggable && (
-          <div className="text-slate-300 cursor-grab active:cursor-grabbing mt-1 md:mt-0">
+        {reorderable ? (
+          <div className="flex flex-col gap-0.5 mt-1 md:mt-0 flex-shrink-0">
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); if (canMoveUp) onMoveUp(); }}
+              disabled={!canMoveUp}
+              className={`p-1 rounded-md transition-colors ${canMoveUp ? 'text-slate-400 hover:text-slate-700 hover:bg-slate-100' : 'text-slate-200 cursor-not-allowed'}`}
+              title="Mover para cima"
+            >
+              <ChevronUp className="w-4 h-4" strokeWidth={3} />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); if (canMoveDown) onMoveDown(); }}
+              disabled={!canMoveDown}
+              className={`p-1 rounded-md transition-colors ${canMoveDown ? 'text-slate-400 hover:text-slate-700 hover:bg-slate-100' : 'text-slate-200 cursor-not-allowed'}`}
+              title="Mover para baixo"
+            >
+              <ChevronDown className="w-4 h-4" strokeWidth={3} />
+            </button>
+          </div>
+        ) : draggable ? (
+          <div className="text-slate-300 cursor-grab active:cursor-grabbing mt-1 md:mt-0 hidden md:block">
             <GripVertical className="w-5 h-5" />
           </div>
-        )}
+        ) : null}
         <button
           onClick={(e) => onToggleComplete(e, dayId, item.id, itemWeekKey)}
           className={`flex-shrink-0 mt-0.5 md:mt-0 ${item.completed ? 'text-emerald-500' : 'text-slate-200 hover:text-blue-500'}`}
@@ -76,7 +112,7 @@ export const TaskCard = ({
             {item.objective}
           </p>
           {item.summary && (
-            <div className="flex flex-col mt-2 md:mt-3 space-y-2 md:space-y-3">
+            <div className={`${extraVisible} flex flex-col mt-2 md:mt-3 space-y-2 md:space-y-3`}>
               <p className={`text-[11px] md:text-xs font-medium line-clamp-2 ${item.completed ? 'text-slate-300' : 'text-slate-500'}`}>
                 {stripHtml(item.summary)}
               </p>
@@ -131,60 +167,73 @@ export const TaskCard = ({
             )}
           </div>
 
-          {activeTab === 'gravar' && item.primaryLink && (
-            <a href={item.primaryLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center text-[10px] font-black mt-2 mr-3 uppercase underline decoration-2 underline-offset-4 text-blue-500 hover:text-blue-700">
-              <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
-              Suba o vídeo aqui
-            </a>
-          )}
-          {activeTab === 'editar' && item.primaryLink && (
-            <a href={item.primaryLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center text-[10px] font-black mt-2 mr-3 uppercase underline decoration-2 underline-offset-4 text-blue-500 hover:text-blue-700">
-              <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
-              Baixe o vídeo bruto aqui
-            </a>
-          )}
-          {activeTab === 'editar' && item.editedVideoLink && (
-            <a href={item.editedVideoLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center text-[10px] font-black mt-2 mr-3 uppercase underline decoration-2 underline-offset-4 text-emerald-500 hover:text-emerald-700">
-              <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
-              Arquivo editado
-            </a>
-          )}
-          {activeTab === 'postar' && item.editedVideoLink && (
-            <a href={item.editedVideoLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center text-[10px] font-black mt-2 mr-3 uppercase underline decoration-2 underline-offset-4 text-emerald-500 hover:text-emerald-700">
-              <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
-              Baixe o vídeo editado aqui
-            </a>
-          )}
+          <div className={extraVisible}>
+            {activeTab === 'gravar' && item.primaryLink && (
+              <a href={item.primaryLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center text-[10px] font-black mt-2 mr-3 uppercase underline decoration-2 underline-offset-4 text-blue-500 hover:text-blue-700">
+                <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                Suba o vídeo aqui
+              </a>
+            )}
+            {activeTab === 'editar' && item.primaryLink && (
+              <a href={item.primaryLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center text-[10px] font-black mt-2 mr-3 uppercase underline decoration-2 underline-offset-4 text-blue-500 hover:text-blue-700">
+                <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                Baixe o vídeo bruto aqui
+              </a>
+            )}
+            {activeTab === 'editar' && item.editedVideoLink && (
+              <a href={item.editedVideoLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center text-[10px] font-black mt-2 mr-3 uppercase underline decoration-2 underline-offset-4 text-emerald-500 hover:text-emerald-700">
+                <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                Arquivo editado
+              </a>
+            )}
+            {activeTab === 'postar' && item.editedVideoLink && (
+              <a href={item.editedVideoLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center text-[10px] font-black mt-2 mr-3 uppercase underline decoration-2 underline-offset-4 text-emerald-500 hover:text-emerald-700">
+                <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                Baixe o vídeo editado aqui
+              </a>
+            )}
 
-          {activeTab === 'postar' && item.postCaption && (
-            <div className="mt-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-[10px] font-black text-slate-400 uppercase">Legenda do post</p>
-                <button
-                  onClick={(e) => onCopyCaption(e, item)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg ${text.badge} transition-all ${captionCopiedId === item.id ? 'bg-emerald-500 text-white' : 'bg-blue-50 hover:bg-blue-100 text-blue-700'}`}
-                >
-                  {captionCopiedId === item.id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                  <span>{captionCopiedId === item.id ? 'Copiado!' : 'Copiar'}</span>
-                </button>
+            {activeTab === 'postar' && item.postCaption && (
+              <div className="mt-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-[10px] font-black text-slate-400 uppercase">Legenda do post</p>
+                  <button
+                    onClick={(e) => onCopyCaption(e, item)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg ${text.badge} transition-all ${captionCopiedId === item.id ? 'bg-emerald-500 text-white' : 'bg-blue-50 hover:bg-blue-100 text-blue-700'}`}
+                  >
+                    {captionCopiedId === item.id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                    <span>{captionCopiedId === item.id ? 'Copiado!' : 'Copiar'}</span>
+                  </button>
+                </div>
+                <p className="text-xs text-slate-700 whitespace-pre-wrap">{item.postCaption}</p>
               </div>
-              <p className="text-xs text-slate-700 whitespace-pre-wrap">{item.postCaption}</p>
-            </div>
-          )}
-          {activeTab === 'postar' && item.firstComment && (
-            <div className="mt-2 bg-indigo-50/60 p-3 rounded-xl border border-indigo-100">
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-[10px] font-black text-indigo-500 uppercase">Primeiro comentário</p>
-                <button
-                  onClick={(e) => onCopyFirstComment(e, item)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg ${text.badge} transition-all ${firstCommentCopiedId === item.id ? 'bg-emerald-500 text-white' : 'bg-indigo-100 hover:bg-indigo-200 text-indigo-700'}`}
-                >
-                  {firstCommentCopiedId === item.id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                  <span>{firstCommentCopiedId === item.id ? 'Copiado!' : 'Copiar'}</span>
-                </button>
+            )}
+            {activeTab === 'postar' && item.firstComment && (
+              <div className="mt-2 bg-indigo-50/60 p-3 rounded-xl border border-indigo-100">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-[10px] font-black text-indigo-500 uppercase">Primeiro comentário</p>
+                  <button
+                    onClick={(e) => onCopyFirstComment(e, item)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg ${text.badge} transition-all ${firstCommentCopiedId === item.id ? 'bg-emerald-500 text-white' : 'bg-indigo-100 hover:bg-indigo-200 text-indigo-700'}`}
+                  >
+                    {firstCommentCopiedId === item.id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                    <span>{firstCommentCopiedId === item.id ? 'Copiado!' : 'Copiar'}</span>
+                  </button>
+                </div>
+                <p className="text-xs text-slate-700 whitespace-pre-wrap">{item.firstComment}</p>
               </div>
-              <p className="text-xs text-slate-700 whitespace-pre-wrap">{item.firstComment}</p>
-            </div>
+            )}
+          </div>
+
+          {hasExtras && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setExpandedMobile(v => !v); }}
+              className="md:hidden mt-3 flex items-center gap-1.5 text-[10px] font-black text-blue-600 uppercase tracking-wider"
+            >
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${expandedMobile ? 'rotate-180' : ''}`} strokeWidth={3} />
+              {expandedMobile ? 'Menos' : 'Mais detalhes'}
+            </button>
           )}
         </div>
       </div>
