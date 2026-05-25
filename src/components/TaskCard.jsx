@@ -10,6 +10,7 @@ import {
   Copy,
   ExternalLink,
   GripVertical,
+  MessageSquareOff,
   Scissors,
   Trash2
 } from 'lucide-react';
@@ -18,7 +19,9 @@ import {
   getContentTypeTag,
   getContentTypeBadgeClass,
   getProfileTag,
-  getProfileBadgeClass
+  getProfileBadgeClass,
+  getPilarLabel,
+  getPilarBadgeClass
 } from '../lib/tags';
 import { formatDateShort } from '../lib/dates';
 import { stripHtml } from '../lib/planner';
@@ -146,6 +149,20 @@ export const TaskCard = ({
             {item.profile && (
               <span className={`${badgeBase} ${getProfileBadgeClass(item.profile)}`}>
                 {getProfileTag(item.profile)}
+              </span>
+            )}
+            {item.pilar && (
+              <span className={`${badgeBase} ${getPilarBadgeClass(item.pilar)}`}>
+                {getPilarLabel(item.pilar)}
+              </span>
+            )}
+            {activeTab === 'postar' && item.contentType !== 'stories' && !item.postCaption && (
+              <span
+                className={`${badgeBase} bg-amber-100 text-amber-800 border border-amber-200`}
+                title="Esse post ainda não tem legenda"
+              >
+                <MessageSquareOff className="w-3 h-3" strokeWidth={2.5} />
+                Sem legenda
               </span>
             )}
             {activeTab === 'editar' && item.editor && (

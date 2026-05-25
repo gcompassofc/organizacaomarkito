@@ -2,6 +2,28 @@ import { daysOfWeek, getWeekKey } from './dates';
 
 export const emptyTabData = () => ({ segunda: [], terca: [], quarta: [], quinta: [], sexta: [], sabado: [], domingo: [] });
 
+export const emptyDayMap = () => ({ segunda: '', terca: '', quarta: '', quinta: '', sexta: '', sabado: '', domingo: '' });
+
+export const emptyDayPilars = () => ({
+  marco: emptyDayMap(),
+  opa: emptyDayMap(),
+  collab: emptyDayMap()
+});
+
+export const normalizeDayPilars = (raw) => {
+  const base = emptyDayPilars();
+  if (!raw || typeof raw !== 'object') return base;
+  ['marco', 'opa', 'collab'].forEach((p) => {
+    const slice = raw[p];
+    if (slice && typeof slice === 'object') {
+      Object.keys(base[p]).forEach((d) => {
+        if (typeof slice[d] === 'string') base[p][d] = slice[d];
+      });
+    }
+  });
+  return base;
+};
+
 export const emptyWeekData = () => ({
   gravar: emptyTabData(),
   editar: { geral: [] },
@@ -96,6 +118,7 @@ export const createPlanner = (currentWeekKey = getWeekKey()) => ({
   version: 5,
   currentWeekKey,
   counters: emptyCounters(),
+  dayPilars: emptyDayPilars(),
   weeks: {
     [currentWeekKey]: emptyWeekData()
   }
@@ -177,6 +200,7 @@ export const normalizePlanner = (cloudData) => {
       version: 5,
       currentWeekKey: cloudData.currentWeekKey || currentWeekKey,
       counters: cloudData.counters || emptyCounters(),
+      dayPilars: normalizeDayPilars(cloudData.dayPilars),
       weeks: Object.keys(weeks).length ? weeks : { [currentWeekKey]: emptyWeekData() }
     });
   }
@@ -186,6 +210,7 @@ export const normalizePlanner = (cloudData) => {
       version: 5,
       currentWeekKey,
       counters: emptyCounters(),
+      dayPilars: emptyDayPilars(),
       weeks: {
         [currentWeekKey]: mergeLegacyStoriesIntoGravar({
           gravar: cloudData,
@@ -199,6 +224,7 @@ export const normalizePlanner = (cloudData) => {
     version: 5,
     currentWeekKey,
     counters: emptyCounters(),
+    dayPilars: normalizeDayPilars(cloudData.dayPilars),
     weeks: {
       [currentWeekKey]: mergeLegacyStoriesIntoGravar(cloudData, currentWeekKey)
     }

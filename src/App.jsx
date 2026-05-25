@@ -38,6 +38,7 @@ import {
   getContentTypeTag,
   getProfileTag,
   getPilarLabel,
+  getPilarBadgeClass,
   profileMatchesFilter
 } from './lib/tags';
 import LoginScreen from './components/LoginScreen';
@@ -46,6 +47,7 @@ import AddItemModal from './components/AddItemModal';
 import EditItemModal from './components/EditItemModal';
 import { TaskCard, PreviewCard, SlimCard } from './components/TaskCard';
 import { Planilha } from './components/Planilha';
+import { DayPilarPicker } from './components/DayPilarPicker';
 import {
   HeaderBar,
   SectionBar,
@@ -59,6 +61,7 @@ import {
 import { radius, text, emptyState } from './lib/ui';
 import {
   emptyWeekData,
+  emptyDayPilars,
   newId,
   defaultItem,
   createPlanner,
@@ -397,6 +400,18 @@ const App = () => {
 
   const toggleDay = (dayId) => {
     setExpandedDay(expandedDay === dayId ? null : dayId);
+  };
+
+  const setDayPilar = (profile, dayId, pilarId) => {
+    updatePlanner((prev) => {
+      const next = { ...prev };
+      const base = prev.dayPilars || emptyDayPilars();
+      next.dayPilars = {
+        ...base,
+        [profile]: { ...(base[profile] || {}), [dayId]: pilarId || '' }
+      };
+      return next;
+    });
   };
 
   const addItem = () => {
@@ -853,6 +868,10 @@ const App = () => {
               const isDropTarget = draggedItem && draggedItem.dayId !== day.id;
 
               if (isEmpty && !isExpanded && !isToday) {
+                const dayPilarPills = ['marco', 'opa', 'collab']
+                  .filter(p => effectiveProfileFilter === 'todos' || effectiveProfileFilter === p)
+                  .map(p => ({ profile: p, pilar: planner.dayPilars?.[p]?.[day.id] || '' }))
+                  .filter(x => x.pilar);
                 return (
                   <div
                     key={day.id}
@@ -867,6 +886,19 @@ const App = () => {
                       <span className={`w-2 h-2 rounded-full ${day.color} flex-shrink-0`} />
                       <span className="text-sm font-semibold text-slate-700 flex-shrink-0">{day.label}</span>
                       <span className={`${text.microMeta} text-slate-400`}>{dateLabel}</span>
+                      {dayPilarPills.length > 0 && (
+                        <span className="flex items-center gap-1.5 flex-shrink min-w-0">
+                          {dayPilarPills.map(({ profile, pilar }) => (
+                            <span
+                              key={profile}
+                              className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold tracking-wider uppercase leading-none ${getPilarBadgeClass(pilar)}`}
+                              title={`${getProfileTag(profile)} — pilar do dia: ${getPilarLabel(pilar)}`}
+                            >
+                              {getPilarLabel(pilar)}
+                            </span>
+                          ))}
+                        </span>
+                      )}
                       <span className="flex-1" />
                       <span className={`${text.microMeta} text-slate-300`}>Vazio</span>
                       <ChevronDown className="w-4 h-4 text-slate-300" strokeWidth={3} />
@@ -926,6 +958,15 @@ const App = () => {
                     <ChevronDown className="w-5 h-5" strokeWidth={3} />
                   </div>
                 </button>
+
+                <div className="px-5 md:px-6 pb-3 -mt-2">
+                  <DayPilarPicker
+                    dayId={day.id}
+                    dayPilars={planner.dayPilars}
+                    onChange={setDayPilar}
+                    profileFilter={effectiveProfileFilter}
+                  />
+                </div>
 
                 <AnimatePresence>
                   {expandedDay === day.id && (
