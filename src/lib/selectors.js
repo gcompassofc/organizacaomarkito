@@ -44,6 +44,34 @@ const dateOrFallback = (dateStr, fallbackWeekKey) =>
 
 const notBanco = (item) => !item.banco;
 
+export const getRepostablePosts = (planner) => {
+  const out = [];
+  Object.entries(planner.weeks || {}).forEach(([weekKey, weekData]) => {
+    daysOfWeek.forEach(d => {
+      (weekData.gravar?.[d.id] || []).forEach(item => {
+        if (item.contentType === 'stories' || item.contentType === 'repost_stories') return;
+        out.push({ ...item, _stage: 'gravar', _sourceWeekKey: weekKey, _sourceDayId: d.id });
+      });
+    });
+    (weekData.editar?.geral || []).forEach(item => {
+      if (item.contentType === 'stories' || item.contentType === 'repost_stories') return;
+      out.push({ ...item, _stage: 'editar', _sourceWeekKey: weekKey, _sourceDayId: 'geral' });
+    });
+    Object.entries(weekData.postar || {}).forEach(([dayId, items]) => {
+      (items || []).forEach(item => {
+        if (item.contentType === 'stories' || item.contentType === 'repost_stories') return;
+        out.push({ ...item, _stage: 'postar', _sourceWeekKey: weekKey, _sourceDayId: dayId });
+      });
+    });
+  });
+  out.sort((a, b) => {
+    const da = (a.postDate || a.recordingDate || a._sourceWeekKey);
+    const db = (b.postDate || b.recordingDate || b._sourceWeekKey);
+    return db.localeCompare(da);
+  });
+  return out;
+};
+
 export const getEditarQueue = (planner, profileFilter, editorFilter) => {
   const items = Object.entries(planner.weeks).flatMap(([weekKey, weekData]) =>
     (weekData.editar?.geral || [])

@@ -31,6 +31,7 @@ export const getRecordingTag = (value) => (value === 'com_alguem' ? 'Dois' : 'So
 
 export const getContentTypeTag = (value) => {
   if (value === 'stories') return 'Stories';
+  if (value === 'repost_stories') return 'Repost no Stories';
   if (value === 'estatico') return 'Estático';
   if (value === 'carrossel') return 'Carrossel';
   if (value === 'youtube' || value === 'video_longo') return 'YouTube';
@@ -39,8 +40,12 @@ export const getContentTypeTag = (value) => {
 
 export const getContentTypeBadgeClass = (value, fallback) => {
   if (value === 'youtube' || value === 'video_longo') return 'bg-red-100 text-red-700';
+  if (value === 'repost_stories') return 'bg-rose-50 text-rose-700 border border-rose-200';
   return fallback;
 };
+
+export const isStoriesLike = (contentType) =>
+  contentType === 'stories' || contentType === 'repost_stories';
 
 export const getProfileTag = (value) => {
   if (value === 'marco') return 'Marco';

@@ -111,7 +111,10 @@ export const defaultItem = () => ({
   recordingDate: '',
   postDate: '',
   status: 'gravar',
-  initialStage: 'gravar'
+  initialStage: 'gravar',
+  repostOfId: '',
+  repostOfCode: '',
+  repostOfObjective: ''
 });
 
 export const createPlanner = (currentWeekKey = getWeekKey()) => ({
@@ -150,6 +153,9 @@ export const normalizeItem = (item = {}, tabKey = 'gravar', forcedContentType, w
     time: item.time || '',
     completed: Boolean(item.completed),
     tabKey,
+    repostOfId: item.repostOfId || '',
+    repostOfCode: item.repostOfCode || '',
+    repostOfObjective: item.repostOfObjective || '',
     _gravarOrigin: item._gravarOrigin || null,
     _editarOrigin: item._editarOrigin || null
   };

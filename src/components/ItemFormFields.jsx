@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import ReactQuill from 'react-quill-new';
-import { pilaresForProfile } from '../lib/tags';
+import { pilaresForProfile, getProfileTag } from '../lib/tags';
 import { Field, Input, Textarea, Select } from './ui/Input';
 import { text } from '../lib/ui';
 
@@ -51,7 +51,8 @@ export const ItemFormFields = ({
   mode = 'create',
   stageValue,
   onStageChange,
-  showPostFields
+  showPostFields,
+  repostablePosts = []
 }) => {
   const changeProfile = (profile) => {
     const validIds = pilaresForProfile(profile).map(p => p.id);
@@ -61,6 +62,20 @@ export const ItemFormFields = ({
   const availablePilares = pilaresForProfile(item.profile);
   const stageLabel = mode === 'create' ? 'Começar em qual etapa?' : 'Etapa atual';
   const storyMode = item.storyMode || 'aovivo';
+  const isRepost = item.contentType === 'repost_stories';
+
+  const changeContentType = (value) => {
+    const patch = { contentType: value };
+    if (value === 'repost_stories') {
+      if (mode === 'create') patch.initialStage = 'postar';
+      else patch.tabKey = 'postar';
+    } else if (item.contentType === 'repost_stories') {
+      patch.repostOfId = '';
+      patch.repostOfCode = '';
+      patch.repostOfObjective = '';
+    }
+    onPatch(patch);
+  };
 
   return (
     <div className="space-y-6">
@@ -97,11 +112,12 @@ export const ItemFormFields = ({
           <Field label="Tipo">
             <Select
               value={item.contentType || 'video_curto'}
-              onChange={(e) => onPatch({ contentType: e.target.value })}
+              onChange={(e) => changeContentType(e.target.value)}
             >
               <option value="video_curto">Vídeo curto</option>
               <option value="youtube">YouTube</option>
               <option value="stories">Stories</option>
+              <option value="repost_stories">Repost no Stories</option>
               <option value="estatico">Estático</option>
               <option value="carrossel">Carrossel</option>
             </Select>
@@ -146,6 +162,48 @@ export const ItemFormFields = ({
         </Field>
       </Section>
 
+      {isRepost && (
+        <Section title="Qual post repostar?">
+          <RepostPicker
+            value={item.repostOfId || ''}
+            onChange={(post) => onPatch({
+              repostOfId: post?.id || '',
+              repostOfCode: post?.code || '',
+              repostOfObjective: post?.objective || ''
+            })}
+            posts={repostablePosts}
+            currentLabel={item.repostOfCode || item.repostOfObjective}
+          />
+          {(item.repostOfId || item.repostOfCode) && (
+            <div className="bg-rose-50/60 border border-rose-200 rounded-xl p-3 flex items-start gap-3">
+              <span className="text-rose-500 mt-0.5">↻</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-semibold tracking-wider uppercase text-rose-500/80">Repostando</p>
+                <p className="text-sm font-medium text-slate-800 truncate">
+                  {item.repostOfCode && <span className="font-mono text-xs text-slate-500 mr-1">{item.repostOfCode}</span>}
+                  {item.repostOfObjective || <span className="italic text-slate-400">post sem título</span>}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => onPatch({ repostOfId: '', repostOfCode: '', repostOfObjective: '' })}
+                className="text-[10px] font-semibold tracking-wider uppercase text-rose-600 hover:text-rose-700"
+              >
+                Trocar
+              </button>
+            </div>
+          )}
+          <Field label="Instrução pra equipe (opcional)">
+            <Textarea
+              rows={2}
+              value={item.postCaption || ''}
+              onChange={(e) => onPatch({ postCaption: e.target.value })}
+              placeholder="Ex: Repostar com sticker de localização, marcar @fulano..."
+            />
+          </Field>
+        </Section>
+      )}
+
       <Section title="Agenda & Equipe">
         <label className="flex items-center gap-3 p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl cursor-pointer transition-colors">
           <input
@@ -163,14 +221,16 @@ export const ItemFormFields = ({
           </div>
         </label>
 
-        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${item.banco ? 'opacity-50' : ''}`}>
-          <Field label="Dia para gravar">
-            <Input
-              type="date"
-              value={item.recordingDate || ''}
-              onChange={(e) => onPatch({ recordingDate: e.target.value })}
-            />
-          </Field>
+        <div className={`grid grid-cols-1 ${isRepost ? '' : 'md:grid-cols-2'} gap-4 ${item.banco ? 'opacity-50' : ''}`}>
+          {!isRepost && (
+            <Field label="Dia para gravar">
+              <Input
+                type="date"
+                value={item.recordingDate || ''}
+                onChange={(e) => onPatch({ recordingDate: e.target.value })}
+              />
+            </Field>
+          )}
           <Field label="Dia para postar">
             <Input
               type="date"
@@ -180,19 +240,21 @@ export const ItemFormFields = ({
           </Field>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Field label="Responsável edição">
-            <Select
-              value={item.editor || 'indefinido'}
-              onChange={(e) => onPatch({ editor: e.target.value })}
-            >
-              <option value="indefinido">— Indefinido —</option>
-              <option value="allyson">Allyson</option>
-              <option value="kallyl">Kallyl</option>
-              <option value="natalia">Natalia</option>
-              <option value="torres">★ Torres (Externo)</option>
-            </Select>
-          </Field>
+        <div className={`grid grid-cols-1 ${isRepost ? '' : 'md:grid-cols-2'} gap-4`}>
+          {!isRepost && (
+            <Field label="Responsável edição">
+              <Select
+                value={item.editor || 'indefinido'}
+                onChange={(e) => onPatch({ editor: e.target.value })}
+              >
+                <option value="indefinido">— Indefinido —</option>
+                <option value="allyson">Allyson</option>
+                <option value="kallyl">Kallyl</option>
+                <option value="natalia">Natalia</option>
+                <option value="torres">★ Torres (Externo)</option>
+              </Select>
+            </Field>
+          )}
           <Field label="Horário da postagem">
             <Input
               type="text"
@@ -204,28 +266,30 @@ export const ItemFormFields = ({
         </div>
       </Section>
 
-      <Section title="Links">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Field label="Link do vídeo bruto">
-            <Input
-              type="text"
-              placeholder="Link do Drive"
-              value={item.primaryLink || ''}
-              onChange={(e) => onPatch({ primaryLink: e.target.value })}
-            />
-          </Field>
-          <Field label="Link do arquivo editado">
-            <Input
-              type="text"
-              placeholder="Pasta completa"
-              value={item.editedVideoLink || ''}
-              onChange={(e) => onPatch({ editedVideoLink: e.target.value })}
-            />
-          </Field>
-        </div>
-      </Section>
+      {!isRepost && (
+        <Section title="Links">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field label="Link do vídeo bruto">
+              <Input
+                type="text"
+                placeholder="Link do Drive"
+                value={item.primaryLink || ''}
+                onChange={(e) => onPatch({ primaryLink: e.target.value })}
+              />
+            </Field>
+            <Field label="Link do arquivo editado">
+              <Input
+                type="text"
+                placeholder="Pasta completa"
+                value={item.editedVideoLink || ''}
+                onChange={(e) => onPatch({ editedVideoLink: e.target.value })}
+              />
+            </Field>
+          </div>
+        </Section>
+      )}
 
-      {showPostFields && (
+      {showPostFields && !isRepost && (
         <Section title="Publicação">
           <Field label="Legenda do post">
             <Textarea
@@ -245,6 +309,71 @@ export const ItemFormFields = ({
           </Field>
         </Section>
       )}
+    </div>
+  );
+};
+
+const RepostPicker = ({ value, onChange, posts, currentLabel }) => {
+  const [query, setQuery] = useState('');
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const list = posts || [];
+    if (!q) return list.slice(0, 15);
+    return list.filter(p =>
+      (p.objective || '').toLowerCase().includes(q) ||
+      (p.code || '').toLowerCase().includes(q)
+    ).slice(0, 15);
+  }, [posts, query]);
+
+  return (
+    <div className="space-y-3">
+      <Input
+        type="text"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Buscar por título ou código..."
+      />
+      <div className="max-h-56 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100">
+        {filtered.length === 0 ? (
+          <p className="text-sm text-slate-400 italic text-center py-6">
+            Nenhum post encontrado
+          </p>
+        ) : (
+          filtered.map(post => {
+            const selected = value === post.id;
+            return (
+              <button
+                key={`${post._sourceWeekKey}-${post._sourceDayId}-${post.id}`}
+                type="button"
+                onClick={() => onChange(post)}
+                className={`w-full text-left p-3 flex items-start gap-3 hover:bg-rose-50/40 transition-colors ${selected ? 'bg-rose-50' : 'bg-white'}`}
+              >
+                <span className="font-mono text-[10px] font-semibold text-slate-500 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-md tracking-wider flex-shrink-0 mt-0.5">
+                  {post.code || '—'}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-800 truncate">
+                    {post.objective || <span className="italic text-slate-400">Sem título</span>}
+                  </p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-[10px] font-semibold tracking-wider uppercase text-slate-400">
+                      {getProfileTag(post.profile)}
+                    </span>
+                    {post.postDate && (
+                      <span className="text-[10px] text-slate-400">
+                        · postar {post.postDate}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {selected && (
+                  <span className="text-rose-600 text-xs font-semibold">✓</span>
+                )}
+              </button>
+            );
+          })
+        )}
+      </div>
     </div>
   );
 };

@@ -12,7 +12,8 @@ import {
   getProfileBadgeClass,
   getProfileTag,
   getContentTypeTag,
-  pilaresForProfile
+  pilaresForProfile,
+  isStoriesLike
 } from '../lib/tags';
 import { stageLabel } from '../lib/selectors';
 
@@ -90,7 +91,48 @@ const itemDateKey = (item, dateField) => {
   return item.postDate || '';
 };
 
-const DayPopover = ({ day, items, dateField, onClose, onAddClick, onItemClick }) => {
+const DayItemRow = ({ item, onClick, muted = false }) => (
+  <button
+    type="button"
+    onClick={() => onClick(item)}
+    className={`w-full text-left flex flex-col gap-2 p-3 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50/40 transition-colors ${item.completed ? 'opacity-60' : ''} ${muted ? 'bg-slate-50/60' : ''}`}
+  >
+    <div className="flex items-start gap-2 min-w-0">
+      <span className={`w-2 h-2 rounded-full ${dotForItem(item)} flex-shrink-0 mt-1.5`} />
+      <span className={`text-sm font-medium min-w-0 ${muted ? 'text-slate-600' : 'text-slate-800'} ${item.completed ? 'line-through italic text-slate-400' : ''}`}>
+        {item.objective || <span className="text-slate-300">Sem título</span>}
+      </span>
+    </div>
+    <div className="flex flex-wrap items-center gap-1.5">
+      {item.profile && (
+        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold tracking-wider uppercase ${getProfileBadgeClass(item.profile)}`}>
+          {getProfileTag(item.profile)}
+        </span>
+      )}
+      {item.pilar && (
+        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold tracking-wider uppercase ${getPilarBadgeClass(item.pilar)}`}>
+          {getPilarLabel(item.pilar)}
+        </span>
+      )}
+      {item.contentType && (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold tracking-wider uppercase bg-slate-100 text-slate-600">
+          {getContentTypeTag(item.contentType)}
+        </span>
+      )}
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold tracking-wider uppercase bg-slate-50 text-slate-500">
+        {stageLabel(item)}
+      </span>
+      {item.time && (
+        <span className="text-[10px] font-semibold tracking-wider uppercase text-slate-400">
+          {item.time}
+        </span>
+      )}
+    </div>
+  </button>
+);
+
+const DayPopover = ({ day, mainItems, storiesItems, dateField, onClose, onAddClick, onItemClick }) => {
+  const total = mainItems.length + storiesItems.length;
   const ref = useRef(null);
   useEffect(() => {
     const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
@@ -116,7 +158,7 @@ const DayPopover = ({ day, items, dateField, onClose, onAddClick, onItemClick })
               {dateField === 'recordingDate' ? 'Gravar' : 'Postar'}
             </p>
             <h3 className="text-lg font-semibold text-slate-800 mt-0.5">
-              {formatDateShort(day)} · {items.length} {items.length === 1 ? 'tarefa' : 'tarefas'}
+              {formatDateShort(day)} · {total} {total === 1 ? 'tarefa' : 'tarefas'}
             </h3>
           </div>
           <button
@@ -128,52 +170,42 @@ const DayPopover = ({ day, items, dateField, onClose, onAddClick, onItemClick })
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-3 space-y-2">
-          {items.length === 0 ? (
+        <div className="flex-1 overflow-y-auto p-3 space-y-3">
+          {total === 0 && (
             <p className="text-sm text-slate-400 italic text-center py-8">
               Nada planejado para esse dia ainda
             </p>
-          ) : (
-            items.map(item => (
-              <button
-                key={`${item._stage}-${item._sourceWeekKey}-${item._sourceDayId}-${item.id}`}
-                type="button"
-                onClick={() => onItemClick(item)}
-                className={`w-full text-left flex flex-col gap-2 p-3 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50/40 transition-colors ${item.completed ? 'opacity-60' : ''}`}
-              >
-                <div className="flex items-start gap-2 min-w-0">
-                  <span className={`w-2 h-2 rounded-full ${dotForItem(item)} flex-shrink-0 mt-1.5`} />
-                  <span className={`text-sm font-medium text-slate-800 min-w-0 ${item.completed ? 'line-through italic text-slate-400' : ''}`}>
-                    {item.objective || <span className="text-slate-300">Sem título</span>}
-                  </span>
-                </div>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {item.profile && (
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold tracking-wider uppercase ${getProfileBadgeClass(item.profile)}`}>
-                      {getProfileTag(item.profile)}
-                    </span>
-                  )}
-                  {item.pilar && (
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold tracking-wider uppercase ${getPilarBadgeClass(item.pilar)}`}>
-                      {getPilarLabel(item.pilar)}
-                    </span>
-                  )}
-                  {item.contentType && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold tracking-wider uppercase bg-slate-100 text-slate-600">
-                      {getContentTypeTag(item.contentType)}
-                    </span>
-                  )}
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold tracking-wider uppercase bg-slate-50 text-slate-500">
-                    {stageLabel(item)}
-                  </span>
-                  {item.time && (
-                    <span className="text-[10px] font-semibold tracking-wider uppercase text-slate-400">
-                      {item.time}
-                    </span>
-                  )}
-                </div>
-              </button>
-            ))
+          )}
+          {mainItems.length > 0 && (
+            <div className="space-y-2">
+              {mainItems.map(item => (
+                <DayItemRow
+                  key={`${item._stage}-${item._sourceWeekKey}-${item._sourceDayId}-${item.id}`}
+                  item={item}
+                  onClick={onItemClick}
+                />
+              ))}
+            </div>
+          )}
+          {storiesItems.length > 0 && (
+            <div className="pt-2">
+              <div className="flex items-center gap-2 mb-2 px-1">
+                <span className="w-1 h-1 rounded-full bg-rose-400" />
+                <span className="text-[10px] font-semibold tracking-wider uppercase text-rose-500/80">
+                  Stories ({storiesItems.length})
+                </span>
+              </div>
+              <div className="space-y-2">
+                {storiesItems.map(item => (
+                  <DayItemRow
+                    key={`s-${item._stage}-${item._sourceWeekKey}-${item._sourceDayId}-${item.id}`}
+                    item={item}
+                    onClick={onItemClick}
+                    muted
+                  />
+                ))}
+              </div>
+            </div>
           )}
         </div>
 
@@ -214,10 +246,15 @@ export const CalendarView = ({
       if (item.banco) return;
       const key = itemDateKey(item, dateField);
       if (!key) return;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key).push(item);
+      if (!map.has(key)) map.set(key, { main: [], stories: [] });
+      const bucket = map.get(key);
+      if (isStoriesLike(item.contentType)) bucket.stories.push(item);
+      else bucket.main.push(item);
     });
-    map.forEach(arr => arr.sort((a, b) => (a.time || '').localeCompare(b.time || '')));
+    map.forEach(b => {
+      b.main.sort((a, b2) => (a.time || '').localeCompare(b2.time || ''));
+      b.stories.sort((a, b2) => (a.time || '').localeCompare(b2.time || ''));
+    });
     return map;
   }, [items, dateField]);
 
@@ -255,7 +292,7 @@ export const CalendarView = ({
   };
 
   const openDate = openDayKey ? new Date(openDayKey + 'T12:00:00') : null;
-  const openDayItems = openDayKey ? (itemsByDay.get(openDayKey) || []) : [];
+  const openDayBucket = openDayKey ? (itemsByDay.get(openDayKey) || { main: [], stories: [] }) : { main: [], stories: [] };
 
   return (
     <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
@@ -297,7 +334,9 @@ export const CalendarView = ({
           const key = toDateKey(date);
           const inMonth = date.getMonth() === viewMonth;
           const isToday = key === todayKey;
-          const dayItems = itemsByDay.get(key) || [];
+          const bucket = itemsByDay.get(key) || { main: [], stories: [] };
+          const dayItems = bucket.main;
+          const storiesCount = bucket.stories.length;
 
           return (
             <div
@@ -307,11 +346,20 @@ export const CalendarView = ({
               <button
                 type="button"
                 onClick={() => setOpenDayKey(key)}
-                className="flex items-start justify-between gap-1 text-left"
+                className="flex items-center justify-between gap-1 text-left"
               >
                 <span className={`text-[11px] font-semibold ${inMonth ? (isToday ? 'text-emerald-700' : 'text-slate-700') : 'text-slate-300'}`}>
                   {date.getDate()}
                 </span>
+                {storiesCount > 0 && (
+                  <span
+                    className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-rose-500/80"
+                    title={`${storiesCount} ${storiesCount === 1 ? 'story' : 'stories'}`}
+                  >
+                    <span className="w-1 h-1 rounded-full bg-rose-400" />
+                    {storiesCount}
+                  </span>
+                )}
               </button>
 
               <button
@@ -339,7 +387,8 @@ export const CalendarView = ({
       {openDate && (
         <DayPopover
           day={openDate}
-          items={openDayItems}
+          mainItems={openDayBucket.main}
+          storiesItems={openDayBucket.stories}
           dateField={dateField}
           onClose={() => setOpenDayKey(null)}
           onAddClick={(date) => { setOpenDayKey(null); onAddAtDate(date); }}

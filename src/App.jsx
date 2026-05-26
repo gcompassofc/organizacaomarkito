@@ -77,7 +77,8 @@ import {
   getGravarSlimEchoes,
   getEditarSlimEchoes,
   getEditarPreviewsByDay,
-  getAllItems
+  getAllItems,
+  getRepostablePosts
 } from './lib/selectors';
 
 const App = () => {
@@ -418,7 +419,8 @@ const App = () => {
     if (!newItem.objective.trim()) return;
 
     const isEstatico = newItem.contentType === 'estatico' || newItem.contentType === 'carrossel';
-    const stage = newItem.initialStage || (isEstatico ? 'editar' : 'gravar');
+    const isRepost = newItem.contentType === 'repost_stories';
+    const stage = isRepost ? 'postar' : (newItem.initialStage || (isEstatico ? 'editar' : 'gravar'));
 
     const banco = Boolean(newItem.banco);
     const item = {
@@ -440,6 +442,9 @@ const App = () => {
       banco,
       storyMode: newItem.storyMode || 'aovivo',
       time: newItem.time,
+      repostOfId: newItem.repostOfId || '',
+      repostOfCode: newItem.repostOfCode || '',
+      repostOfObjective: newItem.repostOfObjective || '',
       completed: false,
       tabKey: stage
     };
@@ -992,8 +997,9 @@ const App = () => {
                           )}
 
                           {(() => {
-                            const videos = filteredDayItems.filter(item => item.contentType !== 'stories');
-                            const storiesAoVivo = filteredDayItems.filter(item => item.contentType === 'stories' && (item.storyMode || 'aovivo') === 'aovivo');
+                            const isStoryish = (it) => it.contentType === 'stories' || it.contentType === 'repost_stories';
+                            const videos = filteredDayItems.filter(item => !isStoryish(item));
+                            const storiesAoVivo = filteredDayItems.filter(item => isStoryish(item) && (item.contentType === 'repost_stories' || (item.storyMode || 'aovivo') === 'aovivo'));
                             const storiesBanco = filteredDayItems.filter(item => item.contentType === 'stories' && item.storyMode === 'banco');
                             return (
                               <>
@@ -1091,7 +1097,7 @@ const App = () => {
         onChangeTab={(t) => { setActiveTab(t); setShowPlanilha(false); }}
       />
 
-      <AddItemModal isAdding={isAdding} setIsAdding={setIsAdding} newItem={newItem} setNewItem={setNewItem} addItem={addItem} />
+      <AddItemModal isAdding={isAdding} setIsAdding={setIsAdding} newItem={newItem} setNewItem={setNewItem} addItem={addItem} repostablePosts={getRepostablePosts(planner)} />
 
       <SummaryModal
         summaryModal={summaryModal}
@@ -1100,7 +1106,7 @@ const App = () => {
         copiedState={copiedState}
       />
 
-      <EditItemModal editModal={editModal} setEditModal={setEditModal} activeTab={editModal.sourceStage || activeTab} handleSaveEdit={handleSaveEdit} />
+      <EditItemModal editModal={editModal} setEditModal={setEditModal} activeTab={editModal.sourceStage || activeTab} handleSaveEdit={handleSaveEdit} repostablePosts={getRepostablePosts(planner)} />
     </div>
   );
 };

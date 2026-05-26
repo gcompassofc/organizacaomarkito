@@ -121,6 +121,16 @@ export const TaskCard = ({
           <p className={`${text.h3} text-slate-900 ${item.completed ? 'line-through text-slate-400 italic' : ''}`}>
             {item.objective}
           </p>
+          {item.contentType === 'repost_stories' && (item.repostOfId || item.repostOfCode) && (
+            <p className="mt-1 text-[11px] text-rose-700 font-medium inline-flex items-center gap-1">
+              <span className="text-rose-500">↻</span>
+              Repost de
+              {item.repostOfCode && (
+                <span className="font-mono text-[10px] bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded text-rose-700">{item.repostOfCode}</span>
+              )}
+              <span className="truncate">{item.repostOfObjective}</span>
+            </p>
+          )}
           {item.summary && (
             <div className={`${extraVisible} flex flex-col mt-3 gap-3`}>
               <p className={`text-xs leading-relaxed line-clamp-2 ${item.completed ? 'text-slate-300' : 'text-slate-500'}`}>
@@ -156,7 +166,7 @@ export const TaskCard = ({
                 {getPilarLabel(item.pilar)}
               </span>
             )}
-            {activeTab === 'postar' && item.contentType !== 'stories' && !item.postCaption && (
+            {activeTab === 'postar' && item.contentType !== 'stories' && item.contentType !== 'repost_stories' && !item.postCaption && (
               <span
                 className={`${badgeBase} bg-amber-100 text-amber-800 border border-amber-200`}
                 title="Esse post ainda não tem legenda"

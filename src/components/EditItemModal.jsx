@@ -3,7 +3,7 @@ import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { ItemFormFields } from './ItemFormFields';
 
-const EditItemModal = ({ editModal, setEditModal, activeTab, handleSaveEdit }) => {
+const EditItemModal = ({ editModal, setEditModal, activeTab, handleSaveEdit, repostablePosts }) => {
   if (!editModal.isOpen || !editModal.item) return null;
 
   const item = editModal.item;
@@ -37,6 +37,7 @@ const EditItemModal = ({ editModal, setEditModal, activeTab, handleSaveEdit }) =
         stageValue={currentStage}
         onStageChange={(id) => patch({ tabKey: id })}
         showPostFields={showPostFields}
+        repostablePosts={repostablePosts}
       />
     </Modal>
   );
