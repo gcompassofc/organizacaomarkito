@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Plus, Search, ChevronLeft, ChevronRight, ChevronDown, Archive, Trash2 } from 'lucide-react';
+import { Plus, Search, ChevronLeft, ChevronRight, ChevronDown, Archive, Trash2, List, CalendarDays } from 'lucide-react';
+import { CalendarView } from './CalendarView';
 import {
   getContentTypeTag,
   getContentTypeBadgeClass,
@@ -237,12 +238,14 @@ const SectionTbody = ({ icon, title, subtitle, count, tone, expanded, onToggle, 
   );
 };
 
-export const Planilha = ({ items, search, onSearchChange, onRowClick, onAddClick, onDelete }) => {
+export const Planilha = ({ items, search, onSearchChange, onRowClick, onAddClick, onAddAtDate, onDelete, dayPilars }) => {
   const today = useMemo(() => new Date(), []);
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [expanded, setExpanded] = useState(() => new Set());
   const [pendingDelete, setPendingDelete] = useState(null);
+  const [viewMode, setViewMode] = useState('lista');
+  const [dateField, setDateField] = useState('postDate');
 
   const isCurrentMonth = viewYear === today.getFullYear() && viewMonth === today.getMonth();
 
@@ -329,14 +332,52 @@ export const Planilha = ({ items, search, onSearchChange, onRowClick, onAddClick
           <span className="text-[10px] font-semibold tracking-wider uppercase text-slate-400 whitespace-nowrap">
             {totalVisible} {totalVisible === 1 ? 'item' : 'itens'}
           </span>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={allExpanded ? collapseAll : expandAll}
-            title={allExpanded ? 'Recolher todas as seções' : 'Expandir todas as seções'}
-          >
-            {allExpanded ? 'Recolher tudo' : 'Expandir tudo'}
-          </Button>
+          <div className="inline-flex items-center bg-white border border-slate-100 rounded-full p-1 shadow-sm">
+            <button
+              type="button"
+              onClick={() => setViewMode('lista')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wider uppercase transition-colors ${viewMode === 'lista' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-700'}`}
+              title="Visualizar como lista"
+            >
+              <List className="w-3.5 h-3.5" /> Lista
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('calendario')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wider uppercase transition-colors ${viewMode === 'calendario' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-700'}`}
+              title="Visualizar como calendário"
+            >
+              <CalendarDays className="w-3.5 h-3.5" /> Calendário
+            </button>
+          </div>
+          {viewMode === 'calendario' && (
+            <div className="inline-flex items-center bg-white border border-slate-100 rounded-full p-1 shadow-sm">
+              <button
+                type="button"
+                onClick={() => setDateField('postDate')}
+                className={`px-3 py-1 rounded-full text-[11px] font-semibold tracking-wider uppercase transition-colors ${dateField === 'postDate' ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                Postar
+              </button>
+              <button
+                type="button"
+                onClick={() => setDateField('recordingDate')}
+                className={`px-3 py-1 rounded-full text-[11px] font-semibold tracking-wider uppercase transition-colors ${dateField === 'recordingDate' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                Gravar
+              </button>
+            </div>
+          )}
+          {viewMode === 'lista' && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={allExpanded ? collapseAll : expandAll}
+              title={allExpanded ? 'Recolher todas as seções' : 'Expandir todas as seções'}
+            >
+              {allExpanded ? 'Recolher tudo' : 'Expandir tudo'}
+            </Button>
+          )}
           <Button
             variant="primary"
             size="md"
@@ -348,6 +389,17 @@ export const Planilha = ({ items, search, onSearchChange, onRowClick, onAddClick
         </div>
       </div>
 
+      {viewMode === 'calendario' ? (
+        <CalendarView
+          items={items}
+          viewYear={viewYear}
+          viewMonth={viewMonth}
+          dateField={dateField}
+          dayPilars={dayPilars}
+          onAddAtDate={(date) => onAddAtDate && onAddAtDate(date, dateField)}
+          onItemClick={onRowClick}
+        />
+      ) : (
       <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
@@ -492,6 +544,7 @@ export const Planilha = ({ items, search, onSearchChange, onRowClick, onAddClick
           <span className="text-sm font-medium">Nova página</span>
         </button>
       </div>
+      )}
 
       <ConfirmDialog
         open={Boolean(pendingDelete)}

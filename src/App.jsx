@@ -789,7 +789,18 @@ const App = () => {
             onSearchChange={setPlanilhaSearch}
             onRowClick={(item) => openEdit(item._sourceDayId, item, item._sourceWeekKey, item._stage)}
             onAddClick={() => setIsAdding(true)}
+            onAddAtDate={(date, dateField) => {
+              const key = toDateKey(date);
+              const base = defaultItem();
+              if (dateField === 'recordingDate') {
+                setNewItem({ ...base, recordingDate: key, postDate: '', initialStage: 'gravar' });
+              } else {
+                setNewItem({ ...base, postDate: key, recordingDate: '', initialStage: 'postar' });
+              }
+              setIsAdding(true);
+            }}
             onDelete={deletePlanilhaItem}
+            dayPilars={planner.dayPilars}
           />
         ) : (
         <motion.div className="space-y-8">
