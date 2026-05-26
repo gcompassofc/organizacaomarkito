@@ -11,7 +11,8 @@ import {
   getPilarLabel,
   getProfileBadgeClass,
   getProfileTag,
-  getContentTypeTag
+  getContentTypeTag,
+  pilaresForProfile
 } from '../lib/tags';
 import { stageLabel } from '../lib/selectors';
 
@@ -22,6 +23,67 @@ const PROFILE_DOT = {
 };
 
 const dotForItem = (item) => PROFILE_DOT[item.profile] || 'bg-slate-400';
+
+const pilarBgOnly = (id) => getPilarBadgeClass(id).split(' ').find(c => c.startsWith('bg-')) || 'bg-slate-200';
+
+const HeaderPilarChip = ({ profile, dayId, value, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+
+  const options = pilaresForProfile(profile);
+  const profileShort = profile === 'marco' ? 'M' : 'O';
+
+  return (
+    <div ref={ref} className="relative inline-block">
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold tracking-wider uppercase leading-none transition-colors ${value ? `${pilarBgOnly(value)} text-slate-700 hover:opacity-80` : 'bg-white text-slate-400 border border-dashed border-slate-300 hover:border-slate-400'}`}
+        title={value ? `${getProfileTag(profile)} · ${getPilarLabel(value)} — clique para trocar` : `Definir pilar de ${getProfileTag(profile)} para essa coluna`}
+      >
+        <span className="opacity-60">{profileShort}</span>
+        <span>{value ? getPilarLabel(value) : '—'}</span>
+      </button>
+
+      {open && (
+        <div
+          className="absolute z-30 left-1/2 -translate-x-1/2 top-5 min-w-[190px] bg-white border border-slate-200 rounded-xl shadow-lg p-1"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-3 py-1 text-[10px] font-semibold tracking-wider uppercase text-slate-400">
+            {getProfileTag(profile)} · pilar do dia
+          </div>
+          <button
+            type="button"
+            onClick={() => { onChange(profile, dayId, ''); setOpen(false); }}
+            className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-semibold tracking-wider uppercase text-slate-400 hover:bg-slate-50"
+          >
+            <X className="w-3 h-3" /> Sem pilar
+          </button>
+          <div className="h-px bg-slate-100 my-1" />
+          {options.map(p => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => { onChange(profile, dayId, p.id); setOpen(false); }}
+              className={`w-full text-left flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-[11px] font-semibold tracking-wider uppercase hover:bg-slate-50 ${value === p.id ? 'bg-slate-100' : ''}`}
+            >
+              <span>{p.label}</span>
+              <span className={`px-1.5 py-0.5 rounded ${pilarBgOnly(p.id)}`}>&nbsp;</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const itemDateKey = (item, dateField) => {
   if (dateField === 'recordingDate') return item.recordingDate || '';
@@ -136,7 +198,8 @@ export const CalendarView = ({
   dateField,
   dayPilars,
   onAddAtDate,
-  onItemClick
+  onItemClick,
+  onSetDayPilar
 }) => {
   const [openDayKey, setOpenDayKey] = useState(null);
 
@@ -160,12 +223,7 @@ export const CalendarView = ({
 
   const todayKey = toDateKey(new Date());
 
-  const weekdayHeaders = daysOfWeek.map(d => d.label.slice(0, 3));
-
-  const dayIdFromDate = (date) => {
-    const idx = date.getDay() === 0 ? 6 : date.getDay() - 1;
-    return daysOfWeek[idx].id;
-  };
+  const weekdayHeaders = daysOfWeek.map(d => ({ id: d.id, label: d.label.slice(0, 3) }));
 
   const renderCellPills = (dayItems) => {
     if (dayItems.length === 0) return null;
@@ -202,14 +260,36 @@ export const CalendarView = ({
   return (
     <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
       <div className="grid grid-cols-7 bg-slate-50/60 border-b border-slate-100">
-        {weekdayHeaders.map((label, idx) => (
-          <div
-            key={label}
-            className={`text-center py-2 text-[10px] font-semibold tracking-wider uppercase ${idx >= 5 ? 'text-slate-400' : 'text-slate-500'}`}
-          >
-            {label}
-          </div>
-        ))}
+        {weekdayHeaders.map(({ id, label }, idx) => {
+          const marcoPilar = dayPilars?.marco?.[id] || '';
+          const opaPilar = dayPilars?.opa?.[id] || '';
+          return (
+            <div
+              key={id}
+              className={`flex flex-col items-center gap-1 py-2 px-1 ${idx >= 5 ? 'text-slate-400' : 'text-slate-500'}`}
+            >
+              <span className="text-[10px] font-semibold tracking-wider uppercase">
+                {label}
+              </span>
+              {onSetDayPilar && (
+                <div className="flex items-center gap-1 flex-wrap justify-center">
+                  <HeaderPilarChip
+                    profile="marco"
+                    dayId={id}
+                    value={marcoPilar}
+                    onChange={onSetDayPilar}
+                  />
+                  <HeaderPilarChip
+                    profile="opa"
+                    dayId={id}
+                    value={opaPilar}
+                    onChange={onSetDayPilar}
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       <div className="grid grid-cols-7">
@@ -218,10 +298,6 @@ export const CalendarView = ({
           const inMonth = date.getMonth() === viewMonth;
           const isToday = key === todayKey;
           const dayItems = itemsByDay.get(key) || [];
-          const dayId = dayIdFromDate(date);
-          const dayPilarsHere = ['marco', 'opa']
-            .map(p => ({ profile: p, pilar: dayPilars?.[p]?.[dayId] || '' }))
-            .filter(x => x.pilar);
 
           return (
             <div
@@ -236,17 +312,6 @@ export const CalendarView = ({
                 <span className={`text-[11px] font-semibold ${inMonth ? (isToday ? 'text-emerald-700' : 'text-slate-700') : 'text-slate-300'}`}>
                   {date.getDate()}
                 </span>
-                {dayPilarsHere.length > 0 && (
-                  <span className="flex items-center gap-0.5 flex-wrap justify-end">
-                    {dayPilarsHere.map(({ profile, pilar }) => (
-                      <span
-                        key={profile}
-                        className={`inline-block w-1.5 h-3 rounded-sm ${getPilarBadgeClass(pilar).split(' ').find(c => c.startsWith('bg-')) || 'bg-slate-200'}`}
-                        title={`${getProfileTag(profile)} · ${getPilarLabel(pilar)}`}
-                      />
-                    ))}
-                  </span>
-                )}
               </button>
 
               <button

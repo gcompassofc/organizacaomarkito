@@ -238,7 +238,7 @@ const SectionTbody = ({ icon, title, subtitle, count, tone, expanded, onToggle, 
   );
 };
 
-export const Planilha = ({ items, search, onSearchChange, onRowClick, onAddClick, onAddAtDate, onDelete, dayPilars }) => {
+export const Planilha = ({ items, search, onSearchChange, onRowClick, onAddClick, onAddAtDate, onDelete, dayPilars, onSetDayPilar }) => {
   const today = useMemo(() => new Date(), []);
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
@@ -398,6 +398,7 @@ export const Planilha = ({ items, search, onSearchChange, onRowClick, onAddClick
           dayPilars={dayPilars}
           onAddAtDate={(date) => onAddAtDate && onAddAtDate(date, dateField)}
           onItemClick={onRowClick}
+          onSetDayPilar={onSetDayPilar}
         />
       ) : (
       <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">

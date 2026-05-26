@@ -801,6 +801,7 @@ const App = () => {
             }}
             onDelete={deletePlanilhaItem}
             dayPilars={planner.dayPilars}
+            onSetDayPilar={setDayPilar}
           />
         ) : (
         <motion.div className="space-y-8">
