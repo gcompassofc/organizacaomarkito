@@ -9,7 +9,7 @@ import {
   pilaresForProfile
 } from '../lib/tags';
 
-const PROFILES = ['marco', 'opa', 'collab'];
+const PROFILES = ['marco', 'opa'];
 
 const ProfilePilarRow = ({ profile, value, onChange }) => {
   const [open, setOpen] = useState(false);

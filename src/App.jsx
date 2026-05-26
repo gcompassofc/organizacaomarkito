@@ -868,7 +868,7 @@ const App = () => {
               const isDropTarget = draggedItem && draggedItem.dayId !== day.id;
 
               if (isEmpty && !isExpanded && !isToday) {
-                const dayPilarPills = ['marco', 'opa', 'collab']
+                const dayPilarPills = ['marco', 'opa']
                   .filter(p => effectiveProfileFilter === 'todos' || effectiveProfileFilter === p)
                   .map(p => ({ profile: p, pilar: planner.dayPilars?.[p]?.[day.id] || '' }))
                   .filter(x => x.pilar);
