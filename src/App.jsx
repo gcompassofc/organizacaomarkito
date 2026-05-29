@@ -460,6 +460,9 @@ const App = () => {
       repostOfId: newItem.repostOfId || '',
       repostOfCode: newItem.repostOfCode || '',
       repostOfObjective: newItem.repostOfObjective || '',
+      forAllBrokers: Boolean(newItem.forAllBrokers),
+      brokersPostLink: newItem.brokersPostLink || '',
+      brokersNote: newItem.brokersNote || '',
       completed: false,
       tabKey: stage
     };

@@ -5,7 +5,6 @@ import { ItemFormFields } from './ItemFormFields';
 
 const AddItemModal = ({ isAdding, setIsAdding, newItem, setNewItem, addItem, repostablePosts }) => {
   const update = (patch) => setNewItem({ ...newItem, ...patch });
-  const showPostFields = newItem.initialStage === 'postar' || newItem.initialStage === 'editar';
 
   return (
     <Modal
@@ -31,7 +30,6 @@ const AddItemModal = ({ isAdding, setIsAdding, newItem, setNewItem, addItem, rep
         mode="create"
         stageValue={newItem.initialStage}
         onStageChange={(id) => update({ initialStage: id })}
-        showPostFields={showPostFields}
         repostablePosts={repostablePosts}
       />
     </Modal>

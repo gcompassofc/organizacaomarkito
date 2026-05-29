@@ -10,7 +10,6 @@ const EditItemModal = ({ editModal, setEditModal, activeTab, handleSaveEdit, rep
   const close = () => setEditModal({ isOpen: false, dayId: null, item: null, itemWeekKey: null, sourceStage: null });
   const patch = (p) => setEditModal({ ...editModal, item: { ...item, ...p } });
   const currentStage = item.tabKey || activeTab || 'gravar';
-  const showPostFields = currentStage === 'postar' || currentStage === 'editar';
 
   return (
     <Modal
@@ -36,7 +35,6 @@ const EditItemModal = ({ editModal, setEditModal, activeTab, handleSaveEdit, rep
         mode="edit"
         stageValue={currentStage}
         onStageChange={(id) => patch({ tabKey: id })}
-        showPostFields={showPostFields}
         repostablePosts={repostablePosts}
       />
     </Modal>

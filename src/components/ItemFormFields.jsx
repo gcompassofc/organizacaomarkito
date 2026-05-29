@@ -51,7 +51,6 @@ export const ItemFormFields = ({
   mode = 'create',
   stageValue,
   onStageChange,
-  showPostFields,
   repostablePosts = []
 }) => {
   const changeProfile = (profile) => {
@@ -193,14 +192,6 @@ export const ItemFormFields = ({
               </button>
             </div>
           )}
-          <Field label="Instrução pra equipe (opcional)">
-            <Textarea
-              rows={2}
-              value={item.postCaption || ''}
-              onChange={(e) => onPatch({ postCaption: e.target.value })}
-              placeholder="Ex: Repostar com sticker de localização, marcar @fulano..."
-            />
-          </Field>
         </Section>
       )}
 
@@ -264,16 +255,14 @@ export const ItemFormFields = ({
           )}
         </div>
 
-        <div className={`grid grid-cols-1 ${isRepost ? '' : 'md:grid-cols-2'} gap-4 ${item.banco ? 'opacity-50' : ''}`}>
-          {!isRepost && (
-            <Field label="Dia para gravar">
-              <Input
-                type="date"
-                value={item.recordingDate || ''}
-                onChange={(e) => onPatch({ recordingDate: e.target.value })}
-              />
-            </Field>
-          )}
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${item.banco ? 'opacity-50' : ''}`}>
+          <Field label="Dia para gravar">
+            <Input
+              type="date"
+              value={item.recordingDate || ''}
+              onChange={(e) => onPatch({ recordingDate: e.target.value })}
+            />
+          </Field>
           <Field label="Dia para postar">
             <Input
               type="date"
@@ -283,21 +272,19 @@ export const ItemFormFields = ({
           </Field>
         </div>
 
-        <div className={`grid grid-cols-1 ${isRepost ? '' : 'md:grid-cols-2'} gap-4`}>
-          {!isRepost && (
-            <Field label="Responsável edição">
-              <Select
-                value={item.editor || 'indefinido'}
-                onChange={(e) => onPatch({ editor: e.target.value })}
-              >
-                <option value="indefinido">— Indefinido —</option>
-                <option value="allyson">Allyson</option>
-                <option value="kallyl">Kallyl</option>
-                <option value="natalia">Natalia</option>
-                <option value="torres">★ Torres (Externo)</option>
-              </Select>
-            </Field>
-          )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Field label="Responsável edição">
+            <Select
+              value={item.editor || 'indefinido'}
+              onChange={(e) => onPatch({ editor: e.target.value })}
+            >
+              <option value="indefinido">— Indefinido —</option>
+              <option value="allyson">Allyson</option>
+              <option value="kallyl">Kallyl</option>
+              <option value="natalia">Natalia</option>
+              <option value="torres">★ Torres (Externo)</option>
+            </Select>
+          </Field>
           <Field label="Horário da postagem">
             <Input
               type="text"
@@ -309,49 +296,45 @@ export const ItemFormFields = ({
         </div>
       </Section>
 
-      {!isRepost && (
-        <Section title="Links">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Field label="Link do vídeo bruto">
-              <Input
-                type="text"
-                placeholder="Link do Drive"
-                value={item.primaryLink || ''}
-                onChange={(e) => onPatch({ primaryLink: e.target.value })}
-              />
-            </Field>
-            <Field label="Link do arquivo editado">
-              <Input
-                type="text"
-                placeholder="Pasta completa"
-                value={item.editedVideoLink || ''}
-                onChange={(e) => onPatch({ editedVideoLink: e.target.value })}
-              />
-            </Field>
-          </div>
-        </Section>
-      )}
+      <Section title="Links">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Field label="Link do vídeo bruto">
+            <Input
+              type="text"
+              placeholder="Link do Drive"
+              value={item.primaryLink || ''}
+              onChange={(e) => onPatch({ primaryLink: e.target.value })}
+            />
+          </Field>
+          <Field label="Link do arquivo editado">
+            <Input
+              type="text"
+              placeholder="Pasta completa"
+              value={item.editedVideoLink || ''}
+              onChange={(e) => onPatch({ editedVideoLink: e.target.value })}
+            />
+          </Field>
+        </div>
+      </Section>
 
-      {showPostFields && !isRepost && (
-        <Section title="Publicação">
-          <Field label="Legenda do post">
-            <Textarea
-              rows={4}
-              value={item.postCaption || ''}
-              onChange={(e) => onPatch({ postCaption: e.target.value })}
-              placeholder="Escreva a legenda aqui..."
-            />
-          </Field>
-          <Field label="Primeiro comentário">
-            <Textarea
-              rows={3}
-              value={item.firstComment || ''}
-              onChange={(e) => onPatch({ firstComment: e.target.value })}
-              placeholder="Comentário fixado / link / CTA..."
-            />
-          </Field>
-        </Section>
-      )}
+      <Section title="Publicação">
+        <Field label="Legenda do post">
+          <Textarea
+            rows={4}
+            value={item.postCaption || ''}
+            onChange={(e) => onPatch({ postCaption: e.target.value })}
+            placeholder="Escreva a legenda aqui..."
+          />
+        </Field>
+        <Field label="Primeiro comentário">
+          <Textarea
+            rows={3}
+            value={item.firstComment || ''}
+            onChange={(e) => onPatch({ firstComment: e.target.value })}
+            placeholder="Comentário fixado / link / CTA..."
+          />
+        </Field>
+      </Section>
     </div>
   );
 };
