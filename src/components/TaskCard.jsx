@@ -12,7 +12,8 @@ import {
   GripVertical,
   MessageSquareOff,
   Scissors,
-  Trash2
+  Trash2,
+  Users
 } from 'lucide-react';
 import {
   getRecordingTag,
@@ -40,6 +41,7 @@ export const TaskCard = ({
   activeTab,
   captionCopiedId,
   firstCommentCopiedId,
+  brokersCopiedId,
   reorderable = false,
   canMoveUp = false,
   canMoveDown = false,
@@ -51,6 +53,7 @@ export const TaskCard = ({
   onSummaryClick,
   onCopyCaption,
   onCopyFirstComment,
+  onCopyBrokers,
   onRemove
 }) => {
   const [expandedMobile, setExpandedMobile] = useState(false);
@@ -66,6 +69,7 @@ export const TaskCard = ({
   // são a ação principal de cada etapa, não detalhe escondido.
   const hasExtras =
     Boolean(item.summary) ||
+    Boolean(item.forAllBrokers) ||
     (activeTab === 'postar' && (item.postCaption || item.firstComment));
 
   return (
@@ -159,6 +163,15 @@ export const TaskCard = ({
             {item.profile && (
               <span className={`${badgeBase} ${getProfileBadgeClass(item.profile)}`}>
                 {getProfileTag(item.profile)}
+              </span>
+            )}
+            {item.forAllBrokers && (
+              <span
+                className={`${badgeBase} bg-indigo-100 text-indigo-700 border border-indigo-200`}
+                title="Post para todos os corretores publicarem nos próprios perfis"
+              >
+                <Users className="w-3 h-3" strokeWidth={2.5} />
+                Todos os corretores
               </span>
             )}
             {item.pilar && (
@@ -268,6 +281,38 @@ export const TaskCard = ({
           </div>
 
           <div className={extraVisible}>
+            {item.forAllBrokers && (
+              <div className="mt-3 bg-indigo-50/70 p-3 rounded-xl border border-indigo-200">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[10px] font-semibold tracking-wider text-indigo-700 uppercase inline-flex items-center gap-1.5">
+                    <Users className="w-3 h-3" strokeWidth={2.5} />
+                    Para todos os corretores
+                  </p>
+                  <button
+                    onClick={(e) => onCopyBrokers(e, item)}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold tracking-wider uppercase transition-all ${brokersCopiedId === item.id ? 'bg-emerald-500 text-white' : 'bg-indigo-100 hover:bg-indigo-200 text-indigo-700'}`}
+                  >
+                    {brokersCopiedId === item.id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                    <span>{brokersCopiedId === item.id ? 'Copiado!' : 'Copiar pra equipe'}</span>
+                  </button>
+                </div>
+                {item.brokersNote && (
+                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{item.brokersNote}</p>
+                )}
+                {item.brokersPostLink && (
+                  <a
+                    href={item.brokersPostLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="mt-2 inline-flex items-center gap-2 px-3 py-2 rounded-full bg-indigo-100 hover:bg-indigo-200 text-indigo-700 text-xs font-semibold transition-colors max-w-full"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2.5} />
+                    <span className="truncate">Abrir a postagem</span>
+                  </a>
+                )}
+              </div>
+            )}
             {activeTab === 'postar' && item.postCaption && (
               <div className="mt-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
                 <div className="flex items-center justify-between mb-2">

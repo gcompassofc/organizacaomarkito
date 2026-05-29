@@ -221,6 +221,49 @@ export const ItemFormFields = ({
           </div>
         </label>
 
+        <div className={`rounded-xl border transition-colors ${item.forAllBrokers ? 'border-indigo-300 bg-indigo-50/50' : 'border-slate-200 bg-slate-50'}`}>
+          <label className="flex items-center gap-3 p-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={Boolean(item.forAllBrokers)}
+              onChange={(e) => {
+                const forAllBrokers = e.target.checked;
+                onPatch(
+                  forAllBrokers && !item.brokersNote
+                    ? { forAllBrokers, brokersNote: 'Enviar no grupo da equipe' }
+                    : { forAllBrokers }
+                );
+              }}
+              className="w-4 h-4 accent-indigo-600"
+            />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-slate-800">Para todos os corretores</p>
+              <p className="text-xs text-slate-500 mt-0.5">Post que todos os corretores podem publicar nos próprios perfis — vai pro grupo da equipe</p>
+            </div>
+          </label>
+
+          {item.forAllBrokers && (
+            <div className="px-3 pb-3 pt-1 space-y-3 border-t border-indigo-200/60">
+              <Field label="Link da postagem">
+                <Input
+                  type="text"
+                  placeholder="Cole o link de onde a postagem está"
+                  value={item.brokersPostLink || ''}
+                  onChange={(e) => onPatch({ brokersPostLink: e.target.value })}
+                />
+              </Field>
+              <Field label="Observação para o grupo">
+                <Textarea
+                  rows={2}
+                  value={item.brokersNote || ''}
+                  onChange={(e) => onPatch({ brokersNote: e.target.value })}
+                  placeholder="Ex: Enviar no grupo da equipe"
+                />
+              </Field>
+            </div>
+          )}
+        </div>
+
         <div className={`grid grid-cols-1 ${isRepost ? '' : 'md:grid-cols-2'} gap-4 ${item.banco ? 'opacity-50' : ''}`}>
           {!isRepost && (
             <Field label="Dia para gravar">

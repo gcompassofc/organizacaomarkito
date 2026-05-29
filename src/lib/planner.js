@@ -114,7 +114,10 @@ export const defaultItem = () => ({
   initialStage: 'gravar',
   repostOfId: '',
   repostOfCode: '',
-  repostOfObjective: ''
+  repostOfObjective: '',
+  forAllBrokers: false,
+  brokersPostLink: '',
+  brokersNote: 'Enviar no grupo da equipe'
 });
 
 export const createPlanner = (currentWeekKey = getWeekKey()) => ({
@@ -156,6 +159,9 @@ export const normalizeItem = (item = {}, tabKey = 'gravar', forcedContentType, w
     repostOfId: item.repostOfId || '',
     repostOfCode: item.repostOfCode || '',
     repostOfObjective: item.repostOfObjective || '',
+    forAllBrokers: Boolean(item.forAllBrokers),
+    brokersPostLink: item.brokersPostLink || '',
+    brokersNote: item.brokersNote || '',
     _gravarOrigin: item._gravarOrigin || null,
     _editarOrigin: item._editarOrigin || null
   };

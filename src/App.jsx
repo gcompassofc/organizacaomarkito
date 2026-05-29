@@ -100,6 +100,7 @@ const App = () => {
   const [copiedState, setCopiedState] = useState(false);
   const [captionCopiedId, setCaptionCopiedId] = useState(null);
   const [firstCommentCopiedId, setFirstCommentCopiedId] = useState(null);
+  const [brokersCopiedId, setBrokersCopiedId] = useState(null);
   const [gravarListFilter, setGravarListFilter] = useState('pendentes');
   const [showPlanilha, setShowPlanilha] = useState(false);
   const [planilhaSearch, setPlanilhaSearch] = useState('');
@@ -119,6 +120,20 @@ const App = () => {
     navigator.clipboard.writeText(item.firstComment).then(() => {
       setFirstCommentCopiedId(item.id);
       setTimeout(() => setFirstCommentCopiedId(null), 1800);
+    });
+  };
+
+  const handleCopyBrokers = (e, item) => {
+    e.stopPropagation();
+    const parts = [];
+    if (item.objective) parts.push(`📌 ${item.objective}`);
+    if (item.brokersNote) parts.push(item.brokersNote);
+    if (item.brokersPostLink) parts.push(item.brokersPostLink);
+    const text = parts.join('\n').trim();
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      setBrokersCopiedId(item.id);
+      setTimeout(() => setBrokersCopiedId(null), 1800);
     });
   };
   const [email, setEmail] = useState('');
@@ -700,6 +715,7 @@ const App = () => {
       activeTab={activeTab}
       captionCopiedId={captionCopiedId}
       firstCommentCopiedId={firstCommentCopiedId}
+      brokersCopiedId={brokersCopiedId}
       reorderable={opts.reorderable === true}
       canMoveUp={opts.reorderable === true && opts.index > 0}
       canMoveDown={opts.reorderable === true && opts.index < opts.total - 1}
@@ -711,6 +727,7 @@ const App = () => {
       onSummaryClick={(it) => setSummaryModal({ isOpen: true, item: it })}
       onCopyCaption={handleCopyCaption}
       onCopyFirstComment={handleCopyFirstComment}
+      onCopyBrokers={handleCopyBrokers}
       onRemove={removeItem}
     />
   );
