@@ -1,5 +1,5 @@
 import React from 'react';
-import { Table2, X } from 'lucide-react';
+import { Table2, X, Upload } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { WeekNavigator } from './WeekNavigator';
 import { FilterBar } from '../FilterBar';
@@ -14,6 +14,7 @@ export const SectionBar = ({
   onGoToCurrentWeek,
   onTogglePlanilha,
   onExportCsv,
+  onImportClick,
   onWipeAll,
   showFilters,
   showEditorFilter,
@@ -49,6 +50,17 @@ export const SectionBar = ({
             editorFilter={editorFilter}
             onEditorChange={onEditorChange}
           />
+        )}
+        {onImportClick && (
+          <Button
+            variant="secondary"
+            size="md"
+            icon={Upload}
+            onClick={onImportClick}
+            title="Importar várias postagens de uma vez por texto"
+          >
+            Importar
+          </Button>
         )}
         <ExportMenu onExport={onExportCsv} onWipe={onWipeAll} />
         <Button

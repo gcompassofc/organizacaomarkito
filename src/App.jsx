@@ -45,6 +45,7 @@ import LoginScreen from './components/LoginScreen';
 import SummaryModal from './components/SummaryModal';
 import AddItemModal from './components/AddItemModal';
 import EditItemModal from './components/EditItemModal';
+import BulkImportModal from './components/BulkImportModal';
 import { TaskCard, PreviewCard, SlimCard } from './components/TaskCard';
 import { Planilha } from './components/Planilha';
 import { DayPilarPicker } from './components/DayPilarPicker';
@@ -93,6 +94,7 @@ const App = () => {
   const [planner, setPlanner] = useState(() => createPlanner());
   const [expandedDay, setExpandedDay] = useState(() => getTodayDayId());
   const [isAdding, setIsAdding] = useState(false);
+  const [isBulkImporting, setIsBulkImporting] = useState(false);
   const [newItem, setNewItem] = useState(() => defaultItem());
   const [draggedItem, setDraggedItem] = useState(null);
   const [summaryModal, setSummaryModal] = useState({ isOpen: false, item: null });
@@ -494,6 +496,60 @@ const App = () => {
     setIsAdding(false);
   };
 
+  // Importação em massa: recebe itens já validados (com a forma de defaultItem)
+  // vindos do parser e os insere todos numa única atualização do planner.
+  const importItems = (parsedItems) => {
+    if (!parsedItems || parsedItems.length === 0) return;
+
+    updatePlanner((prev) => {
+      const next = { ...prev };
+      const counters = { marco: 0, opa: 0, collab: 0, ...(prev.counters || {}) };
+
+      parsedItems.forEach((src) => {
+        const isEstatico = src.contentType === 'estatico' || src.contentType === 'carrossel';
+        const isRepost = src.contentType === 'repost_stories';
+        const stage = isRepost ? 'postar' : (isEstatico ? 'editar' : 'gravar');
+        const banco = Boolean(src.banco);
+        const profile = src.profile || 'opa';
+
+        counters[profile] = (counters[profile] || 0) + 1;
+
+        const item = {
+          ...src,
+          id: newId(),
+          primaryLink: normalizeUrl(src.primaryLink),
+          secondaryLink: normalizeUrl(src.secondaryLink),
+          editedVideoLink: normalizeUrl(src.editedVideoLink),
+          brokersPostLink: normalizeUrl(src.brokersPostLink),
+          recordingDate: banco ? '' : src.recordingDate,
+          postDate: banco ? '' : src.postDate,
+          completed: false,
+          tabKey: stage,
+          code: formatCode(profile, counters[profile])
+        };
+
+        if (stage === 'editar') {
+          const { weekKey } = getWeekKeyAndDayId(item.postDate);
+          if (!next.weeks[weekKey]) next.weeks[weekKey] = emptyWeekData();
+          next.weeks[weekKey].editar.geral.push(item);
+        } else if (stage === 'postar') {
+          const { weekKey, dayId } = getWeekKeyAndDayId(item.postDate);
+          if (!next.weeks[weekKey]) next.weeks[weekKey] = emptyWeekData();
+          next.weeks[weekKey].postar[dayId].push(item);
+        } else {
+          const { weekKey, dayId } = getWeekKeyAndDayId(item.recordingDate);
+          if (!next.weeks[weekKey]) next.weeks[weekKey] = emptyWeekData();
+          next.weeks[weekKey].gravar[dayId].push(item);
+        }
+      });
+
+      next.counters = counters;
+      return next;
+    });
+
+    setIsBulkImporting(false);
+  };
+
   const removeItem = (e, dayId, itemId, itemWeekKey) => {
     e.stopPropagation();
     updatePlanner((prev) => {
@@ -797,6 +853,7 @@ const App = () => {
           onGoToCurrentWeek={goToCurrentWeek}
           onTogglePlanilha={() => setShowPlanilha(s => !s)}
           onExportCsv={exportCsv}
+          onImportClick={() => setIsBulkImporting(true)}
           onWipeAll={wipeAllContent}
           showFilters={showPlanilha || activeTab !== 'gravar'}
           showEditorFilter={showPlanilha || activeTab === 'editar'}
@@ -1118,6 +1175,12 @@ const App = () => {
       />
 
       <AddItemModal isAdding={isAdding} setIsAdding={setIsAdding} newItem={newItem} setNewItem={setNewItem} addItem={addItem} repostablePosts={getRepostablePosts(planner)} />
+
+      <BulkImportModal
+        open={isBulkImporting}
+        onClose={() => setIsBulkImporting(false)}
+        onImport={importItems}
+      />
 
       <SummaryModal
         summaryModal={summaryModal}
