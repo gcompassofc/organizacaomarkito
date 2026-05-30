@@ -73,6 +73,7 @@ import {
 } from './lib/planner';
 import {
   getEditarQueue,
+  groupEditarByWeek,
   getGravarQueue,
   getGravarConcluidos,
   getGravarSlimEchoes,
@@ -892,8 +893,39 @@ const App = () => {
                   {allFilteredItems.length === 0 && editarSlimEchoes.length === 0 ? (
                       <QueueEmpty>Nenhum conteúdo para editar no momento</QueueEmpty>
                   ) : (
-                      <div className="space-y-4">
-                          {allFilteredItems.map(item => renderCard(item, 'geral', item._sourceWeekKey))}
+                      <div className="space-y-6">
+                          {groupEditarByWeek(allFilteredItems).map((group) => {
+                            const isThisWeek = group.weekKey === getWeekKey();
+                            return (
+                              <div key={group.weekKey} className="space-y-4">
+                                <div className="flex items-center gap-3">
+                                  <div className="flex items-center gap-2">
+                                    <Calendar className="w-3.5 h-3.5 text-amber-500" strokeWidth={2.5} />
+                                    <span className="text-[11px] font-semibold tracking-wider uppercase text-slate-600">
+                                      Semana {formatWeekRange(group.weekKey)}
+                                    </span>
+                                  </div>
+                                  {isThisWeek && (
+                                    <span className="text-[9px] font-semibold tracking-wider uppercase text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                                      Atual
+                                    </span>
+                                  )}
+                                  {!group.hasDate && (
+                                    <span className="text-[9px] font-semibold tracking-wider uppercase text-slate-400 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-full">
+                                      Sem data de postar
+                                    </span>
+                                  )}
+                                  <span className="text-[10px] font-semibold text-slate-300">
+                                    {group.items.length} {group.items.length === 1 ? 'item' : 'itens'}
+                                  </span>
+                                  <div className="flex-1 h-px bg-slate-100" />
+                                </div>
+                                <div className="space-y-4">
+                                  {group.items.map(item => renderCard(item, 'geral', item._sourceWeekKey))}
+                                </div>
+                              </div>
+                            );
+                          })}
                           {editarSlimEchoes.length > 0 && (
                             <div className="pt-4 mt-4 border-t border-slate-100 space-y-1.5">
                               <p className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase mb-2">Concluídos</p>

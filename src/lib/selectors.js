@@ -1,4 +1,4 @@
-import { daysOfWeek, addDays, parseWeekKey, toDateKey } from './dates';
+import { daysOfWeek, addDays, parseWeekKey, toDateKey, getWeekKeyAndDayId } from './dates';
 import { profileMatchesFilter } from './tags';
 
 export const stageLabel = (item) => {
@@ -87,6 +87,30 @@ export const getEditarQueue = (planner, profileFilter, editorFilter) => {
     profileMatchesFilter(item.profile, profileFilter) &&
     (editorFilter === 'todos' || (item.editor || 'allyson') === editorFilter)
   );
+};
+
+// Agrupa a fila de edição (já ordenada por postDate) por semana, usando a
+// semana da data de postar — ou a semana onde o item está guardado quando ele
+// ainda não tem data. Preserva a ordem original (itens da mesma semana já vêm
+// contíguos por causa da ordenação prévia).
+export const groupEditarByWeek = (items) => {
+  const groups = [];
+  let current = null;
+
+  items.forEach((item) => {
+    const weekKey = item.postDate
+      ? getWeekKeyAndDayId(item.postDate).weekKey
+      : (item._sourceWeekKey || getWeekKeyAndDayId('').weekKey);
+    const hasDate = Boolean(item.postDate);
+
+    if (!current || current.weekKey !== weekKey) {
+      current = { weekKey, hasDate, items: [] };
+      groups.push(current);
+    }
+    current.items.push(item);
+  });
+
+  return groups;
 };
 
 export const getGravarQueue = (planner, profileFilter) => {
