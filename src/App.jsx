@@ -378,16 +378,28 @@ const App = () => {
     if (!editModal.item?.objective?.trim()) return;
 
     updatePlanner((prev) => {
-      const next = { ...prev };
-      const { dayId: oldDayId, itemWeekKey: oldWeekKey, item: newProps } = editModal;
-      const sourceStage = editModal.sourceStage || activeTab;
+      const next = { ...prev, weeks: { ...prev.weeks } };
+      const { item: newProps } = editModal;
+      const id = newProps.id;
 
-      if (sourceStage === 'editar') {
-         next.weeks[oldWeekKey].editar.geral = next.weeks[oldWeekKey].editar.geral.filter(i => i.id !== newProps.id);
-      } else {
-         next.weeks[oldWeekKey][sourceStage][oldDayId] = next.weeks[oldWeekKey][sourceStage][oldDayId].filter(i => i.id !== newProps.id);
-      }
-      
+      // Remove a tarefa de QUALQUER lugar onde ela esteja — independente de
+      // onde o modal foi aberto (gravar, editar, postar, concluídos, calendário
+      // ou tabela). Antes a remoção dependia das coordenadas de origem; quando
+      // elas não batiam com o local real, o filter quebrava e o save abortava.
+      Object.keys(next.weeks).forEach((wk) => {
+         const week = next.weeks[wk];
+         const rebuilt = {
+            gravar: {},
+            editar: { geral: (week.editar?.geral || []).filter(i => i.id !== id) },
+            postar: {}
+         };
+         daysOfWeek.forEach((d) => {
+            rebuilt.gravar[d.id] = (week.gravar?.[d.id] || []).filter(i => i.id !== id);
+            rebuilt.postar[d.id] = (week.postar?.[d.id] || []).filter(i => i.id !== id);
+         });
+         next.weeks[wk] = rebuilt;
+      });
+
       const item = {
          ...newProps,
          primaryLink: normalizeUrl(newProps.primaryLink),
@@ -395,7 +407,7 @@ const App = () => {
          editedVideoLink: normalizeUrl(newProps.editedVideoLink)
       };
       
-      const targetTab = item.tabKey || sourceStage;
+      const targetTab = item.tabKey || editModal.sourceStage || activeTab;
       
       if (targetTab === 'editar') {
          const targetWeekKey = getWeekKeyAndDayId(item.postDate).weekKey;
