@@ -820,7 +820,7 @@ const App = () => {
       livesDayId={livesDayId}
       livesWeekKey={livesWeekKey}
       stageLabel={stageLabel}
-      onClick={openEdit}
+      onClick={(it, dId, wKey) => openEdit(dId, it, wKey)}
     />
   );
 
