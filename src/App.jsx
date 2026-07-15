@@ -49,7 +49,6 @@ import BulkImportModal from './components/BulkImportModal';
 import { TaskCard, PreviewCard, SlimCard } from './components/TaskCard';
 import { CronogramaView } from './components/CronogramaView';
 import { GavetasView } from './components/GavetasView';
-import { OPA_POSTS, OPA_GAVETAS } from './lib/seedOpa';
 import { Planilha } from './components/Planilha';
 import { DayPilarPicker } from './components/DayPilarPicker';
 import {
@@ -907,57 +906,6 @@ const App = () => {
   });
   const gavetaDeleteGroup = (editing) => updatePlanner((prev) => ({ ...prev, gavetas: (prev.gavetas || []).filter(g => g.id !== editing.group.id) }));
 
-  // ── Importação one-shot dos dados da OPA (botão temporário) ──
-  // SUBSTITUI todos os posts e gavetas pelos dados de exemplo da OPA e grava no
-  // Firebase (aparece em qualquer navegador). Remover o botão depois de usar.
-  const [opaImportState, setOpaImportState] = useState('idle'); // idle | done
-  const importOpaSeed = () => {
-    updatePlanner((prev) => {
-      // 1) Reconstrói as semanas apenas com os posts da OPA na etapa "postar".
-      const weeks = {};
-      let seq = 0;
-      OPA_POSTS.forEach((p) => {
-        const { weekKey, dayId } = getWeekKeyAndDayId(p.dateKey);
-        if (!weeks[weekKey]) weeks[weekKey] = emptyWeekData();
-        const { contentType, pilar } = typeLabelToFields(p.type);
-        seq += 1;
-        weeks[weekKey].postar[dayId].push({
-          ...defaultItem(),
-          id: newId(),
-          objective: p.title,
-          time: p.note || '',
-          primaryLink: normalizeUrl(p.link || ''),
-          postCaption: p.legenda || '',
-          responsavel: '',
-          contentType,
-          pilar,
-          profile: 'opa',
-          postDate: p.dateKey,
-          recordingDate: '',
-          completed: false,
-          tabKey: 'postar',
-          code: formatCode('opa', seq)
-        });
-      });
-      // 2) Substitui as gavetas inteiras.
-      const gavetas = OPA_GAVETAS.map((g) => ({
-        id: newId(),
-        name: g.name,
-        code: g.code || '',
-        items: (g.items || []).map((it) => ({
-          id: newId(),
-          type: it.type,
-          title: it.title,
-          link: normalizeUrl(it.link || ''),
-          linkLabel: it.linkLabel || 'Ver materiais',
-          legenda: it.legenda || ''
-        }))
-      }));
-      return { ...prev, weeks, gavetas, counters: { ...(prev.counters || {}), opa: seq } };
-    });
-    setOpaImportState('done');
-  };
-
   const renderCard = (item, dayId, itemWeekKey, opts = {}) => (
     <TaskCard
       key={item.id}
@@ -1030,33 +978,13 @@ const App = () => {
 
   return (
     <div className="min-h-screen bg-[#FAFAFA] font-sans text-slate-900 p-6 md:p-10 selection:bg-blue-100">
-      <div className={`${showPlanilha ? 'w-full' : 'max-w-4xl mx-auto'} pb-24 md:pb-32`}>
+      <div className={`${showPlanilha ? 'w-full' : 'max-w-7xl mx-auto'} pb-24 md:pb-32`}>
         <HeaderBar
           firebaseReady={firebaseReady}
           saving={saving}
           saveError={saveError}
           onLogout={handleLogout}
         />
-
-        {/* BOTÃO TEMPORÁRIO — importa os dados de exemplo da OPA para o Firebase.
-            Remover este bloco depois de clicar uma vez com sucesso. */}
-        {!showPlanilha && (
-          <div className="px-4 md:px-0 mb-4">
-            <button
-              onClick={importOpaSeed}
-              disabled={opaImportState === 'done'}
-              className={`w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-                opaImportState === 'done'
-                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default'
-                  : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm shadow-blue-600/20'
-              }`}
-            >
-              {opaImportState === 'done'
-                ? '✓ Dados da OPA importados — pode remover este botão'
-                : '⬇ Importar dados da OPA (posts + gavetas)'}
-            </button>
-          </div>
-        )}
 
         {showPlanilha && (
           <SectionBar
