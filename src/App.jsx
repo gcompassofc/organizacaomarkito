@@ -92,7 +92,7 @@ const App = () => {
   const [saveError, setSaveError] = useState(false);
   const [firebaseReady, setFirebaseReady] = useState(false);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('gravar');
+  const [activeTab, setActiveTab] = useState('cronograma');
   const [planner, setPlanner] = useState(() => createPlanner());
   const [expandedDay, setExpandedDay] = useState(() => getTodayDayId());
   const [isAdding, setIsAdding] = useState(false);
@@ -410,8 +410,12 @@ const App = () => {
          editedVideoLink: normalizeUrl(newProps.editedVideoLink)
       };
       
-      const targetTab = item.tabKey || editModal.sourceStage || activeTab;
-      
+      // 'cronograma' não é uma etapa de dados — é só uma visão. Se o alvo cair
+      // nela (ex: item sem tabKey editado pelo cronograma), grava em 'postar',
+      // que é a etapa que o cronograma representa.
+      const rawTarget = item.tabKey || editModal.sourceStage || activeTab;
+      const targetTab = ['gravar', 'editar', 'postar'].includes(rawTarget) ? rawTarget : 'postar';
+
       if (targetTab === 'editar') {
          const targetWeekKey = getWeekKeyAndDayId(item.postDate).weekKey;
          if (!next.weeks[targetWeekKey]) next.weeks[targetWeekKey] = emptyWeekData();
@@ -781,6 +785,19 @@ const App = () => {
   const openEdit = (dayId, item, itemWeekKey, sourceStage = null) =>
     setEditModal({ isOpen: true, dayId, item: { ...item }, itemWeekKey, sourceStage });
 
+  // Só existem duas visões na interface: Cronograma e Planilha. As etapas
+  // gravar/editar/postar continuam existindo por baixo (o item flui entre elas),
+  // mas não são mais navegáveis diretamente.
+  const selectView = (view) => {
+    if (view === 'planilha') {
+      setShowPlanilha(true);
+    } else {
+      setShowPlanilha(false);
+      setActiveTab('cronograma');
+    }
+    setIsAdding(false);
+  };
+
   // Abre o modal de adicionar já apontando para um dia específico da semana
   // atual, na etapa "postar" (é o que o cronograma representa: o que vai ao ar).
   const openAddAtDay = (dayId) => {
@@ -875,7 +892,6 @@ const App = () => {
           onPrevWeek={() => changeWeek(-1)}
           onNextWeek={() => changeWeek(1)}
           onGoToCurrentWeek={goToCurrentWeek}
-          onTogglePlanilha={() => setShowPlanilha(s => !s)}
           onExportCsv={exportCsv}
           onImportClick={() => setIsBulkImporting(true)}
           onWipeAll={wipeAllContent}
@@ -1227,14 +1243,13 @@ const App = () => {
       </div>
 
       <MobileBottomNav
-        activeTab={activeTab}
-        showPlanilha={showPlanilha}
-        onChangeTab={(t) => { setActiveTab(t); setShowPlanilha(false); }}
+        activeView={showPlanilha ? 'planilha' : 'cronograma'}
+        onChangeView={selectView}
       />
 
       <FloatingDesktopNav
-        activeTab={activeTab}
-        onChangeTab={(t) => { setActiveTab(t); setShowPlanilha(false); }}
+        activeView={showPlanilha ? 'planilha' : 'cronograma'}
+        onChangeView={selectView}
       />
 
       <AddItemModal isAdding={isAdding} setIsAdding={setIsAdding} newItem={newItem} setNewItem={setNewItem} addItem={addItem} repostablePosts={getRepostablePosts(planner)} />
@@ -1252,7 +1267,7 @@ const App = () => {
         copiedState={copiedState}
       />
 
-      <EditItemModal editModal={editModal} setEditModal={setEditModal} activeTab={editModal.sourceStage || activeTab} handleSaveEdit={handleSaveEdit} repostablePosts={getRepostablePosts(planner)} />
+      <EditItemModal editModal={editModal} setEditModal={setEditModal} activeTab={editModal.sourceStage || editModal.item?.tabKey || 'postar'} handleSaveEdit={handleSaveEdit} repostablePosts={getRepostablePosts(planner)} />
     </div>
   );
 };

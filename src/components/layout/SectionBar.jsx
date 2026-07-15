@@ -63,15 +63,17 @@ export const SectionBar = ({
           </Button>
         )}
         <ExportMenu onExport={onExportCsv} onWipe={onWipeAll} />
-        <Button
-          variant={showPlanilha ? 'primary' : 'dark'}
-          size="md"
-          icon={showPlanilha ? X : Table2}
-          onClick={onTogglePlanilha}
-          title={showPlanilha ? 'Voltar pra visualização' : 'Abrir planilha de controle'}
-        >
-          {showPlanilha ? 'Voltar' : 'Planilha'}
-        </Button>
+        {onTogglePlanilha && (
+          <Button
+            variant={showPlanilha ? 'primary' : 'dark'}
+            size="md"
+            icon={showPlanilha ? X : Table2}
+            onClick={onTogglePlanilha}
+            title={showPlanilha ? 'Voltar pra visualização' : 'Abrir planilha de controle'}
+          >
+            {showPlanilha ? 'Voltar' : 'Planilha'}
+          </Button>
+        )}
       </div>
     </div>
   </section>
