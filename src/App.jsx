@@ -47,6 +47,7 @@ import AddItemModal from './components/AddItemModal';
 import EditItemModal from './components/EditItemModal';
 import BulkImportModal from './components/BulkImportModal';
 import { TaskCard, PreviewCard, SlimCard } from './components/TaskCard';
+import { CronogramaView } from './components/CronogramaView';
 import { Planilha } from './components/Planilha';
 import { DayPilarPicker } from './components/DayPilarPicker';
 import {
@@ -172,7 +173,9 @@ const App = () => {
     ? allEditarItemsGlobal
     : isGravarList
       ? allGravarGlobal
-      : getFilteredGravarPostar(currentWeekData[activeTab]);
+      : activeTab === 'cronograma'
+        ? getFilteredGravarPostar(currentWeekData.postar)
+        : getFilteredGravarPostar(currentWeekData[activeTab]);
 
   useEffect(() => {
     let unsubscribeAuth;
@@ -778,6 +781,14 @@ const App = () => {
   const openEdit = (dayId, item, itemWeekKey, sourceStage = null) =>
     setEditModal({ isOpen: true, dayId, item: { ...item }, itemWeekKey, sourceStage });
 
+  // Abre o modal de adicionar já apontando para um dia específico da semana
+  // atual, na etapa "postar" (é o que o cronograma representa: o que vai ao ar).
+  const openAddAtDay = (dayId) => {
+    const dateKey = getNextDayOfWeek(currentWeekKey, dayId);
+    setNewItem({ ...defaultItem(), postDate: dateKey, recordingDate: '', initialStage: 'postar' });
+    setIsAdding(true);
+  };
+
   const renderCard = (item, dayId, itemWeekKey, opts = {}) => (
     <TaskCard
       key={item.id}
@@ -977,6 +988,14 @@ const App = () => {
                       )
                   )}
               </StageQueue>
+          ) : activeTab === 'cronograma' ? (
+              <CronogramaView
+                weekData={currentWeekData}
+                weekKey={currentWeekKey}
+                onAddAtDay={openAddAtDay}
+                profileMatchesFilter={profileMatchesFilter}
+                profileFilter={effectiveProfileFilter}
+              />
           ) : (
             (() => {
               const thisWeekKey = getWeekKey();
