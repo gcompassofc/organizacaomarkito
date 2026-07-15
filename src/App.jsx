@@ -865,6 +865,21 @@ const App = () => {
     });
   };
 
+  // Marca / desmarca um post como já publicado (deixa o card verdinho).
+  const cronoTogglePosted = (entry) => {
+    updatePlanner((prev) => {
+      const next = { ...prev, weeks: { ...prev.weeks } };
+      const list = next.weeks[entry.weekKey]?.postar?.[entry.dayId];
+      if (!list) return prev;
+      const idx = list.findIndex(i => i.id === entry.item.id);
+      if (idx < 0) return prev;
+      const copy = [...list];
+      copy[idx] = { ...copy[idx], completed: !copy[idx].completed };
+      next.weeks[entry.weekKey] = { ...next.weeks[entry.weekKey], postar: { ...next.weeks[entry.weekKey].postar, [entry.dayId]: copy } };
+      return next;
+    });
+  };
+
   const cronoMovePost = (source, newDateKey) => {
     updatePlanner((prev) => {
       const next = { ...prev };
@@ -1113,6 +1128,7 @@ const App = () => {
                 onSavePost={cronoSavePost}
                 onDeletePost={cronoDeletePost}
                 onMovePost={cronoMovePost}
+                onTogglePosted={cronoTogglePosted}
                 onAddPerson={addPerson}
                 onRemovePerson={removePerson}
               />

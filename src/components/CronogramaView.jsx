@@ -250,10 +250,14 @@ const SettingsModal = ({ open, people, onClose, onAdd, onRemove }) => {
   );
 };
 
+// Verde do estado "postado".
+const DONE = '#15935A';
+
 // ── Card de post ──
-const PostCard = ({ entry, iso, person, onEdit, onLegenda, onDragStart, onDragEnd }) => {
+const PostCard = ({ entry, iso, person, onEdit, onLegenda, onTogglePosted, onDragStart, onDragEnd }) => {
   const { item } = entry;
   const [hover, setHover] = useState(false);
+  const done = !!item.completed;
   const typeLabel = typeLabelOf(item);
   const link = item.primaryLink || item.secondaryLink || item.editedVideoLink;
   const isVideo = /drive\.google|youtu/.test(link || '');
@@ -266,19 +270,25 @@ const PostCard = ({ entry, iso, person, onEdit, onLegenda, onDragStart, onDragEn
       onMouseLeave={() => setHover(false)}
       title="Arraste para outro dia"
       style={{
-        position: 'relative', background: 'rgba(255,255,255,0.66)', backdropFilter: 'blur(12px) saturate(160%)', WebkitBackdropFilter: 'blur(12px) saturate(160%)',
-        border: `1px solid ${hover ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.85)'}`, borderRadius: 18, padding: '11px 13px 10px',
-        display: 'flex', flexDirection: 'column', gap: 3, cursor: 'grab', boxShadow: hover ? '0 10px 26px rgba(30,84,191,0.14)' : '0 4px 16px rgba(20,40,80,0.06)', transition: 'box-shadow .15s, border-color .15s'
+        position: 'relative',
+        background: done ? 'rgba(224,246,233,0.82)' : 'rgba(255,255,255,0.66)',
+        backdropFilter: 'blur(12px) saturate(160%)', WebkitBackdropFilter: 'blur(12px) saturate(160%)',
+        border: `1px solid ${done ? 'rgba(21,147,90,0.45)' : (hover ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.85)')}`,
+        borderRadius: 18, padding: '11px 13px 10px',
+        display: 'flex', flexDirection: 'column', gap: 3, cursor: 'grab',
+        boxShadow: done ? '0 4px 16px rgba(21,147,90,0.12)' : (hover ? '0 10px 26px rgba(30,84,191,0.14)' : '0 4px 16px rgba(20,40,80,0.06)'),
+        transition: 'box-shadow .15s, border-color .15s, background .15s'
       }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6 }}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', alignSelf: 'flex-start', fontSize: 9.5, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', borderRadius: 6, padding: '2px 7px', ...badgeStyle(typeLabel) }}>{typeLabel}</span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', alignSelf: 'flex-start', fontSize: 9.5, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', borderRadius: 6, padding: '2px 7px', ...(done ? { color: DONE, background: 'rgba(21,147,90,0.14)' } : badgeStyle(typeLabel)) }}>{done ? 'Postado' : typeLabel}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
           {person && <Avatar person={person} size={22} />}
+          <button onClick={() => onTogglePosted(entry)} title={done ? 'Desmarcar' : 'Marcar como postado'} style={{ flexShrink: 0, background: done ? DONE : 'rgba(255,255,255,0.7)', border: `1px solid ${done ? DONE : 'rgba(255,255,255,0.9)'}`, borderRadius: 9, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: done ? '#fff' : (hover ? DONE : '#8A94A8'), padding: 0 }}><Check size={13} strokeWidth={3} /></button>
           <button onClick={() => onEdit(entry, iso)} title="Editar" style={{ flexShrink: 0, background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.9)', borderRadius: 9, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: hover ? ACCENT : '#8A94A8', padding: 0 }}><Pencil size={12} /></button>
         </div>
       </div>
-      <div style={{ fontSize: 12.5, fontWeight: 500, color: '#16202E', lineHeight: 1.35 }}>{item.objective}</div>
+      <div style={{ fontSize: 12.5, fontWeight: 500, color: done ? '#3B6E52' : '#16202E', lineHeight: 1.35, textDecoration: done ? 'line-through' : 'none', textDecorationColor: 'rgba(21,147,90,0.45)' }}>{item.objective}</div>
       {item.time && <div style={{ fontSize: 11, color: '#8A94A8', fontStyle: 'italic', marginTop: 1 }}>{item.time}</div>}
       {link && (
         <a href={link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: ACCENT, textDecoration: 'none', fontWeight: 500, marginTop: 4, width: 'fit-content' }}>
@@ -295,7 +305,7 @@ const PostCard = ({ entry, iso, person, onEdit, onLegenda, onDragStart, onDragEn
 };
 
 export const CronogramaView = ({
-  planner, profileFilter, onSavePost, onDeletePost, onMovePost, onAddPerson, onRemovePerson
+  planner, profileFilter, onSavePost, onDeletePost, onMovePost, onTogglePosted, onAddPerson, onRemovePerson
 }) => {
   const today = useMemo(() => new Date(), []);
   const [month, setMonth] = useState({ y: today.getFullYear(), m: today.getMonth() });
@@ -468,7 +478,7 @@ export const CronogramaView = ({
                           <div style={{ fontSize: 19, fontWeight: 500, lineHeight: 1, marginTop: 2, color: day.isToday ? ACCENT : '#C7D2E3' }}>{day.dateLabel}</div>
                         </div>
                         {day.cards.map(entry => (
-                          <PostCard key={entry.item.id} entry={entry} iso={day.iso} person={peopleMap[entry.item.responsavel]} onEdit={(en, iso) => setEditor({ open: true, editing: { card: en.item, weekKey: en.weekKey, dayId: en.dayId } })} onLegenda={(t) => setLegenda(t)} onDragStart={onDragStart} onDragEnd={onDragEnd} />
+                          <PostCard key={entry.item.id} entry={entry} iso={day.iso} person={peopleMap[entry.item.responsavel]} onEdit={(en, iso) => setEditor({ open: true, editing: { card: en.item, weekKey: en.weekKey, dayId: en.dayId } })} onLegenda={(t) => setLegenda(t)} onTogglePosted={onTogglePosted} onDragStart={onDragStart} onDragEnd={onDragEnd} />
                         ))}
                         <button onClick={() => setEditor({ open: true, editing: { dateKey: day.iso } })} style={{ marginTop: 2, width: '100%', padding: 9, border: '1px dashed rgba(46,109,224,0.35)', background: 'rgba(255,255,255,0.4)', borderRadius: 14, color: ACCENT, fontSize: 11.5, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
                           <Plus size={12} />Post
