@@ -117,7 +117,8 @@ export const defaultItem = () => ({
   repostOfObjective: '',
   forAllBrokers: false,
   brokersPostLink: '',
-  brokersNote: 'Enviar no grupo da equipe'
+  brokersNote: 'Enviar no grupo da equipe',
+  responsavel: ''
 });
 
 export const createPlanner = (currentWeekKey = getWeekKey()) => ({
@@ -125,10 +126,40 @@ export const createPlanner = (currentWeekKey = getWeekKey()) => ({
   currentWeekKey,
   counters: emptyCounters(),
   dayPilars: emptyDayPilars(),
+  gavetas: [],
+  people: [],
   weeks: {
     [currentWeekKey]: emptyWeekData()
   }
 });
+
+// Normaliza a lista de gavetas (grupos por imóvel com itens de material editado).
+export const normalizeGavetas = (raw) => {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((g) => ({
+    id: g.id || newId(),
+    name: g.name || 'Sem nome',
+    code: g.code || '',
+    items: Array.isArray(g.items) ? g.items.map((it) => ({
+      id: it.id || newId(),
+      type: it.type || 'Pasta',
+      title: it.title || '',
+      link: normalizeUrl(it.link || ''),
+      linkLabel: it.linkLabel || 'Ver materiais',
+      legenda: it.legenda || ''
+    })) : []
+  }));
+};
+
+// Normaliza a lista de responsáveis (nome + foto em data URL).
+export const normalizePeople = (raw) => {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((p) => ({
+    id: p.id || newId(),
+    name: p.name || 'Responsável',
+    photo: p.photo || ''
+  }));
+};
 
 export const normalizeUrl = (value) => {
   if (!value || !value.trim()) return '';
@@ -162,6 +193,7 @@ export const normalizeItem = (item = {}, tabKey = 'gravar', forcedContentType, w
     forAllBrokers: Boolean(item.forAllBrokers),
     brokersPostLink: item.brokersPostLink || '',
     brokersNote: item.brokersNote || '',
+    responsavel: item.responsavel || '',
     _gravarOrigin: item._gravarOrigin || null,
     _editarOrigin: item._editarOrigin || null
   };
@@ -213,6 +245,8 @@ export const normalizePlanner = (cloudData) => {
       currentWeekKey: cloudData.currentWeekKey || currentWeekKey,
       counters: cloudData.counters || emptyCounters(),
       dayPilars: normalizeDayPilars(cloudData.dayPilars),
+      gavetas: normalizeGavetas(cloudData.gavetas),
+      people: normalizePeople(cloudData.people),
       weeks: Object.keys(weeks).length ? weeks : { [currentWeekKey]: emptyWeekData() }
     });
   }
@@ -223,6 +257,8 @@ export const normalizePlanner = (cloudData) => {
       currentWeekKey,
       counters: emptyCounters(),
       dayPilars: emptyDayPilars(),
+      gavetas: normalizeGavetas(cloudData.gavetas),
+      people: normalizePeople(cloudData.people),
       weeks: {
         [currentWeekKey]: mergeLegacyStoriesIntoGravar({
           gravar: cloudData,
@@ -237,6 +273,8 @@ export const normalizePlanner = (cloudData) => {
     currentWeekKey,
     counters: emptyCounters(),
     dayPilars: normalizeDayPilars(cloudData.dayPilars),
+    gavetas: normalizeGavetas(cloudData.gavetas),
+    people: normalizePeople(cloudData.people),
     weeks: {
       [currentWeekKey]: mergeLegacyStoriesIntoGravar(cloudData, currentWeekKey)
     }

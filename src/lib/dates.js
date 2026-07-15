@@ -83,6 +83,34 @@ export const getNextDayOfWeek = (weekKey, dayId) => {
   return toDateKey(monday);
 };
 
+// Nome curto do mês (jan, fev, ...) e nome completo.
+export const MONTH_SHORT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+// Nomes dos dias começando na segunda (padrão do cronograma).
+export const DAY_NAMES_SHORT = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+
+// Segunda-feira da semana que contém `date`.
+export const mondayOf = (date) => {
+  const dt = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const wd = (dt.getDay() + 6) % 7;
+  dt.setDate(dt.getDate() - wd);
+  return dt;
+};
+
+// Retorna as segundas-feiras de todas as semanas que tocam o mês (y, m 0-based).
+export const weeksForMonth = (y, m) => {
+  const first = new Date(y, m, 1);
+  const last = new Date(y, m + 1, 0);
+  const out = [];
+  let cur = mondayOf(first);
+  while (cur <= last) {
+    out.push(new Date(cur));
+    cur = new Date(cur);
+    cur.setDate(cur.getDate() + 7);
+  }
+  return out;
+};
+
 export const buildMonthGrid = (anchorDate) => {
   const first = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), 1);
   const startWeekday = first.getDay();

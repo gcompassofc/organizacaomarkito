@@ -1,9 +1,10 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { CalendarDays, Table2 } from 'lucide-react';
+import { CalendarDays, Archive, Table2 } from 'lucide-react';
 
 const TABS = [
-  { id: 'cronograma', label: 'Cronograma', Icon: CalendarDays, color: '#0d4a87', textActive: 'text-sky-700' },
+  { id: 'cronograma', label: 'Cronograma', Icon: CalendarDays, color: '#2E6DE0', textActive: 'text-blue-600' },
+  { id: 'gavetas',    label: 'Gavetas',    Icon: Archive,      color: '#3B5578', textActive: 'text-slate-700' },
   { id: 'planilha',   label: 'Planilha',   Icon: Table2,       color: '#1f2937', textActive: 'text-slate-800' }
 ];
 
@@ -28,10 +29,9 @@ export const MobileBottomNav = ({ activeView, onChangeView }) => (
   </nav>
 );
 
-// Largura de cada pílula (px) e do padding lateral do trilho. O indicador
-// animado é posicionado pelo índice da aba ativa, então funciona para
-// qualquer quantidade de abas sem posições mágicas.
-const PILL_W = 130;
+// Largura de cada pílula (px) e padding lateral do trilho. O indicador animado
+// é posicionado pelo índice da aba ativa — funciona para qualquer quantidade.
+const PILL_W = 124;
 const PAD = 8;
 
 export const FloatingDesktopNav = ({ activeView, onChangeView }) => {
@@ -45,7 +45,7 @@ export const FloatingDesktopNav = ({ activeView, onChangeView }) => {
           animate={{
             left: `${PAD + activeIndex * PILL_W}px`,
             width: `${PILL_W}px`,
-            backgroundColor: TABS[activeIndex]?.color || '#0d4a87'
+            backgroundColor: TABS[activeIndex]?.color || '#2E6DE0'
           }}
           transition={{ type: 'spring', stiffness: 400, damping: 30 }}
         />

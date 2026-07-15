@@ -226,3 +226,23 @@ export const getEditarPreviewsByDay = (planner, currentWeekKey) => {
 
   return byDay;
 };
+
+// Indexa todos os posts (etapa "postar", não-banco) por data ISO (YYYY-MM-DD),
+// carregando junto onde o item vive (weekKey/dayId) para permitir editar, mover
+// e remover. É a fonte do Cronograma visual (grid por mês/semana).
+export const getPostsByDate = (planner, profileFilter = 'todos') => {
+  const byDate = {};
+  Object.entries(planner.weeks || {}).forEach(([weekKey, weekData]) => {
+    daysOfWeek.forEach((d) => {
+      (weekData.postar?.[d.id] || []).forEach((item) => {
+        if (item.banco) return;
+        if (!profileMatchesFilter(item.profile, profileFilter)) return;
+        // A data do card é o postDate do item; se faltar, usa o dia da semana.
+        const iso = item.postDate || toDateKey(addDays(parseWeekKey(weekKey), daysOfWeek.indexOf(d)));
+        if (!byDate[iso]) byDate[iso] = [];
+        byDate[iso].push({ item, weekKey, dayId: d.id });
+      });
+    });
+  });
+  return byDate;
+};

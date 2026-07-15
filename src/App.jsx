@@ -48,6 +48,8 @@ import EditItemModal from './components/EditItemModal';
 import BulkImportModal from './components/BulkImportModal';
 import { TaskCard, PreviewCard, SlimCard } from './components/TaskCard';
 import { CronogramaView } from './components/CronogramaView';
+import { GavetasView } from './components/GavetasView';
+import { OPA_POSTS, OPA_GAVETAS } from './lib/seedOpa';
 import { Planilha } from './components/Planilha';
 import { DayPilarPicker } from './components/DayPilarPicker';
 import {
@@ -173,7 +175,7 @@ const App = () => {
     ? allEditarItemsGlobal
     : isGravarList
       ? allGravarGlobal
-      : activeTab === 'cronograma'
+      : (activeTab === 'cronograma' || activeTab === 'gavetas')
         ? getFilteredGravarPostar(currentWeekData.postar)
         : getFilteredGravarPostar(currentWeekData[activeTab]);
 
@@ -785,7 +787,7 @@ const App = () => {
   const openEdit = (dayId, item, itemWeekKey, sourceStage = null) =>
     setEditModal({ isOpen: true, dayId, item: { ...item }, itemWeekKey, sourceStage });
 
-  // Só existem duas visões na interface: Cronograma e Planilha. As etapas
+  // A interface tem três visões: Cronograma, Gavetas e Planilha. As etapas
   // gravar/editar/postar continuam existindo por baixo (o item flui entre elas),
   // mas não são mais navegáveis diretamente.
   const selectView = (view) => {
@@ -793,17 +795,167 @@ const App = () => {
       setShowPlanilha(true);
     } else {
       setShowPlanilha(false);
-      setActiveTab('cronograma');
+      setActiveTab(view); // 'cronograma' | 'gavetas'
     }
     setIsAdding(false);
   };
 
-  // Abre o modal de adicionar já apontando para um dia específico da semana
-  // atual, na etapa "postar" (é o que o cronograma representa: o que vai ao ar).
-  const openAddAtDay = (dayId) => {
-    const dateKey = getNextDayOfWeek(currentWeekKey, dayId);
-    setNewItem({ ...defaultItem(), postDate: dateKey, recordingDate: '', initialStage: 'postar' });
-    setIsAdding(true);
+  // Converte o rótulo de tipo do editor glass (ex: "Lançamento") de volta para
+  // os campos reais do item (contentType + pilar).
+  const typeLabelToFields = (label) => {
+    const l = (label || '').toLowerCase();
+    if (l.includes('lanç') || l.includes('lanc')) return { contentType: 'video_curto', pilar: 'lancamentos' };
+    if (l.includes('carrossel')) return { contentType: 'carrossel', pilar: '' };
+    if (l.includes('estát') || l.includes('estat') || l === 'post') return { contentType: 'estatico', pilar: '' };
+    if (l.includes('stories')) return { contentType: 'stories', pilar: '' };
+    return { contentType: 'video_curto', pilar: '' };
+  };
+
+  // ── Handlers do Cronograma (posts reais, etapa "postar") ──
+  // editing pode ser { dateKey } (novo) ou { card, weekKey, dayId } (edição).
+  const cronoSavePost = (editing, draft) => {
+    const { contentType, pilar } = typeLabelToFields(draft.type);
+    updatePlanner((prev) => {
+      const next = { ...prev, weeks: { ...prev.weeks } };
+      if (editing?.card) {
+        // Edição: atualiza o item onde ele vive.
+        const wk = editing.weekKey, did = editing.dayId;
+        const list = next.weeks[wk]?.postar?.[did];
+        if (list) {
+          const idx = list.findIndex(i => i.id === editing.card.id);
+          if (idx > -1) list[idx] = { ...list[idx], objective: draft.title, time: draft.note, primaryLink: normalizeUrl(draft.link), postCaption: draft.legenda, responsavel: draft.responsavel, contentType, pilar };
+        }
+      } else {
+        // Novo post naquele dia.
+        const dateKey = editing.dateKey;
+        const { weekKey, dayId } = getWeekKeyAndDayId(dateKey);
+        if (!next.weeks[weekKey]) next.weeks[weekKey] = emptyWeekData();
+        const counters = { marco: 0, opa: 0, collab: 0, ...(prev.counters || {}) };
+        const profile = 'opa';
+        counters[profile] = (counters[profile] || 0) + 1;
+        next.counters = counters;
+        const item = {
+          ...defaultItem(),
+          id: newId(),
+          objective: draft.title,
+          time: draft.note,
+          primaryLink: normalizeUrl(draft.link),
+          postCaption: draft.legenda,
+          responsavel: draft.responsavel,
+          contentType, pilar,
+          profile,
+          postDate: dateKey,
+          recordingDate: '',
+          completed: false,
+          tabKey: 'postar',
+          code: formatCode(profile, counters[profile])
+        };
+        next.weeks[weekKey].postar[dayId].push(item);
+      }
+      return next;
+    });
+  };
+
+  const cronoDeletePost = (editing) => {
+    if (!editing?.card) return;
+    updatePlanner((prev) => {
+      const next = { ...prev };
+      const list = next.weeks[editing.weekKey]?.postar?.[editing.dayId];
+      if (list) next.weeks[editing.weekKey].postar[editing.dayId] = list.filter(i => i.id !== editing.card.id);
+      return next;
+    });
+  };
+
+  const cronoMovePost = (source, newDateKey) => {
+    updatePlanner((prev) => {
+      const next = { ...prev };
+      const src = next.weeks[source.weekKey]?.postar?.[source.dayId];
+      if (!src) return prev;
+      const idx = src.findIndex(i => i.id === source.card.id);
+      if (idx < 0) return prev;
+      const [moved] = src.splice(idx, 1);
+      moved.postDate = newDateKey;
+      const { weekKey, dayId } = getWeekKeyAndDayId(newDateKey);
+      if (!next.weeks[weekKey]) next.weeks[weekKey] = emptyWeekData();
+      next.weeks[weekKey].postar[dayId].push(moved);
+      return next;
+    });
+  };
+
+  // ── Responsáveis ──
+  const addPerson = (name, photo) => updatePlanner((prev) => ({ ...prev, people: [...(prev.people || []), { id: newId(), name, photo }] }));
+  const removePerson = (id) => updatePlanner((prev) => ({ ...prev, people: (prev.people || []).filter(p => p.id !== id) }));
+
+  // ── Gavetas (grupos por imóvel) ──
+  // editing item: { groupId, item? } | grupo: { group? }
+  const gavetaSaveItem = (editing, draft) => updatePlanner((prev) => {
+    const gavetas = (prev.gavetas || []).map(g => {
+      if (g.id !== editing.groupId) return g;
+      const item = { type: draft.type, title: draft.title, link: normalizeUrl(draft.link), linkLabel: draft.linkLabel, legenda: draft.legenda };
+      if (editing.item) return { ...g, items: g.items.map(i => i.id === editing.item.id ? { ...i, ...item } : i) };
+      return { ...g, items: [...g.items, { ...item, id: newId() }] };
+    });
+    return { ...prev, gavetas };
+  });
+  const gavetaDeleteItem = (editing) => updatePlanner((prev) => ({
+    ...prev,
+    gavetas: (prev.gavetas || []).map(g => g.id === editing.groupId ? { ...g, items: g.items.filter(i => i.id !== editing.item.id) } : g)
+  }));
+  const gavetaSaveGroup = (editing, draft) => updatePlanner((prev) => {
+    if (editing?.group) return { ...prev, gavetas: (prev.gavetas || []).map(g => g.id === editing.group.id ? { ...g, name: draft.name, code: draft.code } : g) };
+    return { ...prev, gavetas: [...(prev.gavetas || []), { id: newId(), name: draft.name, code: draft.code, items: [] }] };
+  });
+  const gavetaDeleteGroup = (editing) => updatePlanner((prev) => ({ ...prev, gavetas: (prev.gavetas || []).filter(g => g.id !== editing.group.id) }));
+
+  // ── Importação one-shot dos dados da OPA (botão temporário) ──
+  // SUBSTITUI todos os posts e gavetas pelos dados de exemplo da OPA e grava no
+  // Firebase (aparece em qualquer navegador). Remover o botão depois de usar.
+  const [opaImportState, setOpaImportState] = useState('idle'); // idle | done
+  const importOpaSeed = () => {
+    updatePlanner((prev) => {
+      // 1) Reconstrói as semanas apenas com os posts da OPA na etapa "postar".
+      const weeks = {};
+      let seq = 0;
+      OPA_POSTS.forEach((p) => {
+        const { weekKey, dayId } = getWeekKeyAndDayId(p.dateKey);
+        if (!weeks[weekKey]) weeks[weekKey] = emptyWeekData();
+        const { contentType, pilar } = typeLabelToFields(p.type);
+        seq += 1;
+        weeks[weekKey].postar[dayId].push({
+          ...defaultItem(),
+          id: newId(),
+          objective: p.title,
+          time: p.note || '',
+          primaryLink: normalizeUrl(p.link || ''),
+          postCaption: p.legenda || '',
+          responsavel: '',
+          contentType,
+          pilar,
+          profile: 'opa',
+          postDate: p.dateKey,
+          recordingDate: '',
+          completed: false,
+          tabKey: 'postar',
+          code: formatCode('opa', seq)
+        });
+      });
+      // 2) Substitui as gavetas inteiras.
+      const gavetas = OPA_GAVETAS.map((g) => ({
+        id: newId(),
+        name: g.name,
+        code: g.code || '',
+        items: (g.items || []).map((it) => ({
+          id: newId(),
+          type: it.type,
+          title: it.title,
+          link: normalizeUrl(it.link || ''),
+          linkLabel: it.linkLabel || 'Ver materiais',
+          legenda: it.legenda || ''
+        }))
+      }));
+      return { ...prev, weeks, gavetas, counters: { ...(prev.counters || {}), opa: seq } };
+    });
+    setOpaImportState('done');
   };
 
   const renderCard = (item, dayId, itemWeekKey, opts = {}) => (
@@ -886,22 +1038,44 @@ const App = () => {
           onLogout={handleLogout}
         />
 
-        <SectionBar
-          showPlanilha={showPlanilha}
-          weekRangeLabel={formatWeekRange(currentWeekKey)}
-          onPrevWeek={() => changeWeek(-1)}
-          onNextWeek={() => changeWeek(1)}
-          onGoToCurrentWeek={goToCurrentWeek}
-          onExportCsv={exportCsv}
-          onImportClick={() => setIsBulkImporting(true)}
-          onWipeAll={wipeAllContent}
-          showFilters={showPlanilha || activeTab !== 'gravar'}
-          showEditorFilter={showPlanilha || activeTab === 'editar'}
-          profileFilter={profileFilter}
-          onProfileChange={setProfileFilter}
-          editorFilter={editorFilter}
-          onEditorChange={setEditorFilter}
-        />
+        {/* BOTÃO TEMPORÁRIO — importa os dados de exemplo da OPA para o Firebase.
+            Remover este bloco depois de clicar uma vez com sucesso. */}
+        {!showPlanilha && (
+          <div className="px-4 md:px-0 mb-4">
+            <button
+              onClick={importOpaSeed}
+              disabled={opaImportState === 'done'}
+              className={`w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                opaImportState === 'done'
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default'
+                  : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm shadow-blue-600/20'
+              }`}
+            >
+              {opaImportState === 'done'
+                ? '✓ Dados da OPA importados — pode remover este botão'
+                : '⬇ Importar dados da OPA (posts + gavetas)'}
+            </button>
+          </div>
+        )}
+
+        {showPlanilha && (
+          <SectionBar
+            showPlanilha={showPlanilha}
+            weekRangeLabel={formatWeekRange(currentWeekKey)}
+            onPrevWeek={() => changeWeek(-1)}
+            onNextWeek={() => changeWeek(1)}
+            onGoToCurrentWeek={goToCurrentWeek}
+            onExportCsv={exportCsv}
+            onImportClick={() => setIsBulkImporting(true)}
+            onWipeAll={wipeAllContent}
+            showFilters
+            showEditorFilter
+            profileFilter={profileFilter}
+            onProfileChange={setProfileFilter}
+            editorFilter={editorFilter}
+            onEditorChange={setEditorFilter}
+          />
+        )}
 
 
         {showPlanilha ? (
@@ -1006,11 +1180,21 @@ const App = () => {
               </StageQueue>
           ) : activeTab === 'cronograma' ? (
               <CronogramaView
-                weekData={currentWeekData}
-                weekKey={currentWeekKey}
-                onAddAtDay={openAddAtDay}
-                profileMatchesFilter={profileMatchesFilter}
+                planner={planner}
                 profileFilter={effectiveProfileFilter}
+                onSavePost={cronoSavePost}
+                onDeletePost={cronoDeletePost}
+                onMovePost={cronoMovePost}
+                onAddPerson={addPerson}
+                onRemovePerson={removePerson}
+              />
+          ) : activeTab === 'gavetas' ? (
+              <GavetasView
+                planner={planner}
+                onSaveGaveta={gavetaSaveItem}
+                onDeleteGaveta={gavetaDeleteItem}
+                onSaveGroup={gavetaSaveGroup}
+                onDeleteGroup={gavetaDeleteGroup}
               />
           ) : (
             (() => {
@@ -1243,12 +1427,12 @@ const App = () => {
       </div>
 
       <MobileBottomNav
-        activeView={showPlanilha ? 'planilha' : 'cronograma'}
+        activeView={showPlanilha ? 'planilha' : activeTab}
         onChangeView={selectView}
       />
 
       <FloatingDesktopNav
-        activeView={showPlanilha ? 'planilha' : 'cronograma'}
+        activeView={showPlanilha ? 'planilha' : activeTab}
         onChangeView={selectView}
       />
 
