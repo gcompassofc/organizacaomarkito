@@ -119,8 +119,9 @@ const PostEditor = ({ open, editing, people, onClose, onSave, onDelete }) => {
         link: editing.card.primaryLink || '',
         linkLabel: 'Ver materiais',
         legenda: editing.card.postCaption || '',
+        observacao: editing.card.observacao || '',
         responsavel: editing.card.responsavel || ''
-      } : { type: 'Reels', title: '', note: '', link: '', linkLabel: 'Ver materiais', legenda: '', responsavel: '' });
+      } : { type: 'Reels', title: '', note: '', link: '', linkLabel: 'Ver materiais', legenda: '', observacao: '', responsavel: '' });
     }
   }, [open, editing]);
   if (!draft) return null;
@@ -165,9 +166,14 @@ const PostEditor = ({ open, editing, people, onClose, onSave, onDelete }) => {
         <input type="url" value={draft.link} onChange={(e) => set({ link: e.target.value })} placeholder="https://…" style={inputStyle} />
       </label>
 
-      <label style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }}>
+      <label style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
         <span style={labelSpan}>Legenda (opcional)</span>
         <textarea rows={6} value={draft.legenda} onChange={(e) => set({ legenda: e.target.value })} placeholder="Texto da legenda para o Instagram…" style={{ ...inputStyle, lineHeight: 1.5, resize: 'vertical' }} />
+      </label>
+
+      <label style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }}>
+        <span style={{ ...labelSpan, color: '#E11D48' }}>Observação (opcional)</span>
+        <textarea rows={2} value={draft.observacao} onChange={(e) => set({ observacao: e.target.value })} placeholder="Ex: aguardar aprovação do corretor…" style={{ ...inputStyle, lineHeight: 1.5, resize: 'vertical' }} />
       </label>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
@@ -254,21 +260,52 @@ const SettingsModal = ({ open, people, onClose, onAdd, onRemove }) => {
 const DONE = '#15935A';
 
 // ── Card de post ──
-const PostCard = ({ entry, iso, person, onEdit, onLegenda, onTogglePosted, onDragStart, onDragEnd }) => {
+// Além de arrastar para outro dia, aceita drop de um card do MESMO dia para
+// reordenar: a metade do card onde o mouse está decide se insere acima ou
+// abaixo (indicado por uma linha azul).
+const PostCard = ({ entry, iso, person, onEdit, onLegenda, onTogglePosted, onDragStart, onDragEnd, dragInfo, onReorder }) => {
   const { item } = entry;
   const [hover, setHover] = useState(false);
+  const [insertPos, setInsertPos] = useState(null); // 'before' | 'after' | null
   const done = !!item.completed;
   const typeLabel = typeLabelOf(item);
   const link = item.primaryLink || item.secondaryLink || item.editedVideoLink;
   const isVideo = /drive\.google|youtu/.test(link || '');
+
+  // Só reordena se o card arrastado é do mesmo dia e não é ele mesmo.
+  const canReorder = () => {
+    const d = dragInfo.current;
+    return d && d.iso === iso && d.entry.item.id !== item.id;
+  };
+  const onCardDragOver = (e) => {
+    if (!canReorder()) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    setInsertPos(e.clientY < rect.top + rect.height / 2 ? 'before' : 'after');
+  };
+  const onCardDrop = (e) => {
+    if (!canReorder()) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const d = dragInfo.current;
+    onReorder(d.entry, entry, insertPos === 'before');
+    setInsertPos(null);
+  };
+  const indicator = (top) => (
+    <div style={{ position: 'absolute', left: 6, right: 6, [top ? 'top' : 'bottom']: -6, height: 3, borderRadius: 999, background: ACCENT, boxShadow: '0 0 6px rgba(46,109,224,0.6)', pointerEvents: 'none', zIndex: 5 }} />
+  );
   return (
     <div
       draggable
       onDragStart={(e) => onDragStart(e, entry, iso)}
       onDragEnd={onDragEnd}
+      onDragOver={onCardDragOver}
+      onDragLeave={() => setInsertPos(null)}
+      onDrop={onCardDrop}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
-      title="Arraste para outro dia"
+      title="Arraste para outro dia ou para cima/baixo no mesmo dia"
       style={{
         position: 'relative',
         background: done ? 'rgba(224,246,233,0.82)' : 'rgba(255,255,255,0.66)',
@@ -280,6 +317,8 @@ const PostCard = ({ entry, iso, person, onEdit, onLegenda, onTogglePosted, onDra
         transition: 'box-shadow .15s, border-color .15s, background .15s'
       }}
     >
+      {insertPos === 'before' && indicator(true)}
+      {insertPos === 'after' && indicator(false)}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6 }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', alignSelf: 'flex-start', fontSize: 9.5, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', borderRadius: 6, padding: '2px 7px', ...(done ? { color: DONE, background: 'rgba(21,147,90,0.14)' } : badgeStyle(typeLabel)) }}>{done ? 'Postado' : typeLabel}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
@@ -300,12 +339,15 @@ const PostCard = ({ entry, iso, person, onEdit, onLegenda, onTogglePosted, onDra
           <AlignLeft size={12} />Legenda
         </button>
       )}
+      {item.observacao && (
+        <div style={{ fontSize: 10.5, color: '#E11D48', opacity: 0.85, lineHeight: 1.4, marginTop: 3, fontStyle: 'italic' }}>{item.observacao}</div>
+      )}
     </div>
   );
 };
 
 export const CronogramaView = ({
-  planner, profileFilter, onSavePost, onDeletePost, onMovePost, onTogglePosted, onAddPerson, onRemovePerson
+  planner, profileFilter, onSavePost, onDeletePost, onMovePost, onReorderPost, onTogglePosted, onAddPerson, onRemovePerson
 }) => {
   const today = useMemo(() => new Date(), []);
   const [month, setMonth] = useState({ y: today.getFullYear(), m: today.getMonth() });
@@ -386,7 +428,9 @@ export const CronogramaView = ({
   // Drag & drop
   const onDragStart = (e, entry, iso) => { dragRef.current = { entry, iso }; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', entry.item.id); } catch {} };
   const onDragEnd = () => { dragRef.current = null; setOverCol(null); };
-  const onColDragOver = (e, iso) => { if (dragRef.current) { e.preventDefault(); setOverCol(iso); } };
+  // O highlight de coluna só acende ao arrastar de OUTRO dia — dentro do
+  // mesmo dia o feedback é a linha de inserção no próprio card.
+  const onColDragOver = (e, iso) => { if (dragRef.current) { e.preventDefault(); setOverCol(dragRef.current.iso !== iso ? iso : null); } };
   const onColDrop = (e, iso) => {
     e.preventDefault();
     const d = dragRef.current;
@@ -478,7 +522,7 @@ export const CronogramaView = ({
                           <div style={{ fontSize: 19, fontWeight: 500, lineHeight: 1, marginTop: 2, color: day.isToday ? ACCENT : '#C7D2E3' }}>{day.dateLabel}</div>
                         </div>
                         {day.cards.map(entry => (
-                          <PostCard key={entry.item.id} entry={entry} iso={day.iso} person={peopleMap[entry.item.responsavel]} onEdit={(en, iso) => setEditor({ open: true, editing: { card: en.item, weekKey: en.weekKey, dayId: en.dayId } })} onLegenda={(t) => setLegenda(t)} onTogglePosted={onTogglePosted} onDragStart={onDragStart} onDragEnd={onDragEnd} />
+                          <PostCard key={entry.item.id} entry={entry} iso={day.iso} person={peopleMap[entry.item.responsavel]} onEdit={(en, iso) => setEditor({ open: true, editing: { card: en.item, weekKey: en.weekKey, dayId: en.dayId } })} onLegenda={(t) => setLegenda(t)} onTogglePosted={onTogglePosted} onDragStart={onDragStart} onDragEnd={onDragEnd} dragInfo={dragRef} onReorder={(src, tgt, before) => onReorderPost({ card: src.item, weekKey: src.weekKey, dayId: src.dayId }, { card: tgt.item, weekKey: tgt.weekKey, dayId: tgt.dayId }, before)} />
                         ))}
                         <button onClick={() => setEditor({ open: true, editing: { dateKey: day.iso } })} style={{ marginTop: 2, width: '100%', padding: 9, border: '1px dashed rgba(46,109,224,0.35)', background: 'rgba(255,255,255,0.4)', borderRadius: 14, color: ACCENT, fontSize: 11.5, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
                           <Plus size={12} />Post

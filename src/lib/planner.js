@@ -118,7 +118,8 @@ export const defaultItem = () => ({
   forAllBrokers: false,
   brokersPostLink: '',
   brokersNote: 'Enviar no grupo da equipe',
-  responsavel: ''
+  responsavel: '',
+  observacao: ''
 });
 
 export const createPlanner = (currentWeekKey = getWeekKey()) => ({
@@ -194,6 +195,7 @@ export const normalizeItem = (item = {}, tabKey = 'gravar', forcedContentType, w
     brokersPostLink: item.brokersPostLink || '',
     brokersNote: item.brokersNote || '',
     responsavel: item.responsavel || '',
+    observacao: item.observacao || '',
     _gravarOrigin: item._gravarOrigin || null,
     _editarOrigin: item._editarOrigin || null
   };

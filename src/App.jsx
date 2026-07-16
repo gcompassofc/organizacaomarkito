@@ -822,7 +822,7 @@ const App = () => {
         const list = next.weeks[wk]?.postar?.[did];
         if (list) {
           const idx = list.findIndex(i => i.id === editing.card.id);
-          if (idx > -1) list[idx] = { ...list[idx], objective: draft.title, time: draft.note, primaryLink: normalizeUrl(draft.link), postCaption: draft.legenda, responsavel: draft.responsavel, contentType, pilar };
+          if (idx > -1) list[idx] = { ...list[idx], objective: draft.title, time: draft.note, primaryLink: normalizeUrl(draft.link), postCaption: draft.legenda, observacao: draft.observacao || '', responsavel: draft.responsavel, contentType, pilar };
         }
       } else {
         // Novo post naquele dia.
@@ -840,6 +840,7 @@ const App = () => {
           time: draft.note,
           primaryLink: normalizeUrl(draft.link),
           postCaption: draft.legenda,
+          observacao: draft.observacao || '',
           responsavel: draft.responsavel,
           contentType, pilar,
           profile,
@@ -876,6 +877,38 @@ const App = () => {
       const copy = [...list];
       copy[idx] = { ...copy[idx], completed: !copy[idx].completed };
       next.weeks[entry.weekKey] = { ...next.weeks[entry.weekKey], postar: { ...next.weeks[entry.weekKey].postar, [entry.dayId]: copy } };
+      return next;
+    });
+  };
+
+  // Reordena um post dentro do mesmo dia do cronograma (arrastar para
+  // cima/baixo): remove da posição atual e insere antes ou depois do alvo.
+  // Dois cards do mesmo dia visual podem viver em slots físicos diferentes
+  // (postDate manda no cronograma, não a posição) — nesse caso o arrastado é
+  // normalizado para o slot do alvo, herdando o postDate dele.
+  const cronoReorderPost = (source, target, before) => {
+    updatePlanner((prev) => {
+      const srcList = prev.weeks[source.weekKey]?.postar?.[source.dayId];
+      const tgtList = prev.weeks[target.weekKey]?.postar?.[target.dayId];
+      if (!srcList || !tgtList) return prev;
+      const from = srcList.findIndex(i => i.id === source.card.id);
+      if (from < 0) return prev;
+
+      const next = { ...prev, weeks: { ...prev.weeks } };
+      const sameSlot = source.weekKey === target.weekKey && source.dayId === target.dayId;
+
+      const srcCopy = [...srcList];
+      const [moved] = srcCopy.splice(from, 1);
+      const tgtCopy = sameSlot ? srcCopy : [...tgtList];
+      let insertAt = tgtCopy.findIndex(i => i.id === target.card.id);
+      if (insertAt < 0) return prev;
+      if (!before) insertAt += 1;
+      tgtCopy.splice(insertAt, 0, sameSlot ? moved : { ...moved, postDate: target.card.postDate || moved.postDate });
+
+      next.weeks[source.weekKey] = { ...next.weeks[source.weekKey], postar: { ...next.weeks[source.weekKey].postar, [source.dayId]: sameSlot ? tgtCopy : srcCopy } };
+      if (!sameSlot) {
+        next.weeks[target.weekKey] = { ...next.weeks[target.weekKey], postar: { ...next.weeks[target.weekKey].postar, [target.dayId]: tgtCopy } };
+      }
       return next;
     });
   };
@@ -1172,6 +1205,7 @@ const App = () => {
                 onSavePost={cronoSavePost}
                 onDeletePost={cronoDeletePost}
                 onMovePost={cronoMovePost}
+                onReorderPost={cronoReorderPost}
                 onTogglePosted={cronoTogglePosted}
                 onAddPerson={addPerson}
                 onRemovePerson={removePerson}
