@@ -119,6 +119,7 @@ export const defaultItem = () => ({
   brokersPostLink: '',
   brokersNote: 'Enviar no grupo da equipe',
   responsavel: '',
+  casaId: '',
   observacao: ''
 });
 
@@ -129,6 +130,7 @@ export const createPlanner = (currentWeekKey = getWeekKey()) => ({
   dayPilars: emptyDayPilars(),
   gavetas: [],
   people: [],
+  casas: [],
   weeks: {
     [currentWeekKey]: emptyWeekData()
   }
@@ -149,6 +151,18 @@ export const normalizeGavetas = (raw) => {
       linkLabel: it.linkLabel || 'Ver materiais',
       legenda: it.legenda || ''
     })) : []
+  }));
+};
+
+// Normaliza a lista de casas (imóveis com código, nome, link do site e descrição).
+export const normalizeCasas = (raw) => {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((c) => ({
+    id: c.id || newId(),
+    code: c.code || '',
+    name: c.name || 'Sem nome',
+    siteLink: normalizeUrl(c.siteLink || ''),
+    description: c.description || ''
   }));
 };
 
@@ -195,6 +209,7 @@ export const normalizeItem = (item = {}, tabKey = 'gravar', forcedContentType, w
     brokersPostLink: item.brokersPostLink || '',
     brokersNote: item.brokersNote || '',
     responsavel: item.responsavel || '',
+    casaId: item.casaId || '',
     observacao: item.observacao || '',
     _gravarOrigin: item._gravarOrigin || null,
     _editarOrigin: item._editarOrigin || null
@@ -249,6 +264,7 @@ export const normalizePlanner = (cloudData) => {
       dayPilars: normalizeDayPilars(cloudData.dayPilars),
       gavetas: normalizeGavetas(cloudData.gavetas),
       people: normalizePeople(cloudData.people),
+      casas: normalizeCasas(cloudData.casas),
       weeks: Object.keys(weeks).length ? weeks : { [currentWeekKey]: emptyWeekData() }
     });
   }
@@ -261,6 +277,7 @@ export const normalizePlanner = (cloudData) => {
       dayPilars: emptyDayPilars(),
       gavetas: normalizeGavetas(cloudData.gavetas),
       people: normalizePeople(cloudData.people),
+      casas: normalizeCasas(cloudData.casas),
       weeks: {
         [currentWeekKey]: mergeLegacyStoriesIntoGravar({
           gravar: cloudData,
@@ -277,22 +294,11 @@ export const normalizePlanner = (cloudData) => {
     dayPilars: normalizeDayPilars(cloudData.dayPilars),
     gavetas: normalizeGavetas(cloudData.gavetas),
     people: normalizePeople(cloudData.people),
+    casas: normalizeCasas(cloudData.casas),
     weeks: {
       [currentWeekKey]: mergeLegacyStoriesIntoGravar(cloudData, currentWeekKey)
     }
   });
-};
-
-export const getAllItemsFlat = (planner) => {
-  const out = [];
-  Object.entries(planner.weeks || {}).forEach(([weekKey, week]) => {
-    daysOfWeek.forEach(d => {
-      (week.gravar?.[d.id] || []).forEach(item => out.push({ item, weekKey, dayId: d.id, tab: 'gravar' }));
-      (week.postar?.[d.id] || []).forEach(item => out.push({ item, weekKey, dayId: d.id, tab: 'postar' }));
-    });
-    (week.editar?.geral || []).forEach(item => out.push({ item, weekKey, dayId: 'geral', tab: 'editar' }));
-  });
-  return out;
 };
 
 export const stripHtml = (html) => {

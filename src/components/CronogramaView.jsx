@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Plus, ChevronLeft, ChevronRight, Search, SlidersHorizontal,
-  ArrowUpRight, AlignLeft, Pencil, Copy, Check, X, Trash2, Settings
+  ArrowUpRight, AlignLeft, Pencil, Copy, Check, X, Trash2, Settings, Info
 } from 'lucide-react';
 import {
   MONTH_SHORT, DAY_NAMES_SHORT, weeksForMonth, mondayOf, toDateKey
@@ -108,7 +108,7 @@ const TYPE_OPTIONS = [
 ];
 
 // ── Editor de post ──
-const PostEditor = ({ open, editing, people, onClose, onSave, onDelete }) => {
+const PostEditor = ({ open, editing, people, casas, onClose, onSave, onDelete, onCasaInfo }) => {
   const [draft, setDraft] = useState(null);
   React.useEffect(() => {
     if (open) {
@@ -120,8 +120,9 @@ const PostEditor = ({ open, editing, people, onClose, onSave, onDelete }) => {
         linkLabel: 'Ver materiais',
         legenda: editing.card.postCaption || '',
         observacao: editing.card.observacao || '',
-        responsavel: editing.card.responsavel || ''
-      } : { type: 'Reels', title: '', note: '', link: '', linkLabel: 'Ver materiais', legenda: '', observacao: '', responsavel: '' });
+        responsavel: editing.card.responsavel || '',
+        casaId: editing.card.casaId || ''
+      } : { type: 'Reels', title: '', note: '', link: '', linkLabel: 'Ver materiais', legenda: '', observacao: '', responsavel: '', casaId: '' });
     }
   }, [open, editing]);
   if (!draft) return null;
@@ -154,6 +155,19 @@ const PostEditor = ({ open, editing, people, onClose, onSave, onDelete }) => {
           <option value="">— Ninguém —</option>
           {people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
+      </label>
+
+      <label style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+        <span style={labelSpan}>Casa (imóvel)</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <select value={draft.casaId} onChange={(e) => set({ casaId: e.target.value })} style={{ ...inputStyle, flex: 1 }}>
+            <option value="">— Nenhuma —</option>
+            {(casas || []).map(c => <option key={c.id} value={c.id}>{c.code ? `${c.code} · ` : ''}{c.name}</option>)}
+          </select>
+          {draft.casaId && (
+            <button type="button" onClick={() => onCasaInfo(draft.casaId)} title="Ver informações da casa" style={{ flexShrink: 0, background: '#F7FAFE', border: '1px solid #E6EDF6', borderRadius: 10, width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#0E7C6B', padding: 0 }}><Info size={15} /></button>
+          )}
+        </div>
       </label>
 
       <label style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
@@ -210,6 +224,36 @@ const LegendaModal = ({ open, text, onClose }) => {
   );
 };
 
+// ── Modal de detalhe da casa vinculada ao post ──
+const CASA_COLOR = '#0E7C6B';
+const CasaInfoModal = ({ open, casa, onClose }) => (
+  <GlassModal open={open} onClose={onClose} maxWidth={440}>
+    {casa && (
+      <>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+          <h3 style={{ fontSize: 17, fontWeight: 600, color: '#16202E' }}>{casa.name}</h3>
+          <button onClick={onClose} title="Fechar" style={{ background: 'none', border: 'none', color: '#8A94A8', cursor: 'pointer', display: 'flex', padding: 4 }}><X size={18} /></button>
+        </div>
+        {casa.code && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', borderRadius: 6, padding: '3px 9px', color: CASA_COLOR, background: 'rgba(14,124,107,0.12)', marginBottom: 14 }}>{casa.code}</span>
+        )}
+        {casa.description && (
+          <div style={{ background: '#F7FAFE', border: '1px solid #E6EDF6', borderRadius: 12, padding: 14, fontSize: 13, color: '#55627A', lineHeight: 1.55, whiteSpace: 'pre-wrap', marginBottom: 16, marginTop: casa.code ? 0 : 8 }}>{casa.description}</div>
+        )}
+        {!casa.description && <div style={{ height: 8 }} />}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          <button onClick={onClose} style={{ padding: '9px 16px', border: '1px solid #E6EDF6', background: '#fff', borderRadius: 10, color: '#55627A', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Fechar</button>
+          {casa.siteLink && (
+            <a href={casa.siteLink} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 18px', border: 'none', background: CASA_COLOR, color: '#fff', borderRadius: 999, fontSize: 13, fontWeight: 600, cursor: 'pointer', textDecoration: 'none', boxShadow: '0 6px 16px rgba(14,124,107,0.28)' }}>
+              <ArrowUpRight size={14} />Ver no site
+            </a>
+          )}
+        </div>
+      </>
+    )}
+  </GlassModal>
+);
+
 // ── Modal de responsáveis ──
 const SettingsModal = ({ open, people, onClose, onAdd, onRemove }) => {
   const [name, setName] = useState('');
@@ -263,7 +307,7 @@ const DONE = '#15935A';
 // Além de arrastar para outro dia, aceita drop de um card do MESMO dia para
 // reordenar: a metade do card onde o mouse está decide se insere acima ou
 // abaixo (indicado por uma linha azul).
-const PostCard = ({ entry, iso, person, onEdit, onLegenda, onTogglePosted, onDragStart, onDragEnd, dragInfo, onReorder }) => {
+const PostCard = ({ entry, iso, person, casa, onCasaInfo, onEdit, onLegenda, onTogglePosted, onDragStart, onDragEnd, dragInfo, onReorder }) => {
   const { item } = entry;
   const [hover, setHover] = useState(false);
   const [insertPos, setInsertPos] = useState(null); // 'before' | 'after' | null
@@ -320,7 +364,12 @@ const PostCard = ({ entry, iso, person, onEdit, onLegenda, onTogglePosted, onDra
       {insertPos === 'before' && indicator(true)}
       {insertPos === 'after' && indicator(false)}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6 }}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', alignSelf: 'flex-start', fontSize: 9.5, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', borderRadius: 6, padding: '2px 7px', ...(done ? { color: DONE, background: 'rgba(21,147,90,0.14)' } : badgeStyle(typeLabel)) }}>{done ? 'Postado' : typeLabel}</span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, alignSelf: 'flex-start', flexWrap: 'wrap' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', fontSize: 9.5, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', borderRadius: 6, padding: '2px 7px', ...(done ? { color: DONE, background: 'rgba(21,147,90,0.14)' } : badgeStyle(typeLabel)) }}>{done ? 'Postado' : typeLabel}</span>
+          {casa && (
+            <button onClick={(e) => { e.stopPropagation(); onCasaInfo(casa); }} title={`${casa.name} — ver informações`} style={{ display: 'inline-flex', alignItems: 'center', fontSize: 9.5, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', borderRadius: 6, padding: '2px 7px', border: 'none', cursor: 'pointer', color: '#0E7C6B', background: 'rgba(14,124,107,0.12)' }}>{casa.code || casa.name}</button>
+          )}
+        </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
           {person && <Avatar person={person} size={22} />}
           <button onClick={() => onTogglePosted(entry)} title={done ? 'Desmarcar' : 'Marcar como postado'} style={{ flexShrink: 0, background: done ? DONE : 'rgba(255,255,255,0.7)', border: `1px solid ${done ? DONE : 'rgba(255,255,255,0.9)'}`, borderRadius: 9, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: done ? '#fff' : (hover ? DONE : '#8A94A8'), padding: 0 }}><Check size={13} strokeWidth={3} /></button>
@@ -353,24 +402,29 @@ export const CronogramaView = ({
   const [month, setMonth] = useState({ y: today.getFullYear(), m: today.getMonth() });
   const [search, setSearch] = useState('');
   const [types, setTypes] = useState([]);
+  const [casaFilter, setCasaFilter] = useState([]);
   const [filterOpen, setFilterOpen] = useState(false);
   const [expanded, setExpanded] = useState({});
   const [editor, setEditor] = useState(null);      // { open, editing:{card,weekKey,dayId} | {dateKey} }
   const [legenda, setLegenda] = useState(null);
+  const [casaInfo, setCasaInfo] = useState(null);  // casa em exibição no modal de detalhe
   const [settingsOpen, setSettingsOpen] = useState(false);
   const dragRef = useRef(null);
   const [overCol, setOverCol] = useState(null);
 
   const people = planner.people || [];
   const peopleMap = useMemo(() => Object.fromEntries(people.map(p => [p.id, p])), [people]);
+  const casas = planner.casas || [];
+  const casasMap = useMemo(() => Object.fromEntries(casas.map(c => [c.id, c])), [casas]);
   const postsByDate = useMemo(() => getPostsByDate(planner, profileFilter), [planner, profileFilter]);
 
   const q = search.trim().toLowerCase();
-  const filtering = q.length > 0 || types.length > 0;
+  const filtering = q.length > 0 || types.length > 0 || casaFilter.length > 0;
   const matches = (item) => {
     const okType = !types.length || types.includes(catOf(typeLabelOf(item)));
+    const okCasa = !casaFilter.length || casaFilter.includes(item.casaId);
     const hay = `${item.objective || ''} ${item.time || ''}`.toLowerCase();
-    return okType && (!q || hay.includes(q));
+    return okType && okCasa && (!q || hay.includes(q));
   };
 
   const curMonday = mondayOf(today);
@@ -417,12 +471,18 @@ export const CronogramaView = ({
   const chipDefs = ['Reels', 'Carrossel', 'Post', 'Motion', 'Estático', 'Lançamento', 'Stories', 'Takes'];
   const chips = chipDefs.filter(k => present[k]);
 
+  // Chips de casa: só as casas realmente vinculadas a algum post.
+  const casasPresent = {};
+  Object.values(postsByDate).flat().forEach(e => { if (e.item.casaId && casasMap[e.item.casaId]) casasPresent[e.item.casaId] = true; });
+  const casaChips = casas.filter(c => casasPresent[c.id]);
+
   const changeMonth = (delta) => {
     let y = month.y, m = month.m + delta;
     if (m < 0) { m = 11; y--; } if (m > 11) { m = 0; y++; }
     setMonth({ y, m });
   };
   const toggleType = (k) => setTypes(t => t.includes(k) ? t.filter(x => x !== k) : [...t, k]);
+  const toggleCasa = (id) => setCasaFilter(t => t.includes(id) ? t.filter(x => x !== id) : [...t, id]);
   const toggleWeek = (id) => setExpanded(e => ({ ...e, [id]: !e[id] }));
 
   // Drag & drop
@@ -460,15 +520,15 @@ export const CronogramaView = ({
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar post…" style={{ width: '100%', padding: '9px 12px 9px 34px', border: '1px solid rgba(255,255,255,0.8)', borderRadius: 14, background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', fontSize: 13, color: '#16202E' }} />
         </div>
         <div style={{ position: 'relative' }}>
-          <button onClick={() => setFilterOpen(o => !o)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 15px', borderRadius: 999, border: '1px solid', fontSize: 13, fontWeight: 600, cursor: 'pointer', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', ...((types.length || filterOpen) ? { background: 'rgba(234,241,253,0.85)', color: ACCENT, borderColor: 'rgba(207,224,248,0.9)' } : { background: 'rgba(255,255,255,0.6)', color: '#55627A', borderColor: 'rgba(255,255,255,0.9)' }) }}>
+          <button onClick={() => setFilterOpen(o => !o)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 15px', borderRadius: 999, border: '1px solid', fontSize: 13, fontWeight: 600, cursor: 'pointer', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', ...((types.length || casaFilter.length || filterOpen) ? { background: 'rgba(234,241,253,0.85)', color: ACCENT, borderColor: 'rgba(207,224,248,0.9)' } : { background: 'rgba(255,255,255,0.6)', color: '#55627A', borderColor: 'rgba(255,255,255,0.9)' }) }}>
             <SlidersHorizontal size={15} />Filtros
-            {types.length > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 18, height: 18, padding: '0 5px', borderRadius: 999, background: ACCENT, color: '#fff', fontSize: 10.5, fontWeight: 700 }}>{types.length}</span>}
+            {(types.length + casaFilter.length) > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 18, height: 18, padding: '0 5px', borderRadius: 999, background: ACCENT, color: '#fff', fontSize: 10.5, fontWeight: 700 }}>{types.length + casaFilter.length}</span>}
           </button>
           {filterOpen && (
             <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 60, background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(24px) saturate(190%)', WebkitBackdropFilter: 'blur(24px) saturate(190%)', border: '1px solid rgba(255,255,255,0.9)', borderRadius: 20, boxShadow: '0 20px 48px rgba(16,32,56,0.18)', padding: 15, width: 272 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                 <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#8A94A8' }}>Tipo de post</span>
-                {types.length > 0 && <button onClick={() => setTypes([])} style={{ background: 'none', border: 'none', color: ACCENT, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Limpar</button>}
+                {(types.length > 0 || casaFilter.length > 0) && <button onClick={() => { setTypes([]); setCasaFilter([]); }} style={{ background: 'none', border: 'none', color: ACCENT, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Limpar</button>}
               </div>
               <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
                 {chips.map(k => {
@@ -477,6 +537,19 @@ export const CronogramaView = ({
                 })}
                 {chips.length === 0 && <span style={{ fontSize: 12, color: '#A9B4C6' }}>Nenhum tipo ainda</span>}
               </div>
+              {casaChips.length > 0 && (
+                <>
+                  <div style={{ marginTop: 14, marginBottom: 10 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#8A94A8' }}>Casa</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+                    {casaChips.map(c => {
+                      const active = casaFilter.includes(c.id);
+                      return <button key={c.id} onClick={() => toggleCasa(c.id)} title={c.name} style={{ padding: '5px 12px', borderRadius: 999, border: '1px solid', fontSize: 12, fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap', ...(active ? { background: '#0E7C6B', color: '#fff', borderColor: '#0E7C6B' } : { background: 'rgba(255,255,255,0.6)', color: '#55627A', borderColor: 'rgba(255,255,255,0.9)' }) }}>{c.code || c.name}</button>;
+                    })}
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -522,7 +595,7 @@ export const CronogramaView = ({
                           <div style={{ fontSize: 19, fontWeight: 500, lineHeight: 1, marginTop: 2, color: day.isToday ? ACCENT : '#C7D2E3' }}>{day.dateLabel}</div>
                         </div>
                         {day.cards.map(entry => (
-                          <PostCard key={entry.item.id} entry={entry} iso={day.iso} person={peopleMap[entry.item.responsavel]} onEdit={(en, iso) => setEditor({ open: true, editing: { card: en.item, weekKey: en.weekKey, dayId: en.dayId } })} onLegenda={(t) => setLegenda(t)} onTogglePosted={onTogglePosted} onDragStart={onDragStart} onDragEnd={onDragEnd} dragInfo={dragRef} onReorder={(src, tgt, before) => onReorderPost({ card: src.item, weekKey: src.weekKey, dayId: src.dayId }, { card: tgt.item, weekKey: tgt.weekKey, dayId: tgt.dayId }, before)} />
+                          <PostCard key={entry.item.id} entry={entry} iso={day.iso} person={peopleMap[entry.item.responsavel]} casa={casasMap[entry.item.casaId]} onCasaInfo={(c) => setCasaInfo(c)} onEdit={(en, iso) => setEditor({ open: true, editing: { card: en.item, weekKey: en.weekKey, dayId: en.dayId } })} onLegenda={(t) => setLegenda(t)} onTogglePosted={onTogglePosted} onDragStart={onDragStart} onDragEnd={onDragEnd} dragInfo={dragRef} onReorder={(src, tgt, before) => onReorderPost({ card: src.item, weekKey: src.weekKey, dayId: src.dayId }, { card: tgt.item, weekKey: tgt.weekKey, dayId: tgt.dayId }, before)} />
                         ))}
                         <button onClick={() => setEditor({ open: true, editing: { dateKey: day.iso } })} style={{ marginTop: 2, width: '100%', padding: 9, border: '1px dashed rgba(46,109,224,0.35)', background: 'rgba(255,255,255,0.4)', borderRadius: 14, color: ACCENT, fontSize: 11.5, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
                           <Plus size={12} />Post
@@ -556,11 +629,14 @@ export const CronogramaView = ({
         open={!!editor?.open}
         editing={editor?.editing}
         people={people}
+        casas={casas}
+        onCasaInfo={(id) => { const c = casasMap[id]; if (c) setCasaInfo(c); }}
         onClose={() => setEditor(null)}
         onSave={(editing, draft) => { onSavePost(editing, draft); setEditor(null); }}
         onDelete={(editing) => { onDeletePost(editing); setEditor(null); }}
       />
       <LegendaModal open={legenda != null} text={legenda || ''} onClose={() => setLegenda(null)} />
+      <CasaInfoModal open={casaInfo != null} casa={casaInfo} onClose={() => setCasaInfo(null)} />
       <SettingsModal open={settingsOpen} people={people} onClose={() => setSettingsOpen(false)} onAdd={onAddPerson} onRemove={onRemovePerson} />
     </div>
   );

@@ -1,6 +1,6 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { CalendarDays, Archive, Table2 } from 'lucide-react';
+import { CalendarDays, Archive, House } from 'lucide-react';
 
 // Abas expansíveis: inativa mostra só o ícone; a ativa expande revelando o
 // rótulo, com o fundo pintado na cor da própria aba. Adaptado para o nosso
@@ -9,7 +9,7 @@ import { CalendarDays, Archive, Table2 } from 'lucide-react';
 const TABS = [
   { id: 'cronograma', label: 'Cronograma', Icon: CalendarDays, color: '#2E6DE0', soft: 'rgba(46,109,224,0.12)' },
   { id: 'gavetas',    label: 'Gavetas',    Icon: Archive,      color: '#3B5578', soft: 'rgba(59,85,120,0.12)' },
-  { id: 'planilha',   label: 'Planilha',   Icon: Table2,       color: '#1F2937', soft: 'rgba(31,41,55,0.12)' }
+  { id: 'casas',      label: 'Casas',      Icon: House,        color: '#0E7C6B', soft: 'rgba(14,124,107,0.12)' }
 ];
 
 const spring = { type: 'spring', bounce: 0, duration: 0.55, delay: 0.06 };

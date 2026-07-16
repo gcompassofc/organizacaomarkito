@@ -22,7 +22,6 @@ import 'react-quill-new/dist/quill.snow.css';
 import { firebaseConfig, firestoreDatabaseId } from './lib/firebase';
 import {
   daysOfWeek,
-  toDateKey,
   addDays,
   getWeekKey,
   parseWeekKey,
@@ -33,9 +32,6 @@ import {
   getNextDayOfWeek
 } from './lib/dates';
 import {
-  tabConfig,
-  getRecordingTag,
-  getContentTypeTag,
   getProfileTag,
   getPilarLabel,
   getPilarBadgeClass,
@@ -45,15 +41,13 @@ import LoginScreen from './components/LoginScreen';
 import SummaryModal from './components/SummaryModal';
 import AddItemModal from './components/AddItemModal';
 import EditItemModal from './components/EditItemModal';
-import BulkImportModal from './components/BulkImportModal';
 import { TaskCard, PreviewCard, SlimCard } from './components/TaskCard';
 import { CronogramaView } from './components/CronogramaView';
 import { GavetasView } from './components/GavetasView';
-import { Planilha } from './components/Planilha';
+import { CasasView } from './components/CasasView';
 import { DayPilarPicker } from './components/DayPilarPicker';
 import {
   HeaderBar,
-  SectionBar,
   MobileBottomNav,
   FloatingDesktopNav,
   PageFooter,
@@ -81,7 +75,6 @@ import {
   getGravarSlimEchoes,
   getEditarSlimEchoes,
   getEditarPreviewsByDay,
-  getAllItems,
   getRepostablePosts
 } from './lib/selectors';
 
@@ -97,7 +90,6 @@ const App = () => {
   const [planner, setPlanner] = useState(() => createPlanner());
   const [expandedDay, setExpandedDay] = useState(() => getTodayDayId());
   const [isAdding, setIsAdding] = useState(false);
-  const [isBulkImporting, setIsBulkImporting] = useState(false);
   const [newItem, setNewItem] = useState(() => defaultItem());
   const [draggedItem, setDraggedItem] = useState(null);
   const [summaryModal, setSummaryModal] = useState({ isOpen: false, item: null });
@@ -107,8 +99,6 @@ const App = () => {
   const [firstCommentCopiedId, setFirstCommentCopiedId] = useState(null);
   const [brokersCopiedId, setBrokersCopiedId] = useState(null);
   const [gravarListFilter, setGravarListFilter] = useState('pendentes');
-  const [showPlanilha, setShowPlanilha] = useState(false);
-  const [planilhaSearch, setPlanilhaSearch] = useState('');
 
   const handleCopyCaption = (e, item) => {
     e.stopPropagation();
@@ -145,16 +135,11 @@ const App = () => {
   const [password, setPassword] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
   const [authError, setAuthError] = useState(null);
-  const [profileFilter, setProfileFilter] = useState(() => {
-    try { return localStorage.getItem('profileFilter') || 'todos'; } catch { return 'todos'; }
-  });
-  const [editorFilter, setEditorFilter] = useState(() => {
-    try { return localStorage.getItem('editorFilter') || 'todos'; } catch { return 'todos'; }
-  });
-  useEffect(() => { try { localStorage.setItem('profileFilter', profileFilter); } catch {} }, [profileFilter]);
-  // Gravar é sempre só do Marco — o filtro é ignorado nessa aba (mas vale na planilha).
-  const effectiveProfileFilter = (activeTab === 'gravar' && !showPlanilha) ? 'todos' : profileFilter;
-  useEffect(() => { try { localStorage.setItem('editorFilter', editorFilter); } catch {} }, [editorFilter]);
+  // Os filtros de perfil/editor saíram junto com a Planilha; as etapas legadas
+  // (gravar/editar/postar) continuam recebendo 'todos' — sem filtragem.
+  const profileFilter = 'todos';
+  const editorFilter = 'todos';
+  const effectiveProfileFilter = profileFilter;
   const currentWeekKey = planner.currentWeekKey;
   const currentWeekData = planner.weeks[currentWeekKey] || emptyWeekData();
 
@@ -174,7 +159,7 @@ const App = () => {
     ? allEditarItemsGlobal
     : isGravarList
       ? allGravarGlobal
-      : (activeTab === 'cronograma' || activeTab === 'gavetas')
+      : (activeTab === 'cronograma' || activeTab === 'gavetas' || activeTab === 'casas')
         ? getFilteredGravarPostar(currentWeekData.postar)
         : getFilteredGravarPostar(currentWeekData[activeTab]);
 
@@ -517,60 +502,6 @@ const App = () => {
     setIsAdding(false);
   };
 
-  // Importação em massa: recebe itens já validados (com a forma de defaultItem)
-  // vindos do parser e os insere todos numa única atualização do planner.
-  const importItems = (parsedItems) => {
-    if (!parsedItems || parsedItems.length === 0) return;
-
-    updatePlanner((prev) => {
-      const next = { ...prev };
-      const counters = { marco: 0, opa: 0, collab: 0, ...(prev.counters || {}) };
-
-      parsedItems.forEach((src) => {
-        const isEstatico = src.contentType === 'estatico' || src.contentType === 'carrossel';
-        const isRepost = src.contentType === 'repost_stories';
-        const stage = isRepost ? 'postar' : (isEstatico ? 'editar' : 'gravar');
-        const banco = Boolean(src.banco);
-        const profile = src.profile || 'opa';
-
-        counters[profile] = (counters[profile] || 0) + 1;
-
-        const item = {
-          ...src,
-          id: newId(),
-          primaryLink: normalizeUrl(src.primaryLink),
-          secondaryLink: normalizeUrl(src.secondaryLink),
-          editedVideoLink: normalizeUrl(src.editedVideoLink),
-          brokersPostLink: normalizeUrl(src.brokersPostLink),
-          recordingDate: banco ? '' : src.recordingDate,
-          postDate: banco ? '' : src.postDate,
-          completed: false,
-          tabKey: stage,
-          code: formatCode(profile, counters[profile])
-        };
-
-        if (stage === 'editar') {
-          const { weekKey } = getWeekKeyAndDayId(item.postDate);
-          if (!next.weeks[weekKey]) next.weeks[weekKey] = emptyWeekData();
-          next.weeks[weekKey].editar.geral.push(item);
-        } else if (stage === 'postar') {
-          const { weekKey, dayId } = getWeekKeyAndDayId(item.postDate);
-          if (!next.weeks[weekKey]) next.weeks[weekKey] = emptyWeekData();
-          next.weeks[weekKey].postar[dayId].push(item);
-        } else {
-          const { weekKey, dayId } = getWeekKeyAndDayId(item.recordingDate);
-          if (!next.weeks[weekKey]) next.weeks[weekKey] = emptyWeekData();
-          next.weeks[weekKey].gravar[dayId].push(item);
-        }
-      });
-
-      next.counters = counters;
-      return next;
-    });
-
-    setIsBulkImporting(false);
-  };
-
   const removeItem = (e, dayId, itemId, itemWeekKey) => {
     e.stopPropagation();
     updatePlanner((prev) => {
@@ -634,137 +565,6 @@ const App = () => {
     });
   };
 
-  const changeWeek = (direction) => {
-    const nextWeekKey = getWeekKey(addDays(parseWeekKey(currentWeekKey), direction * 7));
-    updatePlanner((prevPlanner) => ({
-      ...prevPlanner,
-      currentWeekKey: nextWeekKey,
-      weeks: {
-        ...prevPlanner.weeks,
-        [nextWeekKey]: prevPlanner.weeks[nextWeekKey] || emptyWeekData()
-      }
-    }));
-    setExpandedDay(nextWeekKey === getWeekKey() ? getTodayDayId() : 'segunda');
-    setIsAdding(false);
-  };
-
-  const goToCurrentWeek = () => {
-    const thisWeekKey = getWeekKey();
-    updatePlanner((prevPlanner) => ({
-      ...prevPlanner,
-      currentWeekKey: thisWeekKey,
-      weeks: {
-        ...prevPlanner.weeks,
-        [thisWeekKey]: prevPlanner.weeks[thisWeekKey] || emptyWeekData()
-      }
-    }));
-    setExpandedDay(getTodayDayId());
-    setIsAdding(false);
-  };
-
-  const exportCsv = ({ from, to } = {}) => {
-    const inRange = (item) => {
-      if (!from && !to) return true;
-      const anchor = item.postDate || item.recordingDate;
-      if (!anchor) return false;
-      if (from && anchor < from) return false;
-      if (to && anchor > to) return false;
-      return true;
-    };
-
-    const rows = [[
-      'Semana', 'Dia', 'Etapa', 'Titulo', 'Roteiro', 'Tipo', 'Participacao',
-      'Perfil', 'Pilar', 'Horario', 'Data gravar', 'Data postar',
-      'Link principal', 'Link secundario', 'Concluido'
-    ]];
-
-    Object.entries(planner.weeks)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .forEach(([weekKey, weekData]) => {
-        Object.entries(weekData).forEach(([tabKey, content]) => {
-          if (tabKey === 'editar') {
-            (content.geral || []).filter(inRange).forEach(item => {
-              rows.push([
-                formatWeekRange(weekKey),
-                'Geral',
-                tabConfig[tabKey].label,
-                item.objective || '',
-                item.summary || '',
-                getContentTypeTag(item.contentType),
-                '',
-                getProfileTag(item.profile),
-                getPilarLabel(item.pilar),
-                item.time || '',
-                item.recordingDate || '',
-                item.postDate || '',
-                item.primaryLink || '',
-                item.editedVideoLink || '',
-                item.completed ? 'Sim' : 'Nao'
-              ]);
-            });
-          } else {
-            daysOfWeek.forEach((day) => {
-              (content[day.id] || []).filter(inRange).forEach((item) => {
-                rows.push([
-                  formatWeekRange(weekKey),
-                  day.label,
-                  tabConfig[tabKey].label,
-                  item.objective || '',
-                  item.summary || '',
-                  getContentTypeTag(item.contentType),
-                  tabKey === 'gravar' ? getRecordingTag(item.recordingType) : '',
-                  getProfileTag(item.profile),
-                  getPilarLabel(item.pilar),
-                  item.time || '',
-                  item.recordingDate || '',
-                  item.postDate || '',
-                  item.primaryLink || '',
-                  item.secondaryLink || '',
-                  item.completed ? 'Sim' : 'Nao'
-                ]);
-              });
-            });
-          }
-        });
-      });
-
-    const csv = rows
-      .map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-
-    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    const stamp = toDateKey(new Date());
-    const suffix = !from && !to ? 'tudo' : `${from || 'inicio'}_ate_${to || 'fim'}`;
-    link.download = `organizacao-markito-${stamp}-${suffix}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const wipeAllContent = () => {
-    updatePlanner(() => createPlanner());
-    setPlanilhaSearch('');
-  };
-
-  const deletePlanilhaItem = (item) => {
-    const stage = item._stage;
-    const wk = item._sourceWeekKey;
-    const did = item._sourceDayId;
-    if (!stage || !wk) return;
-    updatePlanner(prev => {
-      const next = { ...prev };
-      if (!next.weeks[wk]) return prev;
-      if (stage === 'editar') {
-        next.weeks[wk].editar.geral = (next.weeks[wk].editar.geral || []).filter(i => i.id !== item.id);
-      } else if (next.weeks[wk][stage] && next.weeks[wk][stage][did]) {
-        next.weeks[wk][stage][did] = next.weeks[wk][stage][did].filter(i => i.id !== item.id);
-      }
-      return next;
-    });
-  };
-
   const moveItem = (weekKey, dayId, itemId, direction, peerIds) => {
     if (activeTab !== 'postar') return;
     updatePlanner(prev => {
@@ -786,16 +586,11 @@ const App = () => {
   const openEdit = (dayId, item, itemWeekKey, sourceStage = null) =>
     setEditModal({ isOpen: true, dayId, item: { ...item }, itemWeekKey, sourceStage });
 
-  // A interface tem três visões: Cronograma, Gavetas e Planilha. As etapas
+  // A interface tem três visões: Cronograma, Gavetas e Casas. As etapas
   // gravar/editar/postar continuam existindo por baixo (o item flui entre elas),
   // mas não são mais navegáveis diretamente.
   const selectView = (view) => {
-    if (view === 'planilha') {
-      setShowPlanilha(true);
-    } else {
-      setShowPlanilha(false);
-      setActiveTab(view); // 'cronograma' | 'gavetas'
-    }
+    setActiveTab(view); // 'cronograma' | 'gavetas' | 'casas'
     setIsAdding(false);
   };
 
@@ -822,7 +617,7 @@ const App = () => {
         const list = next.weeks[wk]?.postar?.[did];
         if (list) {
           const idx = list.findIndex(i => i.id === editing.card.id);
-          if (idx > -1) list[idx] = { ...list[idx], objective: draft.title, time: draft.note, primaryLink: normalizeUrl(draft.link), postCaption: draft.legenda, observacao: draft.observacao || '', responsavel: draft.responsavel, contentType, pilar };
+          if (idx > -1) list[idx] = { ...list[idx], objective: draft.title, time: draft.note, primaryLink: normalizeUrl(draft.link), postCaption: draft.legenda, observacao: draft.observacao || '', responsavel: draft.responsavel, casaId: draft.casaId || '', contentType, pilar };
         }
       } else {
         // Novo post naquele dia.
@@ -842,6 +637,7 @@ const App = () => {
           postCaption: draft.legenda,
           observacao: draft.observacao || '',
           responsavel: draft.responsavel,
+          casaId: draft.casaId || '',
           contentType, pilar,
           profile,
           postDate: dateKey,
@@ -953,6 +749,16 @@ const App = () => {
     return { ...prev, gavetas: [...(prev.gavetas || []), { id: newId(), name: draft.name, code: draft.code, items: [] }] };
   });
   const gavetaDeleteGroup = (editing) => updatePlanner((prev) => ({ ...prev, gavetas: (prev.gavetas || []).filter(g => g.id !== editing.group.id) }));
+
+  // ── Casas (imóveis: código, nome, link do site, descrição) ──
+  // editing: casa existente | null (nova). Excluir NÃO varre os posts: um
+  // casaId órfão resolve para undefined no map e o badge simplesmente some.
+  const casaSave = (editing, draft) => updatePlanner((prev) => {
+    const clean = { code: (draft.code || '').trim(), name: (draft.name || '').trim(), siteLink: normalizeUrl(draft.siteLink || ''), description: (draft.description || '').trim() };
+    if (editing) return { ...prev, casas: (prev.casas || []).map(c => c.id === editing.id ? { ...c, ...clean } : c) };
+    return { ...prev, casas: [...(prev.casas || []), { id: newId(), ...clean }] };
+  });
+  const casaDelete = (casa) => updatePlanner((prev) => ({ ...prev, casas: (prev.casas || []).filter(c => c.id !== casa.id) }));
 
   // Agenda um material da gaveta num dia do cronograma: cria o post na etapa
   // "postar" com os mesmos campos que o cronograma usa (título, tipo, link,
@@ -1070,7 +876,7 @@ const App = () => {
 
   return (
     <div className="min-h-screen bg-[#FAFAFA] font-sans text-slate-900 p-6 md:p-10 selection:bg-blue-100">
-      <div className={`${showPlanilha ? 'w-full' : 'max-w-7xl mx-auto'} pb-24 md:pb-32`}>
+      <div className="max-w-7xl mx-auto pb-24 md:pb-32">
         <HeaderBar
           firebaseReady={firebaseReady}
           saving={saving}
@@ -1078,48 +884,6 @@ const App = () => {
           onLogout={handleLogout}
         />
 
-        {showPlanilha && (
-          <SectionBar
-            showPlanilha={showPlanilha}
-            weekRangeLabel={formatWeekRange(currentWeekKey)}
-            onPrevWeek={() => changeWeek(-1)}
-            onNextWeek={() => changeWeek(1)}
-            onGoToCurrentWeek={goToCurrentWeek}
-            onExportCsv={exportCsv}
-            onImportClick={() => setIsBulkImporting(true)}
-            onWipeAll={wipeAllContent}
-            showFilters
-            showEditorFilter
-            profileFilter={profileFilter}
-            onProfileChange={setProfileFilter}
-            editorFilter={editorFilter}
-            onEditorChange={setEditorFilter}
-          />
-        )}
-
-
-        {showPlanilha ? (
-          <Planilha
-            items={getAllItems(planner, profileFilter, editorFilter, planilhaSearch)}
-            search={planilhaSearch}
-            onSearchChange={setPlanilhaSearch}
-            onRowClick={(item) => openEdit(item._sourceDayId, item, item._sourceWeekKey, item._stage)}
-            onAddClick={() => setIsAdding(true)}
-            onAddAtDate={(date, dateField) => {
-              const key = toDateKey(date);
-              const base = defaultItem();
-              if (dateField === 'recordingDate') {
-                setNewItem({ ...base, recordingDate: key, postDate: '', initialStage: 'gravar' });
-              } else {
-                setNewItem({ ...base, postDate: key, recordingDate: '', initialStage: 'postar' });
-              }
-              setIsAdding(true);
-            }}
-            onDelete={deletePlanilhaItem}
-            dayPilars={planner.dayPilars}
-            onSetDayPilar={setDayPilar}
-          />
-        ) : (
         <motion.div className="space-y-8">
           {activeTab === 'editar' ? (
               <StageQueue title="Fila global de edição">
@@ -1218,6 +982,12 @@ const App = () => {
                 onSaveGroup={gavetaSaveGroup}
                 onDeleteGroup={gavetaDeleteGroup}
                 onScheduleGaveta={gavetaScheduleItem}
+              />
+          ) : activeTab === 'casas' ? (
+              <CasasView
+                casas={planner.casas || []}
+                onSave={casaSave}
+                onDelete={casaDelete}
               />
           ) : (
             (() => {
@@ -1441,7 +1211,6 @@ const App = () => {
             })()
           )}
         </motion.div>
-        )}
 
         <PageFooter
           totalCount={allFilteredItems.length}
@@ -1450,22 +1219,16 @@ const App = () => {
       </div>
 
       <MobileBottomNav
-        activeView={showPlanilha ? 'planilha' : activeTab}
+        activeView={activeTab}
         onChangeView={selectView}
       />
 
       <FloatingDesktopNav
-        activeView={showPlanilha ? 'planilha' : activeTab}
+        activeView={activeTab}
         onChangeView={selectView}
       />
 
       <AddItemModal isAdding={isAdding} setIsAdding={setIsAdding} newItem={newItem} setNewItem={setNewItem} addItem={addItem} repostablePosts={getRepostablePosts(planner)} />
-
-      <BulkImportModal
-        open={isBulkImporting}
-        onClose={() => setIsBulkImporting(false)}
-        onImport={importItems}
-      />
 
       <SummaryModal
         summaryModal={summaryModal}

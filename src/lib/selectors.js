@@ -1,44 +1,6 @@
 import { daysOfWeek, addDays, parseWeekKey, toDateKey, getWeekKeyAndDayId } from './dates';
 import { profileMatchesFilter } from './tags';
 
-export const stageLabel = (item) => {
-  if (item._stage === 'gravar') return 'Gravar';
-  if (item._stage === 'editar') return 'Em edição';
-  if (item._stage === 'postar') return item.completed ? 'Postado' : 'Pra postar';
-  return '—';
-};
-
-export const getAllItems = (planner, profileFilter, editorFilter, search) => {
-  const out = [];
-  Object.entries(planner.weeks).forEach(([weekKey, weekData]) => {
-    daysOfWeek.forEach(d => {
-      (weekData.gravar?.[d.id] || []).forEach(item => {
-        out.push({ ...item, _stage: 'gravar', _sourceWeekKey: weekKey, _sourceDayId: d.id });
-      });
-    });
-    (weekData.editar?.geral || []).forEach(item => {
-      out.push({ ...item, _stage: 'editar', _sourceWeekKey: weekKey, _sourceDayId: 'geral' });
-    });
-    Object.entries(weekData.postar || {}).forEach(([dayId, items]) => {
-      (items || []).forEach(item => {
-        out.push({ ...item, _stage: 'postar', _sourceWeekKey: weekKey, _sourceDayId: dayId });
-      });
-    });
-  });
-
-  const sortDate = (item) =>
-    new Date((item.postDate || item.recordingDate || item._sourceWeekKey) + 'T12:00:00');
-  out.sort((a, b) => sortDate(a) - sortDate(b));
-
-  const term = (search || '').trim().toLowerCase();
-  return out.filter(item => {
-    if (!profileMatchesFilter(item.profile, profileFilter)) return false;
-    if (editorFilter && editorFilter !== 'todos' && (item.editor || 'allyson') !== editorFilter) return false;
-    if (term && !(item.objective || '').toLowerCase().includes(term)) return false;
-    return true;
-  });
-};
-
 const dateOrFallback = (dateStr, fallbackWeekKey) =>
   new Date((dateStr || fallbackWeekKey) + 'T12:00:00');
 
