@@ -1,72 +1,95 @@
 import React from 'react';
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { CalendarDays, Archive, Table2 } from 'lucide-react';
 
+// Abas expansíveis: inativa mostra só o ícone; a ativa expande revelando o
+// rótulo, com o fundo pintado na cor da própria aba. Adaptado para o nosso
+// stack (motion/react) e para navegação — sempre há uma aba ativa, então não
+// há estado "nenhuma selecionada".
 const TABS = [
-  { id: 'cronograma', label: 'Cronograma', Icon: CalendarDays, color: '#2E6DE0', textActive: 'text-blue-600' },
-  { id: 'gavetas',    label: 'Gavetas',    Icon: Archive,      color: '#3B5578', textActive: 'text-slate-700' },
-  { id: 'planilha',   label: 'Planilha',   Icon: Table2,       color: '#1f2937', textActive: 'text-slate-800' }
+  { id: 'cronograma', label: 'Cronograma', Icon: CalendarDays, color: '#2E6DE0', soft: 'rgba(46,109,224,0.12)' },
+  { id: 'gavetas',    label: 'Gavetas',    Icon: Archive,      color: '#3B5578', soft: 'rgba(59,85,120,0.12)' },
+  { id: 'planilha',   label: 'Planilha',   Icon: Table2,       color: '#1F2937', soft: 'rgba(31,41,55,0.12)' }
 ];
 
-export const MobileBottomNav = ({ activeView, onChangeView }) => (
-  <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 z-40 pb-safe">
-    <div className="flex items-center justify-around h-16">
-      {TABS.map(t => {
-        const Icon = t.Icon;
-        const active = activeView === t.id;
-        return (
-          <button
-            key={t.id}
-            onClick={() => onChangeView(t.id)}
-            className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${active ? t.textActive : 'text-slate-400 hover:text-slate-600'}`}
+const spring = { type: 'spring', bounce: 0, duration: 0.55, delay: 0.06 };
+
+const buttonVariants = {
+  inactive: { gap: 0, paddingLeft: '0.6rem', paddingRight: '0.6rem' },
+  active:   { gap: '0.5rem', paddingLeft: '1rem', paddingRight: '1.05rem' }
+};
+const labelVariants = {
+  initial: { width: 0, opacity: 0 },
+  animate: { width: 'auto', opacity: 1 },
+  exit:    { width: 0, opacity: 0 }
+};
+
+// Um item de aba, compartilhado entre mobile e desktop.
+const TabButton = ({ tab, active, onClick }) => {
+  const { Icon } = tab;
+  return (
+    <motion.button
+      type="button"
+      onClick={() => onClick(tab.id)}
+      variants={buttonVariants}
+      initial={false}
+      animate={active ? 'active' : 'inactive'}
+      transition={spring}
+      aria-current={active ? 'page' : undefined}
+      title={tab.label}
+      style={{
+        position: 'relative', display: 'flex', alignItems: 'center', height: 42,
+        borderRadius: 999, border: 'none', cursor: 'pointer', overflow: 'hidden',
+        background: active ? tab.soft : 'transparent',
+        color: active ? tab.color : '#94A3B8',
+        fontSize: 13, fontWeight: 600, letterSpacing: '0.01em', WebkitTapHighlightColor: 'transparent'
+      }}
+    >
+      <Icon size={19} strokeWidth={2.25} style={{ flexShrink: 0 }} />
+      <AnimatePresence initial={false}>
+        {active && (
+          <motion.span
+            variants={labelVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={spring}
+            style={{ overflow: 'hidden', whiteSpace: 'nowrap' }}
           >
-            <Icon className="w-5 h-5" strokeWidth={2.25} />
-            <span className="text-[10px] font-semibold tracking-wider uppercase">{t.label}</span>
-          </button>
-        );
-      })}
-    </div>
+            {tab.label}
+          </motion.span>
+        )}
+      </AnimatePresence>
+    </motion.button>
+  );
+};
+
+// Trilho de vidro que embrulha as abas — mesmo visual glass do Cronograma.
+const Rail = ({ activeView, onChangeView }) => (
+  <div
+    style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4, padding: 5,
+      borderRadius: 999,
+      background: 'rgba(255,255,255,0.66)',
+      backdropFilter: 'blur(20px) saturate(180%)', WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+      border: '1px solid rgba(255,255,255,0.85)',
+      boxShadow: '0 12px 34px rgba(20,40,80,0.14)'
+    }}
+  >
+    {TABS.map(tab => (
+      <TabButton key={tab.id} tab={tab} active={activeView === tab.id} onClick={onChangeView} />
+    ))}
+  </div>
+);
+
+export const MobileBottomNav = ({ activeView, onChangeView }) => (
+  <nav className="md:hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-40 pb-safe">
+    <Rail activeView={activeView} onChangeView={onChangeView} />
   </nav>
 );
 
-// Largura de cada pílula (px) e padding lateral do trilho. O indicador animado
-// é posicionado pelo índice da aba ativa — funciona para qualquer quantidade.
-const PILL_W = 124;
-const PAD = 8;
-
-export const FloatingDesktopNav = ({ activeView, onChangeView }) => {
-  const activeIndex = Math.max(0, TABS.findIndex(t => t.id === activeView));
-  return (
-    <nav className="hidden md:block fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
-      <div className="bg-white/95 backdrop-blur border border-slate-100 shadow-xl shadow-slate-900/10 rounded-full px-2 py-2 flex items-center relative">
-        <motion.div
-          className="absolute top-2 bottom-2 rounded-full"
-          initial={false}
-          animate={{
-            left: `${PAD + activeIndex * PILL_W}px`,
-            width: `${PILL_W}px`,
-            backgroundColor: TABS[activeIndex]?.color || '#2E6DE0'
-          }}
-          transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-        />
-        {TABS.map(t => {
-          const active = activeView === t.id;
-          const Icon = t.Icon;
-          return (
-            <button
-              key={t.id}
-              onClick={() => onChangeView(t.id)}
-              style={{ width: `${PILL_W}px` }}
-              className="relative h-10 flex items-center justify-center gap-2 text-xs font-semibold tracking-wider uppercase"
-            >
-              <motion.span animate={{ color: active ? '#ffffff' : '#94a3b8' }} className="flex items-center gap-2">
-                <Icon className="w-4 h-4" strokeWidth={2.25} />
-                {t.label}
-              </motion.span>
-            </button>
-          );
-        })}
-      </div>
-    </nav>
-  );
-};
+export const FloatingDesktopNav = ({ activeView, onChangeView }) => (
+  <nav className="hidden md:block fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
+    <Rail activeView={activeView} onChangeView={onChangeView} />
+  </nav>
+);
