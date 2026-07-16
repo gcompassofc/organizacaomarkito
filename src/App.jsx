@@ -921,6 +921,50 @@ const App = () => {
   });
   const gavetaDeleteGroup = (editing) => updatePlanner((prev) => ({ ...prev, gavetas: (prev.gavetas || []).filter(g => g.id !== editing.group.id) }));
 
+  // Agenda um material da gaveta num dia do cronograma: cria o post na etapa
+  // "postar" com os mesmos campos que o cronograma usa (título, tipo, link,
+  // legenda, horário, responsável) e remove o item da gaveta — numa única
+  // atualização do planner, para o save ser atômico.
+  // editing: { groupId, item } | draft: { dateKey, note, responsavel }
+  const gavetaScheduleItem = (editing, draft) => {
+    const { contentType, pilar } = typeLabelToFields(editing.item.type);
+    updatePlanner((prev) => {
+      const next = { ...prev, weeks: { ...prev.weeks } };
+
+      const { weekKey, dayId } = getWeekKeyAndDayId(draft.dateKey);
+      if (!next.weeks[weekKey]) next.weeks[weekKey] = emptyWeekData();
+      const counters = { marco: 0, opa: 0, collab: 0, ...(prev.counters || {}) };
+      const profile = 'opa';
+      counters[profile] = (counters[profile] || 0) + 1;
+      next.counters = counters;
+
+      const post = {
+        ...defaultItem(),
+        id: newId(),
+        objective: editing.item.title,
+        time: draft.note || '',
+        primaryLink: normalizeUrl(editing.item.link),
+        postCaption: editing.item.legenda || '',
+        responsavel: draft.responsavel || '',
+        contentType, pilar,
+        profile,
+        postDate: draft.dateKey,
+        recordingDate: '',
+        completed: false,
+        tabKey: 'postar',
+        code: formatCode(profile, counters[profile])
+      };
+      next.weeks[weekKey].postar[dayId] = [...(next.weeks[weekKey].postar[dayId] || []), post];
+
+      // Sai da gaveta: o material vira post e deixa de existir na prateleira.
+      next.gavetas = (prev.gavetas || []).map(g =>
+        g.id === editing.groupId ? { ...g, items: g.items.filter(i => i.id !== editing.item.id) } : g
+      );
+
+      return next;
+    });
+  };
+
   const renderCard = (item, dayId, itemWeekKey, opts = {}) => (
     <TaskCard
       key={item.id}
@@ -1139,6 +1183,7 @@ const App = () => {
                 onDeleteGaveta={gavetaDeleteItem}
                 onSaveGroup={gavetaSaveGroup}
                 onDeleteGroup={gavetaDeleteGroup}
+                onScheduleGaveta={gavetaScheduleItem}
               />
           ) : (
             (() => {

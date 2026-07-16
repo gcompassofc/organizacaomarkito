@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Plus, ArrowUpRight, AlignLeft, Pencil, Copy, Check, X, Trash2, Search } from 'lucide-react';
+import { Plus, ArrowUpRight, AlignLeft, Pencil, Copy, Check, X, Trash2, Search, CalendarPlus } from 'lucide-react';
+import { toDateKey } from '../lib/dates';
 
 const ACCENT = '#2E6DE0';
 
@@ -151,13 +152,68 @@ const GroupModal = ({ open, editing, onClose, onSave, onDelete }) => {
   );
 };
 
-const GavetaCard = ({ item, groupId, onEdit, onLegenda }) => {
+// Modal para encaixar um material da gaveta num dia do cronograma. Pede a
+// data (obrigatória), horário/nota e responsável — os mesmos campos que o
+// post ganha no cronograma. Ao agendar, o material sai da gaveta.
+const ScheduleModal = ({ open, editing, people, onClose, onSchedule }) => {
+  const [dateKey, setDateKey] = useState('');
+  const [note, setNote] = useState('');
+  const [responsavel, setResponsavel] = useState('');
+  React.useEffect(() => {
+    if (open) { setDateKey(toDateKey(new Date())); setNote(''); setResponsavel(''); }
+  }, [open]);
+  const item = editing?.item;
+  if (!item) return null;
+  return (
+    <GlassModal open={open} onClose={onClose} maxWidth={440}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+        <h3 style={{ fontSize: 17, fontWeight: 600, color: '#16202E' }}>Agendar no cronograma</h3>
+        <button onClick={onClose} title="Fechar" style={{ background: 'none', border: 'none', color: '#8A94A8', cursor: 'pointer', display: 'flex', padding: 4 }}><X size={18} /></button>
+      </div>
+      <p style={{ fontSize: 12.5, color: '#8A94A8', lineHeight: 1.5, marginBottom: 16 }}>O material vira um post no dia escolhido, com título, tipo, link e legenda preenchidos — e sai da gaveta.</p>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#F7FAFE', border: '1px solid #E6EDF6', borderRadius: 12, padding: '10px 12px', marginBottom: 16 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', fontSize: 9.5, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', borderRadius: 6, padding: '2px 7px', flexShrink: 0, ...badgeStyle(item.type) }}>{item.type}</span>
+        <span style={{ fontSize: 13, fontWeight: 500, color: '#16202E', lineHeight: 1.35 }}>{item.title}</span>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <span style={labelSpan}>Data do post</span>
+          <input type="date" value={dateKey} onChange={(e) => setDateKey(e.target.value)} style={inputStyle} />
+        </label>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <span style={labelSpan}>Horário / nota</span>
+          <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ex: 18h" style={inputStyle} />
+        </label>
+      </div>
+
+      <label style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }}>
+        <span style={labelSpan}>Responsável por postar</span>
+        <select value={responsavel} onChange={(e) => setResponsavel(e.target.value)} style={inputStyle}>
+          <option value="">— Ninguém —</option>
+          {(people || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+      </label>
+
+      <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+        <button onClick={onClose} style={{ padding: '9px 16px', border: '1px solid #E6EDF6', background: '#fff', borderRadius: 10, color: '#55627A', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
+        <button onClick={() => { if (dateKey) onSchedule(editing, { dateKey, note, responsavel }); }} style={{ padding: '10px 22px', border: 'none', background: ACCENT, color: '#fff', borderRadius: 999, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, boxShadow: '0 6px 16px rgba(46,109,224,0.28)' }}><CalendarPlus size={14} />Agendar</button>
+      </div>
+    </GlassModal>
+  );
+};
+
+const GavetaCard = ({ item, groupId, onEdit, onLegenda, onSchedule }) => {
   const [hover, setHover] = useState(false);
   return (
     <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} style={{ position: 'relative', background: 'rgba(255,255,255,0.66)', backdropFilter: 'blur(12px) saturate(160%)', WebkitBackdropFilter: 'blur(12px) saturate(160%)', border: `1px solid ${hover ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.85)'}`, borderRadius: 18, padding: '11px 13px 10px', display: 'flex', flexDirection: 'column', gap: 3, boxShadow: hover ? '0 10px 26px rgba(30,84,191,0.14)' : '0 4px 16px rgba(20,40,80,0.06)', transition: 'box-shadow .15s, border-color .15s' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6 }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', alignSelf: 'flex-start', fontSize: 9.5, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', borderRadius: 6, padding: '2px 7px', ...badgeStyle(item.type) }}>{item.type}</span>
-        <button onClick={() => onEdit(groupId, item)} title="Editar" style={{ flexShrink: 0, background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.9)', borderRadius: 9, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: hover ? ACCENT : '#8A94A8', padding: 0 }}><Pencil size={12} /></button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+          <button onClick={() => onSchedule(groupId, item)} title="Agendar no cronograma" style={{ flexShrink: 0, background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.9)', borderRadius: 9, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: hover ? ACCENT : '#8A94A8', padding: 0 }}><CalendarPlus size={12} /></button>
+          <button onClick={() => onEdit(groupId, item)} title="Editar" style={{ flexShrink: 0, background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.9)', borderRadius: 9, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: hover ? ACCENT : '#8A94A8', padding: 0 }}><Pencil size={12} /></button>
+        </div>
       </div>
       <div style={{ fontSize: 13, fontWeight: 500, color: '#16202E', lineHeight: 1.35 }}>{item.title}</div>
       {item.link && (
@@ -174,11 +230,12 @@ const GavetaCard = ({ item, groupId, onEdit, onLegenda }) => {
   );
 };
 
-export const GavetasView = ({ planner, onSaveGaveta, onDeleteGaveta, onSaveGroup, onDeleteGroup }) => {
+export const GavetasView = ({ planner, onSaveGaveta, onDeleteGaveta, onSaveGroup, onDeleteGroup, onScheduleGaveta }) => {
   const gavetas = planner.gavetas || [];
   const [search, setSearch] = useState('');
   const [itemEditor, setItemEditor] = useState(null);   // { open, editing:{groupId, item?} }
   const [groupModal, setGroupModal] = useState(null);   // { open, editing:{group?} }
+  const [scheduler, setScheduler] = useState(null);     // { open, editing:{groupId, item} }
   const [legenda, setLegenda] = useState(null);
 
   const q = search.trim().toLowerCase();
@@ -211,7 +268,7 @@ export const GavetasView = ({ planner, onSaveGaveta, onDeleteGaveta, onSaveGroup
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(238px,1fr))', gap: 12 }}>
             {group.items.map(item => (
-              <GavetaCard key={item.id} item={item} groupId={group.id} onEdit={(gid, it) => setItemEditor({ open: true, editing: { groupId: gid, item: it } })} onLegenda={(t) => setLegenda(t)} />
+              <GavetaCard key={item.id} item={item} groupId={group.id} onEdit={(gid, it) => setItemEditor({ open: true, editing: { groupId: gid, item: it } })} onLegenda={(t) => setLegenda(t)} onSchedule={(gid, it) => setScheduler({ open: true, editing: { groupId: gid, item: it } })} />
             ))}
             {group.items.length === 0 && <span style={{ fontSize: 12.5, color: '#A9B4C6' }}>Nenhum material aqui ainda.</span>}
           </div>
@@ -238,6 +295,13 @@ export const GavetasView = ({ planner, onSaveGaveta, onDeleteGaveta, onSaveGroup
         onClose={() => setGroupModal(null)}
         onSave={(editing, draft) => { onSaveGroup(editing, draft); setGroupModal(null); }}
         onDelete={(editing) => { onDeleteGroup(editing); setGroupModal(null); }}
+      />
+      <ScheduleModal
+        open={!!scheduler?.open}
+        editing={scheduler?.editing}
+        people={planner.people || []}
+        onClose={() => setScheduler(null)}
+        onSchedule={(editing, draft) => { onScheduleGaveta(editing, draft); setScheduler(null); }}
       />
       <LegendaModal open={legenda != null} text={legenda || ''} onClose={() => setLegenda(null)} />
     </div>
