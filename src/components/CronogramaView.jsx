@@ -343,8 +343,9 @@ export const CronogramaView = ({
       : `${a.getDate()} – ${b.getDate()} ${MONTH_SHORT[b.getMonth()]}`;
   };
 
-  // Monta as semanas do mês; a atual sempre destacada e no topo.
-  let weeks = monthWeeks.map((mo, idx) => {
+  // Monta as semanas do mês em sequência (1, 2, 3…). A atual fica destacada e
+  // aberta, mas permanece na sua posição na ordem — não sobe para o topo.
+  const weeks = monthWeeks.map((mo, idx) => {
     const wid = toDateKey(mo);
     const days = DAY_NAMES_SHORT.map((nm, i) => {
       const dt = new Date(mo); dt.setDate(mo.getDate() + i);
@@ -358,16 +359,15 @@ export const CronogramaView = ({
     const isOpen = isCurrent || !!expanded[wid] || filtering;
     return { id: wid, order: idx, label: `Semana ${String(idx + 1).padStart(2, '0')}`, range: rangeOf(mo), count, isCurrent, isOpen, days };
   });
-  const curIdx = weeks.findIndex(w => w.isCurrent);
-  if (curIdx > 0) { const cw = weeks.splice(curIdx, 1)[0]; weeks.unshift(cw); }
 
   const notCurrentMonth = !(month.y === today.getFullYear() && month.m === today.getMonth());
   const totalMatches = Object.values(postsByDate).flat().filter(e => matches(e.item)).length;
-  const currentCount = weeks[0]?.isCurrent ? weeks[0].count : 0;
+  const currentWeek = weeks.find(w => w.isCurrent);
+  const currentCount = currentWeek?.count || 0;
   const monthPosts = weeks.reduce((s, w) => s + w.days.reduce((a, d) => a + (d.inMonth ? d.cards.length : 0), 0), 0);
   const statusText = filtering
     ? `${totalMatches} resultado${totalMatches === 1 ? '' : 's'}`
-    : (weeks[0]?.isCurrent ? `${currentCount} post${currentCount === 1 ? '' : 's'} nesta semana` : `${monthPosts} post${monthPosts === 1 ? '' : 's'} no mês`);
+    : (currentWeek ? `${currentCount} post${currentCount === 1 ? '' : 's'} nesta semana` : `${monthPosts} post${monthPosts === 1 ? '' : 's'} no mês`);
 
   // Chips de tipo presentes nos dados.
   const present = {};
