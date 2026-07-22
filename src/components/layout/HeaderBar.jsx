@@ -1,9 +1,9 @@
 import React from 'react';
-import { LogOut } from 'lucide-react';
+import { LogOut, KeyRound } from 'lucide-react';
 import { IconButton } from '../ui/IconButton';
 import { text } from '../../lib/ui';
 
-export const HeaderBar = ({ firebaseReady, saving, saveError, onLogout }) => (
+export const HeaderBar = ({ firebaseReady, saving, saveError, onLogout, canChangePassword, onChangePassword }) => (
   <header className="flex items-center justify-between mb-8 pt-2">
     <h1 className={`${text.display} text-slate-900`}>
       Meu <span className="text-blue-600">Plano</span>
@@ -17,6 +17,9 @@ export const HeaderBar = ({ firebaseReady, saving, saveError, onLogout }) => (
           <span className={`w-1.5 h-1.5 rounded-full ${saveError ? 'bg-rose-500 animate-pulse' : saving ? 'bg-amber-400 animate-pulse' : 'bg-emerald-500'}`} />
           {saveError ? 'Erro' : saving ? 'Salvando' : 'Sync'}
         </span>
+      )}
+      {canChangePassword && (
+        <IconButton icon={KeyRound} label="Trocar senha" tone="neutral" size="md" onClick={onChangePassword} />
       )}
       <IconButton icon={LogOut} label="Sair" tone="neutral" size="md" onClick={onLogout} />
     </div>

@@ -9,13 +9,16 @@ import {
 import { AnimatePresence, motion } from 'motion/react';
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import {
+  EmailAuthProvider,
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
   getAuth,
   onAuthStateChanged,
+  reauthenticateWithCredential,
   signInWithEmailAndPassword,
   signInWithPopup,
-  signOut
+  signOut,
+  updatePassword
 } from 'firebase/auth';
 import { doc, getFirestore, onSnapshot, setDoc } from 'firebase/firestore';
 import 'react-quill-new/dist/quill.snow.css';
@@ -41,6 +44,7 @@ import LoginScreen from './components/LoginScreen';
 import SummaryModal from './components/SummaryModal';
 import AddItemModal from './components/AddItemModal';
 import EditItemModal from './components/EditItemModal';
+import ChangePasswordModal from './components/ChangePasswordModal';
 import { TaskCard, PreviewCard, SlimCard } from './components/TaskCard';
 import { CronogramaView } from './components/CronogramaView';
 import { GavetasView } from './components/GavetasView';
@@ -99,6 +103,7 @@ const App = () => {
   const [firstCommentCopiedId, setFirstCommentCopiedId] = useState(null);
   const [brokersCopiedId, setBrokersCopiedId] = useState(null);
   const [gravarListFilter, setGravarListFilter] = useState('pendentes');
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
   const handleCopyCaption = (e, item) => {
     e.stopPropagation();
@@ -307,6 +312,28 @@ const App = () => {
       setPlanner(createPlanner());
     } catch (err) {
       console.error('Logout error:', err);
+    }
+  };
+
+  // Troca a senha da conta logada. O Firebase exige reautenticar com a senha
+  // atual antes de aceitar a nova (sessão antiga = credencial "velha demais").
+  const handleChangePassword = async (currentPassword, newPassword) => {
+    try {
+      const auth = getAuth(getApp());
+      const current = auth.currentUser;
+      if (!current?.email) return { ok: false, message: 'Nenhuma conta de e-mail logada.' };
+
+      const credential = EmailAuthProvider.credential(current.email, currentPassword);
+      await reauthenticateWithCredential(current, credential);
+      await updatePassword(current, newPassword);
+      return { ok: true };
+    } catch (err) {
+      console.error('Change password error:', err.code, err.message);
+      if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') return { ok: false, message: 'Senha atual incorreta.' };
+      if (err.code === 'auth/weak-password') return { ok: false, message: 'A nova senha é fraca demais. Use pelo menos 6 caracteres.' };
+      if (err.code === 'auth/too-many-requests') return { ok: false, message: 'Muitas tentativas. Aguarde alguns minutos e tente de novo.' };
+      if (err.code === 'auth/requires-recent-login') return { ok: false, message: 'Sessão antiga. Saia, entre de novo e tente outra vez.' };
+      return { ok: false, message: 'Não foi possível trocar a senha. Tente novamente.' };
     }
   };
 
@@ -882,6 +909,8 @@ const App = () => {
           saving={saving}
           saveError={saveError}
           onLogout={handleLogout}
+          canChangePassword={Boolean(user?.email && user.providerData?.some(p => p.providerId === 'password'))}
+          onChangePassword={() => setChangePasswordOpen(true)}
         />
 
         <motion.div className="space-y-8">
@@ -1238,6 +1267,13 @@ const App = () => {
       />
 
       <EditItemModal editModal={editModal} setEditModal={setEditModal} activeTab={editModal.sourceStage || editModal.item?.tabKey || 'postar'} handleSaveEdit={handleSaveEdit} repostablePosts={getRepostablePosts(planner)} />
+
+      <ChangePasswordModal
+        open={changePasswordOpen}
+        email={user?.email || ''}
+        onClose={() => setChangePasswordOpen(false)}
+        onSubmit={handleChangePassword}
+      />
     </div>
   );
 };
