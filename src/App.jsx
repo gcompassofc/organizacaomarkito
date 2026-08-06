@@ -644,11 +644,27 @@ const App = () => {
         const list = next.weeks[wk]?.postar?.[did];
         if (list) {
           const idx = list.findIndex(i => i.id === editing.card.id);
-          if (idx > -1) list[idx] = { ...list[idx], objective: draft.title, time: draft.note, primaryLink: normalizeUrl(draft.link), postCaption: draft.legenda, observacao: draft.observacao || '', responsavel: draft.responsavel, casaId: draft.casaId || '', contentType, pilar };
+          if (idx > -1) {
+            const oldDate = list[idx].postDate || '';
+            // No mobile não há drag & drop, então a data vem do formulário.
+            // Quando ela muda, o item precisa sair do slot antigo e entrar no
+            // da nova data — senão ficaria no dia velho com postDate novo.
+            const newDate = draft.dateKey || oldDate;
+            const updated = { ...list[idx], objective: draft.title, time: draft.note, primaryLink: normalizeUrl(draft.link), postCaption: draft.legenda, observacao: draft.observacao || '', responsavel: draft.responsavel, casaId: draft.casaId || '', contentType, pilar, postDate: newDate };
+
+            if (newDate && newDate !== oldDate) {
+              next.weeks[wk] = { ...next.weeks[wk], postar: { ...next.weeks[wk].postar, [did]: list.filter(i => i.id !== editing.card.id) } };
+              const { weekKey: tWk, dayId: tDid } = getWeekKeyAndDayId(newDate);
+              if (!next.weeks[tWk]) next.weeks[tWk] = emptyWeekData();
+              next.weeks[tWk] = { ...next.weeks[tWk], postar: { ...next.weeks[tWk].postar, [tDid]: [...(next.weeks[tWk].postar[tDid] || []), updated] } };
+            } else {
+              list[idx] = updated;
+            }
+          }
         }
       } else {
-        // Novo post naquele dia.
-        const dateKey = editing.dateKey;
+        // Novo post naquele dia. O formulário pode ter mudado a data.
+        const dateKey = draft.dateKey || editing.dateKey;
         const { weekKey, dayId } = getWeekKeyAndDayId(dateKey);
         if (!next.weeks[weekKey]) next.weeks[weekKey] = emptyWeekData();
         const counters = { marco: 0, opa: 0, collab: 0, ...(prev.counters || {}) };
@@ -902,8 +918,10 @@ const App = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] font-sans text-slate-900 p-6 md:p-10 selection:bg-blue-100">
-      <div className="max-w-7xl mx-auto pb-24 md:pb-32">
+    /* px-4 no mobile: p-6 comia 48px da largura útil de um celular de 390px.
+       O padding inferior reserva espaço para a nav flutuante + safe area. */
+    <div className="min-h-screen bg-[#FAFAFA] font-sans text-slate-900 px-4 py-5 md:p-10 selection:bg-blue-100">
+      <div className="max-w-7xl mx-auto pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-32">
         <HeaderBar
           firebaseReady={firebaseReady}
           saving={saving}

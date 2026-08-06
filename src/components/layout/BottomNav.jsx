@@ -25,7 +25,7 @@ const labelVariants = {
 };
 
 // Um item de aba, compartilhado entre mobile e desktop.
-const TabButton = ({ tab, active, onClick }) => {
+const TabButton = ({ tab, active, onClick, height = 42 }) => {
   const { Icon } = tab;
   return (
     <motion.button
@@ -36,16 +36,18 @@ const TabButton = ({ tab, active, onClick }) => {
       animate={active ? 'active' : 'inactive'}
       transition={spring}
       aria-current={active ? 'page' : undefined}
+      aria-label={tab.label}
       title={tab.label}
       style={{
-        position: 'relative', display: 'flex', alignItems: 'center', height: 42,
+        position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        height, minWidth: height,
         borderRadius: 999, border: 'none', cursor: 'pointer', overflow: 'hidden',
         background: active ? tab.soft : 'transparent',
         color: active ? tab.color : '#94A3B8',
-        fontSize: 13, fontWeight: 600, letterSpacing: '0.01em', WebkitTapHighlightColor: 'transparent'
+        fontSize: 13.5, fontWeight: 600, letterSpacing: '0.01em', WebkitTapHighlightColor: 'transparent'
       }}
     >
-      <Icon size={19} strokeWidth={2.25} style={{ flexShrink: 0 }} />
+      <Icon size={20} strokeWidth={2.25} style={{ flexShrink: 0 }} />
       <AnimatePresence initial={false}>
         {active && (
           <motion.span
@@ -65,26 +67,32 @@ const TabButton = ({ tab, active, onClick }) => {
 };
 
 // Trilho de vidro que embrulha as abas — mesmo visual glass do Cronograma.
-const Rail = ({ activeView, onChangeView }) => (
+// No mobile as abas são mais altas (48px) para caber o polegar com folga.
+const Rail = ({ activeView, onChangeView, tabHeight = 42 }) => (
   <div
     style={{
       display: 'inline-flex', alignItems: 'center', gap: 4, padding: 5,
       borderRadius: 999,
-      background: 'rgba(255,255,255,0.66)',
+      background: 'rgba(255,255,255,0.72)',
       backdropFilter: 'blur(20px) saturate(180%)', WebkitBackdropFilter: 'blur(20px) saturate(180%)',
       border: '1px solid rgba(255,255,255,0.85)',
-      boxShadow: '0 12px 34px rgba(20,40,80,0.14)'
+      boxShadow: '0 12px 34px rgba(20,40,80,0.16)'
     }}
   >
     {TABS.map(tab => (
-      <TabButton key={tab.id} tab={tab} active={activeView === tab.id} onClick={onChangeView} />
+      <TabButton key={tab.id} tab={tab} active={activeView === tab.id} onClick={onChangeView} height={tabHeight} />
     ))}
   </div>
 );
 
+// `bottom` usa a safe area do iOS — sem isso a barra fica atrás do indicador
+// de home nos iPhones sem botão físico.
 export const MobileBottomNav = ({ activeView, onChangeView }) => (
-  <nav className="md:hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-40 pb-safe">
-    <Rail activeView={activeView} onChangeView={onChangeView} />
+  <nav
+    className="md:hidden fixed left-1/2 -translate-x-1/2 z-40"
+    style={{ bottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
+  >
+    <Rail activeView={activeView} onChangeView={onChangeView} tabHeight={48} />
   </nav>
 );
 

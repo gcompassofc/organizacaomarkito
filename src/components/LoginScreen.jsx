@@ -17,15 +17,15 @@ const LoginScreen = ({
   handleLogin,
   error
 }) => (
-  <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center p-6">
-    <div className="max-w-md w-full bg-white p-10 rounded-[32px] shadow-xl shadow-slate-900/5 border border-slate-100 text-center">
-      <div className="inline-flex items-center justify-center p-5 bg-blue-50 rounded-3xl mb-6">
-        <Calendar className="w-10 h-10 text-blue-600" strokeWidth={2.25} />
+  <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center px-4 py-8 md:p-6">
+    <div className="max-w-md w-full bg-white p-6 md:p-10 rounded-[28px] md:rounded-[32px] shadow-xl shadow-slate-900/5 border border-slate-100 text-center">
+      <div className="inline-flex items-center justify-center p-4 md:p-5 bg-blue-50 rounded-3xl mb-5 md:mb-6">
+        <Calendar className="w-9 h-9 md:w-10 md:h-10 text-blue-600" strokeWidth={2.25} />
       </div>
       <h1 className={`${text.display} text-slate-900 mb-3 leading-tight`}>
         Meu <span className="text-blue-600">Plano</span><br />Semanal
       </h1>
-      <p className="text-slate-500 font-normal mb-8 text-sm leading-relaxed">
+      <p className="text-slate-500 font-normal mb-7 md:mb-8 text-sm leading-relaxed">
         {isRegistering ? 'Crie sua conta para começar a organizar seus conteúdos.' : 'Entre para começar a organizar seus conteúdos com segurança.'}
       </p>
 

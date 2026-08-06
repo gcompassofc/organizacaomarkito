@@ -1,7 +1,10 @@
 import React from 'react';
 
+// text-base no mobile: abaixo de 16px o iOS dá zoom automático ao focar o
+// campo e o usuário fica preso num layout deslocado. Volta a text-sm no
+// desktop, onde o tamanho menor é o desejado.
 const baseField =
-  'w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-400 focus:bg-white transition-colors';
+  'w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-base md:text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-400 focus:bg-white transition-colors';
 
 export const Label = ({ children, htmlFor }) => (
   <label htmlFor={htmlFor} className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
@@ -22,7 +25,7 @@ export const Field = ({ label, hint, htmlFor, children }) => (
 );
 
 export const Input = React.forwardRef(({ className = '', size = 'md', ...rest }, ref) => {
-  const sizeClass = size === 'lg' ? 'text-base' : 'text-sm';
+  const sizeClass = size === 'lg' ? 'text-base' : 'text-base md:text-sm';
   return <input ref={ref} className={`${baseField} ${sizeClass} ${className}`} {...rest} />;
 });
 Input.displayName = 'Input';
