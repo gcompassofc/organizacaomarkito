@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Plus, ArrowUpRight, Pencil, X, Trash2, Search, House } from 'lucide-react';
+import { Plus, ArrowUpRight, Pencil, X, Trash2, Search, House, Sparkles } from 'lucide-react';
 import { useIsMobile } from '../lib/useIsMobile';
 import { GlassModal, useInputStyle, useModalButtons, labelSpan } from './ui/GlassModal';
 
@@ -9,6 +9,12 @@ const CASA = '#0E7C6B'; // mesma cor da aba Casas na nav
 // Badge do código da casa — o mesmo visual usado no card do post.
 export const casaBadgeStyle = { color: CASA, background: 'rgba(14,124,107,0.12)' };
 
+// Imóvel marcado como "Lançamento OPA": o badge da casa troca o verde padrão
+// pelo azul da marca, e o card do post ganha fundo azul suave (ver LANCAMENTO
+// em CronogramaView).
+export const casaLancamentoBadgeStyle = { color: ACCENT, background: 'rgba(46,109,224,0.12)' };
+export const badgeStyleForCasa = (casa) => (casa?.lancamentoOpa ? casaLancamentoBadgeStyle : casaBadgeStyle);
+
 // Modal de cadastro/edição da casa.
 const CasaModal = ({ open, editing, onClose, onSave, onAskDelete }) => {
   const [draft, setDraft] = useState(null);
@@ -17,8 +23,8 @@ const CasaModal = ({ open, editing, onClose, onSave, onAskDelete }) => {
   const isMobile = btn.isMobile;
   React.useEffect(() => {
     if (open) setDraft(editing
-      ? { code: editing.code || '', name: editing.name || '', siteLink: editing.siteLink || '', description: editing.description || '' }
-      : { code: '', name: '', siteLink: '', description: '' });
+      ? { code: editing.code || '', name: editing.name || '', siteLink: editing.siteLink || '', description: editing.description || '', lancamentoOpa: Boolean(editing.lancamentoOpa) }
+      : { code: '', name: '', siteLink: '', description: '', lancamentoOpa: false });
   }, [open, editing]);
   if (!draft) return null;
   const set = (patch) => setDraft({ ...draft, ...patch });
@@ -43,9 +49,24 @@ const CasaModal = ({ open, editing, onClose, onSave, onAskDelete }) => {
         <span style={labelSpan}>Link do site</span>
         <input type="url" inputMode="url" autoCapitalize="none" autoCorrect="off" value={draft.siteLink} onChange={(e) => set({ siteLink: e.target.value })} placeholder="https://…" style={inputStyle} />
       </label>
-      <label style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }}>
+      <label style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
         <span style={labelSpan}>Breve descrição</span>
         <textarea rows={4} value={draft.description} onChange={(e) => set({ description: e.target.value })} placeholder="Ex: 3 quartos, piscina, condomínio fechado…" style={{ ...inputStyle, lineHeight: 1.5, resize: 'vertical' }} />
+      </label>
+
+      {/* Marca o imóvel como Lançamento OPA — os posts vinculados a ele ganham
+          fundo azul suave no cronograma. */}
+      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 11, marginBottom: 20, padding: isMobile ? '13px 14px' : '11px 13px', borderRadius: 14, cursor: 'pointer', border: `1px solid ${draft.lancamentoOpa ? 'rgba(46,109,224,0.35)' : '#E6EDF6'}`, background: draft.lancamentoOpa ? 'rgba(46,109,224,0.07)' : '#F7FAFE', transition: 'background .15s, border-color .15s' }}>
+        <input
+          type="checkbox"
+          checked={draft.lancamentoOpa}
+          onChange={(e) => set({ lancamentoOpa: e.target.checked })}
+          style={{ width: 20, height: 20, flexShrink: 0, marginTop: 1, accentColor: ACCENT, cursor: 'pointer' }}
+        />
+        <span style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
+          <span style={{ fontSize: isMobile ? 15 : 13.5, fontWeight: 600, color: '#16202E' }}>Lançamento OPA</span>
+          <span style={{ fontSize: isMobile ? 13 : 12, color: '#8A94A8', lineHeight: 1.45 }}>Os posts desta casa ficam com destaque azul no cronograma.</span>
+        </span>
       </label>
       <div style={btn.footer}>
         <div style={btn.row}>
@@ -81,9 +102,16 @@ const CasaCard = ({ casa, onEdit }) => {
   return (
     <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} style={{ position: 'relative', background: 'rgba(255,255,255,0.66)', backdropFilter: 'blur(12px) saturate(160%)', WebkitBackdropFilter: 'blur(12px) saturate(160%)', border: `1px solid ${hover ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.85)'}`, borderRadius: 18, padding: isMobile ? '14px 15px 13px' : '13px 15px 12px', display: 'flex', flexDirection: 'column', gap: 4, boxShadow: hover ? '0 10px 26px rgba(30,84,191,0.14)' : '0 4px 16px rgba(20,40,80,0.06)', transition: 'box-shadow .15s, border-color .15s' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6 }}>
-        {casa.code
-          ? <span style={{ display: 'inline-flex', alignItems: 'center', alignSelf: 'flex-start', fontSize: isMobile ? 10.5 : 9.5, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', borderRadius: 6, padding: isMobile ? '3px 8px' : '2px 7px', ...casaBadgeStyle }}>{casa.code}</span>
-          : <span style={{ display: 'inline-flex', alignItems: 'center', alignSelf: 'flex-start', color: '#A9B4C6' }}><House size={isMobile ? 15 : 13} /></span>}
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', minWidth: 0 }}>
+          {casa.code
+            ? <span style={{ display: 'inline-flex', alignItems: 'center', fontSize: isMobile ? 10.5 : 9.5, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', borderRadius: 6, padding: isMobile ? '3px 8px' : '2px 7px', ...badgeStyleForCasa(casa) }}>{casa.code}</span>
+            : <span style={{ display: 'inline-flex', alignItems: 'center', color: '#A9B4C6' }}><House size={isMobile ? 15 : 13} /></span>}
+          {casa.lancamentoOpa && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: isMobile ? 10.5 : 9.5, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', borderRadius: 6, padding: isMobile ? '3px 8px' : '2px 7px', color: ACCENT, background: 'rgba(46,109,224,0.12)' }}>
+              <Sparkles size={isMobile ? 11 : 10} />Lançamento
+            </span>
+          )}
+        </span>
         <button onClick={() => onEdit(casa)} title="Editar" aria-label={`Editar ${casa.name}`} style={{ flexShrink: 0, background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.9)', borderRadius: isMobile ? 12 : 9, width: isMobile ? 40 : 24, height: isMobile ? 40 : 24, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: hover ? ACCENT : '#8A94A8', padding: 0 }}><Pencil size={isMobile ? 16 : 12} /></button>
       </div>
       <div style={{ fontSize: isMobile ? 15 : 13.5, fontWeight: 600, color: '#16202E', lineHeight: 1.35 }}>{casa.name}</div>

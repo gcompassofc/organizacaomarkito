@@ -154,7 +154,8 @@ export const normalizeGavetas = (raw) => {
   }));
 };
 
-// Normaliza a lista de casas (imóveis com código, nome, link do site e descrição).
+// Normaliza a lista de casas (imóveis com código, nome, link do site,
+// descrição e a marca de "Lançamento OPA").
 export const normalizeCasas = (raw) => {
   if (!Array.isArray(raw)) return [];
   return raw.map((c) => ({
@@ -162,7 +163,9 @@ export const normalizeCasas = (raw) => {
     code: c.code || '',
     name: c.name || 'Sem nome',
     siteLink: normalizeUrl(c.siteLink || ''),
-    description: c.description || ''
+    description: c.description || '',
+    // Casas cadastradas antes deste campo existir voltam como false.
+    lancamentoOpa: Boolean(c.lancamentoOpa)
   }));
 };
 

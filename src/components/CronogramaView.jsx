@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Plus, ChevronLeft, ChevronRight, Search, SlidersHorizontal,
   ArrowUpRight, AlignLeft, Pencil, Copy, Check, X, Trash2, Settings, Info,
-  CalendarDays
+  CalendarDays, Sparkles
 } from 'lucide-react';
 import {
   MONTH_SHORT, DAY_NAMES_SHORT, weeksForMonth, mondayOf, toDateKey
@@ -228,11 +228,18 @@ const CasaInfoModal = ({ open, casa, onClose }) => {
           <h3 style={{ fontSize: isMobile ? 18 : 17, fontWeight: 600, color: '#16202E', minWidth: 0 }}>{casa.name}</h3>
           <button onClick={onClose} title="Fechar" aria-label="Fechar" style={btn.close}><X size={20} /></button>
         </div>
-        {casa.code && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', borderRadius: 6, padding: '3px 9px', color: CASA_COLOR, background: 'rgba(14,124,107,0.12)', marginBottom: 14 }}>{casa.code}</span>
+        {(casa.code || casa.lancamentoOpa) && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+            {casa.code && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', borderRadius: 6, padding: '3px 9px', ...(casa.lancamentoOpa ? { color: ACCENT, background: 'rgba(46,109,224,0.12)' } : { color: CASA_COLOR, background: 'rgba(14,124,107,0.12)' }) }}>{casa.code}</span>
+            )}
+            {casa.lancamentoOpa && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', borderRadius: 6, padding: '3px 9px', color: ACCENT, background: 'rgba(46,109,224,0.12)' }}><Sparkles size={10} />Lançamento OPA</span>
+            )}
+          </span>
         )}
         {casa.description && (
-          <div style={{ background: '#F7FAFE', border: '1px solid #E6EDF6', borderRadius: 12, padding: 14, fontSize: isMobile ? 14 : 13, color: '#55627A', lineHeight: 1.55, whiteSpace: 'pre-wrap', marginBottom: 16, marginTop: casa.code ? 0 : 8 }}>{casa.description}</div>
+          <div style={{ background: '#F7FAFE', border: '1px solid #E6EDF6', borderRadius: 12, padding: 14, fontSize: isMobile ? 14 : 13, color: '#55627A', lineHeight: 1.55, whiteSpace: 'pre-wrap', marginBottom: 16, marginTop: (casa.code || casa.lancamentoOpa) ? 0 : 8 }}>{casa.description}</div>
         )}
         {!casa.description && <div style={{ height: 8 }} />}
         <div style={btn.row}>
@@ -306,6 +313,17 @@ const SettingsModal = ({ open, people, onClose, onAdd, onRemove }) => {
 // Verde do estado "postado".
 const DONE = '#15935A';
 
+// Destaque de imóvel "Lançamento OPA" (marcado no cadastro da casa): fundo
+// azul suave no card do post. Perde para o verde de "postado" — quando a
+// tarefa termina, o estado de conclusão é a informação mais útil.
+const LANCAMENTO = {
+  background: 'rgba(46,109,224,0.10)',
+  border: 'rgba(46,109,224,0.38)',
+  borderHover: 'rgba(46,109,224,0.55)',
+  shadow: '0 4px 16px rgba(46,109,224,0.13)',
+  shadowHover: '0 10px 26px rgba(46,109,224,0.22)'
+};
+
 // ── Card de post ──
 // Além de arrastar para outro dia, aceita drop de um card do MESMO dia para
 // reordenar: a metade do card onde o mouse está decide se insere acima ou
@@ -316,6 +334,8 @@ const PostCard = ({ entry, iso, person, casa, onCasaInfo, onEdit, onLegenda, onT
   const [hover, setHover] = useState(false);
   const [insertPos, setInsertPos] = useState(null); // 'before' | 'after' | null
   const done = !!item.completed;
+  // Casa marcada como "Lançamento OPA" no cadastro pinta o card de azul suave.
+  const isLancamento = !!casa?.lancamentoOpa;
   // Alvo de toque: 24px é pequeno demais para o polegar; no mobile vai a 40px.
   const tapSize = isMobile ? 40 : 24;
   const tapRadius = isMobile ? 12 : 9;
@@ -366,12 +386,20 @@ const PostCard = ({ entry, iso, person, casa, onCasaInfo, onEdit, onLegenda, onT
       onMouseLeave={() => setHover(false)}
       style={{
         position: 'relative',
-        background: done ? 'rgba(224,246,233,0.82)' : 'rgba(255,255,255,0.66)',
+        background: done ? 'rgba(224,246,233,0.82)' : (isLancamento ? LANCAMENTO.background : 'rgba(255,255,255,0.66)'),
         backdropFilter: 'blur(12px) saturate(160%)', WebkitBackdropFilter: 'blur(12px) saturate(160%)',
-        border: `1px solid ${done ? 'rgba(21,147,90,0.45)' : (hover ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.85)')}`,
+        border: `1px solid ${done
+          ? 'rgba(21,147,90,0.45)'
+          : isLancamento
+            ? (hover ? LANCAMENTO.borderHover : LANCAMENTO.border)
+            : (hover ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.85)')}`,
         borderRadius: 18, padding: isMobile ? '13px 14px 12px' : '11px 13px 10px',
         display: 'flex', flexDirection: 'column', gap: 3, cursor: isMobile ? 'default' : 'grab',
-        boxShadow: done ? '0 4px 16px rgba(21,147,90,0.12)' : (hover ? '0 10px 26px rgba(30,84,191,0.14)' : '0 4px 16px rgba(20,40,80,0.06)'),
+        boxShadow: done
+          ? '0 4px 16px rgba(21,147,90,0.12)'
+          : isLancamento
+            ? (hover ? LANCAMENTO.shadowHover : LANCAMENTO.shadow)
+            : (hover ? '0 10px 26px rgba(30,84,191,0.14)' : '0 4px 16px rgba(20,40,80,0.06)'),
         transition: 'box-shadow .15s, border-color .15s, background .15s'
       }}
     >
@@ -381,7 +409,9 @@ const PostCard = ({ entry, iso, person, casa, onCasaInfo, onEdit, onLegenda, onT
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, alignSelf: 'flex-start', flexWrap: 'wrap' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', fontSize: isMobile ? 10.5 : 9.5, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', borderRadius: 6, padding: isMobile ? '3px 8px' : '2px 7px', ...(done ? { color: DONE, background: 'rgba(21,147,90,0.14)' } : badgeStyle(typeLabel)) }}>{done ? 'Postado' : typeLabel}</span>
           {casa && (
-            <button onClick={(e) => { e.stopPropagation(); onCasaInfo(casa); }} title={`${casa.name} — ver informações`} style={{ display: 'inline-flex', alignItems: 'center', fontSize: isMobile ? 10.5 : 9.5, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', borderRadius: 6, padding: isMobile ? '4px 9px' : '2px 7px', border: 'none', cursor: 'pointer', color: '#0E7C6B', background: 'rgba(14,124,107,0.12)' }}>{casa.code || casa.name}</button>
+            <button onClick={(e) => { e.stopPropagation(); onCasaInfo(casa); }} title={`${casa.name}${isLancamento ? ' — Lançamento OPA' : ''} — ver informações`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: isMobile ? 10.5 : 9.5, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', borderRadius: 6, padding: isMobile ? '4px 9px' : '2px 7px', border: 'none', cursor: 'pointer', ...(isLancamento ? { color: ACCENT, background: 'rgba(46,109,224,0.16)' } : { color: '#0E7C6B', background: 'rgba(14,124,107,0.12)' }) }}>
+              {isLancamento && <Sparkles size={isMobile ? 11 : 9.5} />}{casa.code || casa.name}
+            </button>
           )}
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 5, flexShrink: 0 }}>

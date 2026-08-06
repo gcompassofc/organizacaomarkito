@@ -797,7 +797,7 @@ const App = () => {
   // editing: casa existente | null (nova). Excluir NÃO varre os posts: um
   // casaId órfão resolve para undefined no map e o badge simplesmente some.
   const casaSave = (editing, draft) => updatePlanner((prev) => {
-    const clean = { code: (draft.code || '').trim(), name: (draft.name || '').trim(), siteLink: normalizeUrl(draft.siteLink || ''), description: (draft.description || '').trim() };
+    const clean = { code: (draft.code || '').trim(), name: (draft.name || '').trim(), siteLink: normalizeUrl(draft.siteLink || ''), description: (draft.description || '').trim(), lancamentoOpa: Boolean(draft.lancamentoOpa) };
     if (editing) return { ...prev, casas: (prev.casas || []).map(c => c.id === editing.id ? { ...c, ...clean } : c) };
     return { ...prev, casas: [...(prev.casas || []), { id: newId(), ...clean }] };
   });
