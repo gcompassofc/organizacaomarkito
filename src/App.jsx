@@ -49,6 +49,7 @@ import { TaskCard, PreviewCard, SlimCard } from './components/TaskCard';
 import { CronogramaView } from './components/CronogramaView';
 import { GavetasView } from './components/GavetasView';
 import { CasasView } from './components/CasasView';
+import { MarcoView } from './components/MarcoView';
 import { DayPilarPicker } from './components/DayPilarPicker';
 import {
   HeaderBar,
@@ -164,7 +165,7 @@ const App = () => {
     ? allEditarItemsGlobal
     : isGravarList
       ? allGravarGlobal
-      : (activeTab === 'cronograma' || activeTab === 'gavetas' || activeTab === 'casas')
+      : (activeTab === 'cronograma' || activeTab === 'gavetas' || activeTab === 'casas' || activeTab === 'marco')
         ? getFilteredGravarPostar(currentWeekData.postar)
         : getFilteredGravarPostar(currentWeekData[activeTab]);
 
@@ -803,6 +804,20 @@ const App = () => {
   });
   const casaDelete = (casa) => updatePlanner((prev) => ({ ...prev, casas: (prev.casas || []).filter(c => c.id !== casa.id) }));
 
+  // ── Gravações do Marco (aba "Marco") ──
+  // Lista independente do cronograma: título, texto do vídeo, link de upload e
+  // o check de gravado. editing: gravação existente | null (nova).
+  const gravacaoSave = (editing, draft) => updatePlanner((prev) => {
+    const clean = { title: (draft.title || '').trim(), script: draft.script || '', uploadLink: normalizeUrl(draft.uploadLink || '') };
+    if (editing) return { ...prev, gravacoes: (prev.gravacoes || []).map(g => g.id === editing.id ? { ...g, ...clean } : g) };
+    return { ...prev, gravacoes: [...(prev.gravacoes || []), { id: newId(), ...clean, done: false }] };
+  });
+  const gravacaoDelete = (gravacao) => updatePlanner((prev) => ({ ...prev, gravacoes: (prev.gravacoes || []).filter(g => g.id !== gravacao.id) }));
+  const gravacaoToggleDone = (gravacao) => updatePlanner((prev) => ({
+    ...prev,
+    gravacoes: (prev.gravacoes || []).map(g => g.id === gravacao.id ? { ...g, done: !g.done } : g)
+  }));
+
   // Agenda um material da gaveta num dia do cronograma: cria o post na etapa
   // "postar" com os mesmos campos que o cronograma usa (título, tipo, link,
   // legenda, horário, responsável) e remove o item da gaveta — numa única
@@ -1035,6 +1050,13 @@ const App = () => {
                 casas={planner.casas || []}
                 onSave={casaSave}
                 onDelete={casaDelete}
+              />
+          ) : activeTab === 'marco' ? (
+              <MarcoView
+                gravacoes={planner.gravacoes || []}
+                onSave={gravacaoSave}
+                onDelete={gravacaoDelete}
+                onToggleDone={gravacaoToggleDone}
               />
           ) : (
             (() => {

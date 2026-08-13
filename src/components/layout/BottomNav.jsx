@@ -1,12 +1,13 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { CalendarDays, Archive, House } from 'lucide-react';
+import { CalendarDays, Archive, House, Video } from 'lucide-react';
 
 // Abas expansíveis: inativa mostra só o ícone; a ativa expande revelando o
 // rótulo, com o fundo pintado na cor da própria aba. Adaptado para o nosso
 // stack (motion/react) e para navegação — sempre há uma aba ativa, então não
 // há estado "nenhuma selecionada".
 const TABS = [
+  { id: 'marco',      label: 'Marco',      Icon: Video,        color: '#D6294B', soft: 'rgba(214,41,75,0.12)' },
   { id: 'cronograma', label: 'Cronograma', Icon: CalendarDays, color: '#2E6DE0', soft: 'rgba(46,109,224,0.12)' },
   { id: 'gavetas',    label: 'Gavetas',    Icon: Archive,      color: '#3B5578', soft: 'rgba(59,85,120,0.12)' },
   { id: 'casas',      label: 'Casas',      Icon: House,        color: '#0E7C6B', soft: 'rgba(14,124,107,0.12)' }

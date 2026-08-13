@@ -131,6 +131,7 @@ export const createPlanner = (currentWeekKey = getWeekKey()) => ({
   gavetas: [],
   people: [],
   casas: [],
+  gravacoes: [],
   weeks: {
     [currentWeekKey]: emptyWeekData()
   }
@@ -166,6 +167,20 @@ export const normalizeCasas = (raw) => {
     description: c.description || '',
     // Casas cadastradas antes deste campo existir voltam como false.
     lancamentoOpa: Boolean(c.lancamentoOpa)
+  }));
+};
+
+// Normaliza a lista de gravações do Marco — a aba "Marco" é uma lista simples,
+// independente do cronograma: título, roteiro do vídeo, link de upload e um
+// check de concluído.
+export const normalizeGravacoes = (raw) => {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((g) => ({
+    id: g.id || newId(),
+    title: g.title || '',
+    script: g.script || '',
+    uploadLink: normalizeUrl(g.uploadLink || ''),
+    done: Boolean(g.done)
   }));
 };
 
@@ -268,6 +283,7 @@ export const normalizePlanner = (cloudData) => {
       gavetas: normalizeGavetas(cloudData.gavetas),
       people: normalizePeople(cloudData.people),
       casas: normalizeCasas(cloudData.casas),
+      gravacoes: normalizeGravacoes(cloudData.gravacoes),
       weeks: Object.keys(weeks).length ? weeks : { [currentWeekKey]: emptyWeekData() }
     });
   }
@@ -281,6 +297,7 @@ export const normalizePlanner = (cloudData) => {
       gavetas: normalizeGavetas(cloudData.gavetas),
       people: normalizePeople(cloudData.people),
       casas: normalizeCasas(cloudData.casas),
+      gravacoes: normalizeGravacoes(cloudData.gravacoes),
       weeks: {
         [currentWeekKey]: mergeLegacyStoriesIntoGravar({
           gravar: cloudData,
