@@ -225,12 +225,13 @@ const App = () => {
   }));
 
   // Card arrastado para a DIREITA no modo cartão: Marco decidiu gravar aquele
-  // conteúdo. O modal de aceite deixa ele ver o texto, colar o link do vídeo
-  // e confirmar — só aí o item sai da pilha e vai pra "Gravados".
-  const gravacaoComplete = (gravacao, uploadLink) => updatePlanner((prev) => ({
+  // conteúdo. O modal de aceite deixa ele ler o texto e abrir a pasta de
+  // upload; ao confirmar, o item sai da pilha e vai pra "Gravados".
+  // O uploadLink é cadastrado pela equipe e não se mexe aqui.
+  const gravacaoComplete = (gravacao) => updatePlanner((prev) => ({
     ...prev,
     gravacoes: (prev.gravacoes || []).map(g => g.id === gravacao.id
-      ? { ...g, uploadLink: normalizeUrl(uploadLink || ''), done: true, precisaRefazer: false, notaRefazer: '' }
+      ? { ...g, done: true, precisaRefazer: false, notaRefazer: '' }
       : g)
   }));
 

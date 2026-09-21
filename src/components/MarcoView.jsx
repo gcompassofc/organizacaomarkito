@@ -192,15 +192,12 @@ const ConfirmDeleteModal = ({ open, gravacao, onCancel, onConfirm }) => {
 };
 
 // ── Modal de aceite (swipe/toque pra DIREITA) ──
-// "Ver o conteúdo, colocar o link e marcar como OK": o texto já vem visível
-// aqui dentro (sem precisar abrir outro modal), o link fica pronto pra colar
-// depois de gravar, e o botão confirma.
+// Tudo que o Marco precisa pra executar: ler o texto, abrir a pasta onde
+// sobe o vídeo e confirmar. O link de upload é cadastrado pela equipe na
+// gravação — aqui ele só é aberto, nunca digitado.
 const AcceptModal = ({ open, gravacao, onCancel, onConfirm }) => {
-  const [link, setLink] = useState('');
-  const inputStyle = useInputStyle();
   const btn = useModalButtons(DONE);
   const isMobile = btn.isMobile;
-  React.useEffect(() => { if (open) setLink(gravacao?.uploadLink || ''); }, [open, gravacao]);
 
   return (
     <GlassModal open={open} onClose={onCancel} maxWidth={520}>
@@ -227,14 +224,27 @@ const AcceptModal = ({ open, gravacao, onCancel, onConfirm }) => {
             {gravacao.script || 'Sem texto cadastrado.'}
           </div>
 
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }}>
-            <span style={labelSpan}>Link do vídeo gravado</span>
-            <input type="url" inputMode="url" autoCapitalize="none" autoCorrect="off" value={link} onChange={(e) => setLink(e.target.value)} placeholder="Cole aqui depois de gravar" style={inputStyle} autoFocus />
-          </label>
+          {gravacao.uploadLink ? (
+            <a
+              href={gravacao.uploadLink} target="_blank" rel="noreferrer"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                padding: isMobile ? '14px 18px' : '11px 18px', marginBottom: 20,
+                border: `1.5px solid ${REC}`, borderRadius: 999, background: '#fff',
+                color: REC, fontSize: isMobile ? 15 : 13.5, fontWeight: 600, textDecoration: 'none'
+              }}
+            >
+              <ArrowUpRight size={isMobile ? 18 : 16} strokeWidth={2.5} />Subir vídeo
+            </a>
+          ) : (
+            <p style={{ fontSize: isMobile ? 13.5 : 12.5, color: '#A9B4C6', margin: '0 0 20px', textAlign: 'center' }}>
+              Sem link de upload cadastrado — adicione no lápis do card.
+            </p>
+          )}
 
           <div style={btn.row}>
             <button onClick={onCancel} style={btn.cancel}>Cancelar</button>
-            <button onClick={() => onConfirm(gravacao, link)} style={btn.save}>Marcar como OK</button>
+            <button onClick={() => onConfirm(gravacao)} style={btn.save}>Marcar como OK</button>
           </div>
         </>
       )}
@@ -595,8 +605,8 @@ export const MarcoView = ({ gravacoes, onSave, onDelete, onToggleDone, onComplet
   const handleSwipeLeft = (g) => setPending({ gravacao: g, direction: 'left' });
   const cancelPending = () => setPending(null);
 
-  const confirmAccept = (g, link) => {
-    onComplete(g, link);
+  const confirmAccept = (g) => {
+    onComplete(g);
     setPending(null);
   };
   const confirmRefazer = (g, nota) => {
