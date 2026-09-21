@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { motion, useMotionValue, useTransform } from 'motion/react';
 import {
   Plus, ArrowUpRight, Pencil, X, Trash2, Check, AlignLeft, Video,
-  RotateCcw, MessageSquareWarning, Undo2, Copy
+  RotateCcw, MessageSquareWarning, Undo2, Copy, Layers, List, Search
 } from 'lucide-react';
 import { useIsMobile } from '../lib/useIsMobile';
 import { GlassModal, useInputStyle, useModalButtons, labelSpan } from './ui/GlassModal';
@@ -582,6 +582,75 @@ const StackActionButton = ({ color, Icon, label, onClick, disabled }) => {
   );
 };
 
+// ── Modo Lista ──
+// A pilha só deixa alcançar o card do topo; a lista mostra TODAS as
+// gravações, cada uma com o lápis, pra conferir e corrigir o que ainda está
+// escondido lá atrás. A escolha fica salva só neste navegador.
+const VIEW_KEY = 'marco:view';
+const readView = () => {
+  try { return localStorage.getItem(VIEW_KEY) === 'lista' ? 'lista' : 'cartoes'; } catch { return 'cartoes'; }
+};
+const saveView = (v) => { try { localStorage.setItem(VIEW_KEY, v); } catch { /* sem storage: só não lembra */ } };
+
+// Busca sem acento e sem diferenciar maiúscula ("imovel" acha "Imóvel").
+const norm = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+const ViewToggle = ({ view, onChange, total }) => {
+  const isMobile = useIsMobile();
+  const opts = [['cartoes', 'Cartões', Layers], ['lista', `Lista (${total})`, List]];
+  return (
+    <div role="tablist" aria-label="Modo de visualização" style={{ display: 'inline-flex', padding: 4, gap: 2, borderRadius: 999, background: '#EEF2F7', flexShrink: 0 }}>
+      {opts.map(([id, label, Icon]) => {
+        const on = view === id;
+        return (
+          <button
+            key={id} role="tab" aria-selected={on} onClick={() => onChange(id)}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, height: isMobile ? 40 : 32, padding: '0 14px',
+              border: 'none', borderRadius: 999, cursor: 'pointer', fontSize: 13, fontWeight: 600,
+              background: on ? '#fff' : 'transparent', color: on ? '#16202E' : '#55627A',
+              boxShadow: on ? '0 2px 8px rgba(20,40,80,0.10)' : 'none', transition: 'background .15s, color .15s'
+            }}
+          >
+            <Icon size={15} />{label}
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
+const SearchBox = ({ value, onChange }) => {
+  const inputStyle = useInputStyle();
+  return (
+    <div style={{ position: 'relative', flex: '1 1 220px', minWidth: 0 }}>
+      <Search size={15} color="#8A94A8" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+      <input
+        type="search" inputMode="search" value={value} onChange={(e) => onChange(e.target.value)}
+        placeholder="Buscar por título, texto ou observação" aria-label="Buscar gravações"
+        style={{ ...inputStyle, paddingLeft: 34, paddingRight: value ? 38 : undefined, borderRadius: 999, background: '#fff' }}
+      />
+      {value && (
+        <button onClick={() => onChange('')} aria-label="Limpar busca" style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', width: 34, height: 34, border: 'none', background: 'none', color: '#8A94A8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <X size={16} />
+        </button>
+      )}
+    </div>
+  );
+};
+
+// Título de seção das listas (Para gravar / Refação / Gravados).
+const SectionTitle = ({ label, count, color = '#8A94A8', Icon, first }) => {
+  const isMobile = useIsMobile();
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: first ? 0 : (isMobile ? 34 : 42), marginBottom: isMobile ? 12 : 14 }}>
+      {Icon && <Icon size={13} color={color} />}
+      <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color, whiteSpace: 'nowrap' }}>{label} ({count})</span>
+      <span style={{ flex: 1, height: 1, background: '#E6EDF6' }} />
+    </div>
+  );
+};
+
 // ── View do Marco ──
 // Modo cartão: o Marco vê um conteúdo por vez, arrasta pra direita pra
 // aceitar gravar (ou toca no ✓), ou pra esquerda quando precisa refazer algo
@@ -597,6 +666,21 @@ export const MarcoView = ({ gravacoes, onSave, onDelete, onToggleDone, onComplet
   const pendentes = useMemo(() => gravacoes.filter(g => !g.done && !g.precisaRefazer), [gravacoes]);
   const emRefacao = useMemo(() => gravacoes.filter(g => g.precisaRefazer), [gravacoes]);
   const gravados = useMemo(() => gravacoes.filter(g => g.done), [gravacoes]);
+
+  const [view, setViewState] = useState(readView);
+  const setView = useCallback((v) => { setViewState(v); saveView(v); }, []);
+  const [busca, setBusca] = useState('');
+  const isLista = view === 'lista';
+
+  // A busca só vale no modo Lista — filtrar a pilha de cartões confundiria
+  // a ordem do que o Marco tem pra decidir.
+  const q = isLista ? norm(busca.trim()) : '';
+  const [vPend, vRef, vGrav] = useMemo(() => {
+    if (!q) return [pendentes, emRefacao, gravados];
+    const bate = (g) => norm(`${g.title} ${g.script} ${g.notaRefazer}`).includes(q);
+    return [pendentes.filter(bate), emRefacao.filter(bate), gravados.filter(bate)];
+  }, [q, pendentes, emRefacao, gravados]);
+  const nadaNaBusca = Boolean(q) && vPend.length + vRef.length + vGrav.length === 0;
 
   const grid = { display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill,minmax(258px,1fr))', gap: isMobile ? 10 : 12 };
   const stackHeight = isMobile ? 420 : 440;
@@ -619,8 +703,8 @@ export const MarcoView = ({ gravacoes, onSave, onDelete, onToggleDone, onComplet
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 10 : 14, flexWrap: 'wrap', marginBottom: isMobile ? 16 : 20 }}>
-        {!isMobile && <p style={{ color: '#55627A', fontSize: 13, maxWidth: 560, margin: 0 }}>Arraste o card pra direita pra gravar, ou pra esquerda se precisa refazer algo.</p>}
+      <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 10 : 14, flexWrap: 'wrap', marginBottom: isMobile ? 14 : 16 }}>
+        {!isMobile && <p style={{ color: '#55627A', fontSize: 13, maxWidth: 560, margin: 0 }}>{isLista ? 'Todas as gravações. Toque no lápis pra editar qualquer uma.' : 'Arraste o card pra direita pra gravar, ou pra esquerda se precisa refazer algo.'}</p>}
         <span style={{ marginLeft: isMobile ? 0 : 'auto', display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: '#55627A', fontWeight: 500, whiteSpace: 'nowrap' }}>
           <span>{pendentes.length} para gravar</span>
           {emRefacao.length > 0 && <span style={{ color: REFAZER }}>· {emRefacao.length} em refação</span>}
@@ -628,8 +712,15 @@ export const MarcoView = ({ gravacoes, onSave, onDelete, onToggleDone, onComplet
         <button onClick={() => setModal({ open: true, editing: null })} aria-label="Nova gravação" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, gap: 6, padding: isMobile ? '0 16px' : '9px 15px', height: isMobile ? 44 : undefined, border: 'none', background: REC, color: '#fff', borderRadius: 999, fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 6px 16px rgba(214,41,75,0.28)' }}><Plus size={16} />Gravação</button>
       </div>
 
-      {/* Pilha estilo cartão */}
-      {pendentes.length > 0 ? (
+      {gravacoes.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: isMobile ? 18 : 22 }}>
+          <ViewToggle view={view} onChange={setView} total={gravacoes.length} />
+          {isLista && <SearchBox value={busca} onChange={setBusca} />}
+        </div>
+      )}
+
+      {/* Modo Cartões: pilha estilo Tinder */}
+      {!isLista && (pendentes.length > 0 ? (
         <div style={{ width: '100%', maxWidth: 420, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: STACK_PEEK + (isMobile ? 24 : 28) }}>
           <SwipeStack
             items={pendentes}
@@ -653,6 +744,25 @@ export const MarcoView = ({ gravacoes, onSave, onDelete, onToggleDone, onComplet
             <div style={{ fontSize: 13, color: '#A9B4C6' }}>Nenhum conteúdo esperando decisão no momento.</div>
           </div>
         )
+      ))}
+
+      {/* Modo Lista: todas as pendentes, na ordem da pilha, editáveis */}
+      {isLista && vPend.length > 0 && (
+        <>
+          <SectionTitle label="Para gravar" count={vPend.length} color={REC} Icon={Video} first />
+          <div style={grid}>
+            {vPend.map(g => (
+              <GravacaoCard key={g.id} gravacao={g} onEdit={openEdit} onToggleDone={onToggleDone} onOpenScript={openScript} />
+            ))}
+          </div>
+        </>
+      )}
+
+      {nadaNaBusca && (
+        <div style={{ textAlign: 'center', padding: '48px 20px' }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#8A94A8', marginBottom: 4 }}>Nada encontrado para "{busca.trim()}"</div>
+          <div style={{ fontSize: 13, color: '#A9B4C6' }}>A busca olha título, texto do vídeo e observação de refação.</div>
+        </div>
       )}
 
       {gravacoes.length === 0 && (
@@ -664,15 +774,11 @@ export const MarcoView = ({ gravacoes, onSave, onDelete, onToggleDone, onComplet
       )}
 
       {/* Fila de Refação — acompanhada pela equipe */}
-      {emRefacao.length > 0 && (
+      {vRef.length > 0 && (
         <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: isMobile ? 34 : 42, marginBottom: isMobile ? 12 : 14 }}>
-            <RotateCcw size={13} color={REFAZER} />
-            <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: REFAZER, whiteSpace: 'nowrap' }}>Refação ({emRefacao.length})</span>
-            <span style={{ flex: 1, height: 1, background: '#E6EDF6' }} />
-          </div>
+          <SectionTitle label="Refação" count={vRef.length} color={REFAZER} Icon={RotateCcw} first={isLista && vPend.length === 0} />
           <div style={grid}>
-            {emRefacao.map(g => (
+            {vRef.map(g => (
               <RefacaoCard key={g.id} gravacao={g} onEdit={openEdit} onResolve={onResolveRefazer} onOpenScript={openScript} />
             ))}
           </div>
@@ -680,14 +786,11 @@ export const MarcoView = ({ gravacoes, onSave, onDelete, onToggleDone, onComplet
       )}
 
       {/* Gravados */}
-      {gravados.length > 0 && (
+      {vGrav.length > 0 && (
         <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: isMobile ? 34 : 42, marginBottom: isMobile ? 12 : 14 }}>
-            <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8A94A8', whiteSpace: 'nowrap' }}>Gravados ({gravados.length})</span>
-            <span style={{ flex: 1, height: 1, background: '#E6EDF6' }} />
-          </div>
+          <SectionTitle label="Gravados" count={vGrav.length} first={isLista && vPend.length === 0 && vRef.length === 0} />
           <div style={grid}>
-            {gravados.map(g => (
+            {vGrav.map(g => (
               <GravacaoCard key={g.id} gravacao={g} onEdit={openEdit} onToggleDone={onToggleDone} onOpenScript={openScript} />
             ))}
           </div>
