@@ -172,7 +172,9 @@ export const normalizeCasas = (raw) => {
 
 // Normaliza a lista de gravações do Marco — a aba "Marco" é uma lista simples,
 // independente do cronograma: título, roteiro do vídeo, link de upload e um
-// check de concluído.
+// check de concluído. `precisaRefazer`/`notaRefazer` guardam a decisão do
+// Marco ao arrastar o card para a esquerda (fila de refação, com a
+// observação dele para a equipe ajustar).
 export const normalizeGravacoes = (raw) => {
   if (!Array.isArray(raw)) return [];
   return raw.map((g) => ({
@@ -180,7 +182,9 @@ export const normalizeGravacoes = (raw) => {
     title: g.title || '',
     script: g.script || '',
     uploadLink: normalizeUrl(g.uploadLink || ''),
-    done: Boolean(g.done)
+    done: Boolean(g.done),
+    precisaRefazer: Boolean(g.precisaRefazer),
+    notaRefazer: g.notaRefazer || ''
   }));
 };
 

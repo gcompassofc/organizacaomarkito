@@ -1,13 +1,22 @@
 import React, { useMemo, useState } from 'react';
-import { Plus, ArrowUpRight, Pencil, X, Trash2, Check, AlignLeft, Video } from 'lucide-react';
+import { motion, useMotionValue, useTransform } from 'motion/react';
+import {
+  Plus, ArrowUpRight, Pencil, X, Trash2, Check, AlignLeft, Video,
+  RotateCcw, MessageSquareWarning, Undo2
+} from 'lucide-react';
 import { useIsMobile } from '../lib/useIsMobile';
 import { GlassModal, useInputStyle, useModalButtons, labelSpan } from './ui/GlassModal';
 
-// Vermelho de REC — mesma cor da aba "Marco" na nav.
+// Vermelho de REC — mesma cor da aba "Marco" na nav. Usado tanto pro badge
+// "Gravar" quanto pra ação de arrastar/tocar em "gravar" no modo cartão.
 const REC = '#D6294B';
 const DONE = '#15935A';
+// Âmbar: estado intermediário "precisa refazer" — nem pendente, nem gravado.
+const REFAZER = '#D97706';
 
-// Modal de cadastro/edição da gravação.
+// ── Modal de cadastro/edição (título, texto e link) ──
+// Usado tanto pra criar uma gravação nova quanto pra editar qualquer item,
+// em qualquer fila (pendente, refação ou gravado).
 const GravacaoModal = ({ open, editing, onClose, onSave, onAskDelete }) => {
   const [draft, setDraft] = useState(null);
   const inputStyle = useInputStyle();
@@ -54,8 +63,8 @@ const GravacaoModal = ({ open, editing, onClose, onSave, onAskDelete }) => {
   );
 };
 
-// Modal com o texto do vídeo em tela cheia — o card mostra só um resumo, e
-// gravar exige ler o roteiro inteiro.
+// Modal com o texto do vídeo em tela cheia — usado a partir do card no modo
+// pilha ("Ler tudo") e nas listas de Refação/Gravados.
 const ScriptModal = ({ open, gravacao, onClose }) => {
   const btn = useModalButtons(REC);
   const isMobile = btn.isMobile;
@@ -67,7 +76,7 @@ const ScriptModal = ({ open, gravacao, onClose }) => {
             <h3 style={{ fontSize: isMobile ? 17 : 16, fontWeight: 600, color: '#16202E', minWidth: 0 }}>{gravacao.title}</h3>
             <button onClick={onClose} title="Fechar" aria-label="Fechar" style={btn.close}><X size={20} /></button>
           </div>
-          <div style={{ background: '#F7FAFE', border: '1px solid #E6EDF6', borderRadius: 12, padding: 14, fontSize: isMobile ? 15 : 13.5, color: '#55627A', lineHeight: 1.65, maxHeight: isMobile ? '52dvh' : 380, overflowY: 'auto', whiteSpace: 'pre-wrap', marginBottom: 16 }}>{gravacao.script}</div>
+          <div style={{ background: '#F7FAFE', border: '1px solid #E6EDF6', borderRadius: 12, padding: 14, fontSize: isMobile ? 15 : 13.5, color: '#55627A', lineHeight: 1.65, maxHeight: isMobile ? '52dvh' : 380, overflowY: 'auto', whiteSpace: 'pre-wrap', marginBottom: 16 }}>{gravacao.script || 'Sem texto cadastrado.'}</div>
           <div style={btn.row}>
             <button onClick={onClose} style={btn.cancel}>Fechar</button>
             {gravacao.uploadLink && (
@@ -96,6 +105,276 @@ const ConfirmDeleteModal = ({ open, gravacao, onCancel, onConfirm }) => {
         <button onClick={onConfirm} style={btn.save}>Excluir</button>
       </div>
     </GlassModal>
+  );
+};
+
+// ── Modal de aceite (swipe/toque pra DIREITA) ──
+// "Ver o conteúdo, colocar o link e marcar como OK": o texto já vem visível
+// aqui dentro (sem precisar abrir outro modal), o link fica pronto pra colar
+// depois de gravar, e o botão confirma.
+const AcceptModal = ({ open, gravacao, onCancel, onConfirm }) => {
+  const [link, setLink] = useState('');
+  const inputStyle = useInputStyle();
+  const btn = useModalButtons(DONE);
+  const isMobile = btn.isMobile;
+  React.useEffect(() => { if (open) setLink(gravacao?.uploadLink || ''); }, [open, gravacao]);
+
+  return (
+    <GlassModal open={open} onClose={onCancel} maxWidth={520}>
+      {gravacao && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 999, background: 'rgba(21,147,90,0.14)', color: DONE, flexShrink: 0 }}>
+              <Check size={16} strokeWidth={3} />
+            </span>
+            <h3 style={{ fontSize: isMobile ? 18 : 17, fontWeight: 600, color: '#16202E', minWidth: 0 }}>Vou gravar</h3>
+          </div>
+          <p style={{ fontSize: isMobile ? 15 : 13.5, fontWeight: 600, color: '#16202E', margin: '10px 0 10px' }}>{gravacao.title}</p>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+            <AlignLeft size={12} color="#8A94A8" />
+            <span style={labelSpan}>Texto do vídeo</span>
+          </div>
+          <div style={{ background: '#F7FAFE', border: '1px solid #E6EDF6', borderRadius: 12, padding: 13, fontSize: isMobile ? 14.5 : 13, color: '#55627A', lineHeight: 1.6, maxHeight: isMobile ? '32dvh' : 220, overflowY: 'auto', whiteSpace: 'pre-wrap', marginBottom: 16 }}>
+            {gravacao.script || 'Sem texto cadastrado.'}
+          </div>
+
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }}>
+            <span style={labelSpan}>Link do vídeo gravado</span>
+            <input type="url" inputMode="url" autoCapitalize="none" autoCorrect="off" value={link} onChange={(e) => setLink(e.target.value)} placeholder="Cole aqui depois de gravar" style={inputStyle} autoFocus />
+          </label>
+
+          <div style={btn.row}>
+            <button onClick={onCancel} style={btn.cancel}>Cancelar</button>
+            <button onClick={() => onConfirm(gravacao, link)} style={btn.save}>Marcar como OK</button>
+          </div>
+        </>
+      )}
+    </GlassModal>
+  );
+};
+
+// ── Modal de refação (swipe/toque pra ESQUERDA) ──
+// O Marco deixa a observação do que precisa mudar; o item sai da pilha dele
+// e cai na fila que a equipe acompanha.
+const RefazerModal = ({ open, gravacao, onCancel, onConfirm }) => {
+  const [nota, setNota] = useState('');
+  const inputStyle = useInputStyle();
+  const btn = useModalButtons(REFAZER);
+  const isMobile = btn.isMobile;
+  React.useEffect(() => { if (open) setNota(gravacao?.notaRefazer || ''); }, [open, gravacao]);
+
+  return (
+    <GlassModal open={open} onClose={onCancel} maxWidth={480}>
+      {gravacao && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 999, background: 'rgba(217,119,6,0.14)', color: REFAZER, flexShrink: 0 }}>
+              <RotateCcw size={15} strokeWidth={2.5} />
+            </span>
+            <h3 style={{ fontSize: isMobile ? 18 : 17, fontWeight: 600, color: '#16202E', minWidth: 0 }}>Precisa refazer</h3>
+          </div>
+          <p style={{ fontSize: isMobile ? 15 : 13.5, fontWeight: 600, color: '#16202E', margin: '10px 0 14px' }}>{gravacao.title}</p>
+
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }}>
+            <span style={labelSpan}>O que precisa ajustar?</span>
+            <textarea rows={isMobile ? 5 : 5} value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Ex: trocar o texto, o imóvel já vendeu, gravar em outro cômodo…" style={{ ...inputStyle, lineHeight: 1.55, resize: 'vertical' }} autoFocus />
+          </label>
+
+          <div style={btn.row}>
+            <button onClick={onCancel} style={btn.cancel}>Cancelar</button>
+            <button
+              onClick={() => nota.trim() && onConfirm(gravacao, nota)}
+              disabled={!nota.trim()}
+              style={{ ...btn.save, opacity: nota.trim() ? 1 : 0.45, cursor: nota.trim() ? 'pointer' : 'default' }}
+            >
+              Enviar para refação
+            </button>
+          </div>
+        </>
+      )}
+    </GlassModal>
+  );
+};
+
+// ── Card arrastável (o de cima da pilha) ──
+// `exitDirection` é controlado pelo pai: fica null em repouso, vira
+// 'right'/'left' assim que o limite de arrasto é cruzado (ou os botões são
+// tocados) e volta a null se a ação for cancelada no modal — o card então
+// anima de volta pro centro sozinho, porque a `animate` prop reage à mudança.
+const SwipeCard = ({ gravacao, exitDirection, draggable, onSwipeRight, onSwipeLeft, onOpenScript, onEdit }) => {
+  const isMobile = useIsMobile();
+  const x = useMotionValue(0);
+  const rotate = useTransform(x, [-260, 260], [-14, 14]);
+  const gravarOpacity = useTransform(x, [24, 130], [0, 1]);
+  const refazerOpacity = useTransform(x, [-130, -24], [1, 0]);
+
+  const handleDragEnd = (_, info) => {
+    if (exitDirection) return;
+    const threshold = 110;
+    if (info.offset.x > threshold || info.velocity.x > 650) onSwipeRight(gravacao);
+    else if (info.offset.x < -threshold || info.velocity.x < -650) onSwipeLeft(gravacao);
+  };
+
+  const target = exitDirection === 'right'
+    ? { x: 620, opacity: 0, rotate: 20 }
+    : exitDirection === 'left'
+      ? { x: -620, opacity: 0, rotate: -20 }
+      : { x: 0, opacity: 1, rotate: 0 };
+
+  const stop = (e) => e.stopPropagation();
+
+  return (
+    <motion.div
+      drag={draggable ? 'x' : false}
+      dragDirectionLock
+      onDragEnd={handleDragEnd}
+      style={{ x, rotate, position: 'absolute', inset: 0, touchAction: 'pan-y' }}
+      animate={target}
+      transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+    >
+      <div
+        style={{
+          position: 'relative', height: '100%', display: 'flex', flexDirection: 'column',
+          background: '#fff', borderRadius: 26, border: '1px solid rgba(230,237,246,0.9)',
+          boxShadow: '0 18px 40px rgba(20,40,80,0.14)', overflow: 'hidden',
+          cursor: draggable ? 'grab' : 'default', userSelect: 'none'
+        }}
+      >
+        {/* Selos GRAVAR / REFAZER, aparecem conforme o arrasto */}
+        <motion.div style={{ opacity: gravarOpacity, position: 'absolute', top: 22, left: 20, zIndex: 2, border: `3px solid ${DONE}`, color: DONE, borderRadius: 10, padding: '5px 12px', fontSize: 14, fontWeight: 800, letterSpacing: '0.06em', transform: 'rotate(-10deg)', textTransform: 'uppercase', background: 'rgba(255,255,255,0.9)' }}>Gravar</motion.div>
+        <motion.div style={{ opacity: refazerOpacity, position: 'absolute', top: 22, right: 20, zIndex: 2, border: `3px solid ${REFAZER}`, color: REFAZER, borderRadius: 10, padding: '5px 12px', fontSize: 14, fontWeight: 800, letterSpacing: '0.06em', transform: 'rotate(10deg)', textTransform: 'uppercase', background: 'rgba(255,255,255,0.9)' }}>Refazer</motion.div>
+
+        <button
+          onPointerDownCapture={stop}
+          onClick={(e) => { stop(e); onEdit(gravacao); }}
+          title="Editar" aria-label="Editar gravação"
+          style={{ position: 'absolute', top: 14, right: 14, zIndex: 3, width: 34, height: 34, borderRadius: 999, border: 'none', background: 'rgba(255,255,255,0.85)', boxShadow: '0 2px 8px rgba(20,40,80,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8A94A8', cursor: 'pointer' }}
+        >
+          <Pencil size={14} />
+        </button>
+
+        <div style={{ padding: isMobile ? '52px 20px 18px' : '48px 24px 18px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: REC, marginBottom: 10, width: 'fit-content' }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: REC }} />
+            Para gravar
+          </span>
+
+          <h3 style={{ fontSize: isMobile ? 20 : 19, fontWeight: 700, color: '#16202E', lineHeight: 1.28, marginBottom: 14 }}>{gravacao.title}</h3>
+
+          <div style={{ flex: 1, minHeight: 0, background: '#F7FAFE', border: '1px solid #E6EDF6', borderRadius: 14, padding: 14, overflow: 'hidden', position: 'relative' }}>
+            <p style={{
+              fontSize: isMobile ? 14.5 : 13.5, color: '#55627A', lineHeight: 1.6, whiteSpace: 'pre-wrap', margin: 0,
+              display: '-webkit-box', WebkitLineClamp: isMobile ? 6 : 8, WebkitBoxOrient: 'vertical', overflow: 'hidden'
+            }}>
+              {gravacao.script || 'Sem texto cadastrado — toque no lápis pra adicionar.'}
+            </p>
+          </div>
+
+          {gravacao.script && (
+            <button
+              onPointerDownCapture={stop}
+              onClick={(e) => { stop(e); onOpenScript(gravacao); }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12.5, color: REC, background: 'none', border: 'none', padding: '10px 2px 0', cursor: 'pointer', fontWeight: 600, width: 'fit-content' }}
+            >
+              Ler texto completo
+            </button>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+// Pilha: só o card de cima é interativo (arrastável); os de trás são só o
+// "lombo" visual, pra dar profundidade de pilha estilo Tinder.
+const SwipeStack = ({ items, height, pendingId, pendingDirection, onSwipeRight, onSwipeLeft, onOpenScript, onEdit }) => {
+  const visible = items.slice(0, 3);
+  return (
+    <div style={{ position: 'relative', height }}>
+      {visible.map((g, i) => {
+        if (i === 0) {
+          return (
+            <SwipeCard
+              key={g.id}
+              gravacao={g}
+              draggable={!pendingId}
+              exitDirection={pendingId === g.id ? pendingDirection : null}
+              onSwipeRight={onSwipeRight}
+              onSwipeLeft={onSwipeLeft}
+              onOpenScript={onOpenScript}
+              onEdit={onEdit}
+            />
+          );
+        }
+        return (
+          <div
+            key={g.id}
+            style={{
+              position: 'absolute', inset: 0, borderRadius: 26,
+              background: '#fff', border: '1px solid rgba(230,237,246,0.9)',
+              boxShadow: '0 10px 26px rgba(20,40,80,0.08)',
+              transform: `scale(${1 - i * 0.035}) translateY(${i * 10}px)`,
+              zIndex: 10 - i
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+};
+
+// ── Cards das filas de Refação e Gravados (visão em lista, sem arrasto) ──
+const RefacaoCard = ({ gravacao, onEdit, onResolve, onOpenScript }) => {
+  const [hover, setHover] = useState(false);
+  const isMobile = useIsMobile();
+  const tapSize = isMobile ? 40 : 26;
+  const tapRadius = isMobile ? 12 : 9;
+  return (
+    <div
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        position: 'relative', background: 'rgba(255,251,240,0.82)',
+        backdropFilter: 'blur(12px) saturate(160%)', WebkitBackdropFilter: 'blur(12px) saturate(160%)',
+        border: `1px solid ${hover ? 'rgba(217,119,6,0.55)' : 'rgba(217,119,6,0.3)'}`,
+        borderRadius: 18, padding: isMobile ? '14px 15px 13px' : '13px 15px 12px',
+        display: 'flex', flexDirection: 'column', gap: 6,
+        boxShadow: hover ? '0 10px 26px rgba(217,119,6,0.14)' : '0 4px 16px rgba(217,119,6,0.08)',
+        transition: 'box-shadow .15s, border-color .15s'
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: isMobile ? 10.5 : 9.5, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', borderRadius: 6, padding: isMobile ? '3px 8px' : '2px 7px', color: REFAZER, background: 'rgba(217,119,6,0.14)' }}>
+          <RotateCcw size={11} strokeWidth={2.5} />Refazer
+        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 5, flexShrink: 0 }}>
+          <button onClick={() => onEdit(gravacao)} title="Editar" aria-label={`Editar ${gravacao.title}`} style={{ flexShrink: 0, background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.9)', borderRadius: tapRadius, width: tapSize, height: tapSize, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: hover ? REFAZER : '#8A94A8', padding: 0 }}><Pencil size={isMobile ? 16 : 13} /></button>
+        </div>
+      </div>
+
+      <div style={{ fontSize: isMobile ? 15 : 13.5, fontWeight: 600, color: '#16202E', lineHeight: 1.35 }}>{gravacao.title}</div>
+
+      {gravacao.notaRefazer && (
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, background: 'rgba(217,119,6,0.09)', border: '1px solid rgba(217,119,6,0.2)', borderRadius: 10, padding: '8px 10px', marginTop: 2 }}>
+          <MessageSquareWarning size={13} color={REFAZER} style={{ flexShrink: 0, marginTop: 1 }} />
+          <p style={{ fontSize: isMobile ? 13.5 : 12, color: '#7A4A06', lineHeight: 1.5, margin: 0, fontStyle: 'italic' }}>"{gravacao.notaRefazer}"</p>
+        </div>
+      )}
+
+      {gravacao.script && (
+        <button onClick={() => onOpenScript(gravacao)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: isMobile ? 13 : 11.5, color: '#55627A', background: 'none', border: 'none', padding: isMobile ? '4px 0' : 0, cursor: 'pointer', fontWeight: 500, marginTop: isMobile ? 2 : 1, width: 'fit-content' }}>
+          <AlignLeft size={isMobile ? 14 : 12} />Ver texto
+        </button>
+      )}
+
+      <button
+        onClick={() => onResolve(gravacao)}
+        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: isMobile ? 8 : 6, padding: isMobile ? '10px 14px' : '8px 13px', border: 'none', borderRadius: 999, background: REFAZER, color: '#fff', fontSize: isMobile ? 13.5 : 12, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 12px rgba(217,119,6,0.28)' }}
+      >
+        <Undo2 size={13} />Ajustado — reenviar pro Marco
+      </button>
+    </div>
   );
 };
 
@@ -148,49 +427,104 @@ const GravacaoCard = ({ gravacao, onEdit, onToggleDone, onOpenScript }) => {
   );
 };
 
+// Botão circular grande de ação abaixo da pilha — funciona como alternativa
+// ao arrasto (clique/toque simples), essencial no desktop e pra quem prefere
+// não arrastar no celular.
+const StackActionButton = ({ color, Icon, label, onClick, disabled }) => {
+  const isMobile = useIsMobile();
+  const size = isMobile ? 60 : 54;
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+        background: 'none', border: 'none', cursor: disabled ? 'default' : 'pointer',
+        opacity: disabled ? 0.35 : 1
+      }}
+    >
+      <span style={{
+        width: size, height: size, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: '#fff', border: `2px solid ${color}`, color,
+        boxShadow: `0 8px 20px ${color}33`
+      }}>
+        <Icon size={isMobile ? 26 : 22} strokeWidth={2.5} />
+      </span>
+      <span style={{ fontSize: 11, fontWeight: 600, color: '#55627A' }}>{label}</span>
+    </button>
+  );
+};
+
 // ── View do Marco ──
-// Lista simples do que o Marco tem para gravar: título, texto do vídeo, link
-// onde ele sobe e o check de gravado. Pendentes primeiro; os gravados descem
-// para uma seção própria no fim.
-export const MarcoView = ({ gravacoes, onSave, onDelete, onToggleDone }) => {
+// Modo cartão: o Marco vê um conteúdo por vez, arrasta pra direita pra
+// aceitar gravar (ou toca no ✓), ou pra esquerda quando precisa refazer algo
+// (ou toca no ✕). Abaixo da pilha ficam as filas de Refação (aguardando a
+// equipe ajustar) e Gravados (concluídos).
+export const MarcoView = ({ gravacoes, onSave, onDelete, onToggleDone, onComplete, onSendRefazer, onResolveRefazer }) => {
   const isMobile = useIsMobile();
   const [modal, setModal] = useState(null);           // { open, editing: gravacao|null }
   const [script, setScript] = useState(null);         // gravação com o roteiro aberto
-  const [confirming, setConfirming] = useState(null); // gravação aguardando confirmação
+  const [confirming, setConfirming] = useState(null); // gravação aguardando confirmação de exclusão
+  const [pending, setPending] = useState(null);        // { gravacao, direction } — card em decisão
 
-  const pendentes = useMemo(() => gravacoes.filter(g => !g.done), [gravacoes]);
+  const pendentes = useMemo(() => gravacoes.filter(g => !g.done && !g.precisaRefazer), [gravacoes]);
+  const emRefacao = useMemo(() => gravacoes.filter(g => g.precisaRefazer), [gravacoes]);
   const gravados = useMemo(() => gravacoes.filter(g => g.done), [gravacoes]);
 
   const grid = { display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill,minmax(258px,1fr))', gap: isMobile ? 10 : 12 };
+  const stackHeight = isMobile ? 420 : 440;
+
+  const handleSwipeRight = (g) => setPending({ gravacao: g, direction: 'right' });
+  const handleSwipeLeft = (g) => setPending({ gravacao: g, direction: 'left' });
+  const cancelPending = () => setPending(null);
+
+  const confirmAccept = (g, link) => {
+    onComplete(g, link);
+    setPending(null);
+  };
+  const confirmRefazer = (g, nota) => {
+    if (!nota || !nota.trim()) return;
+    onSendRefazer(g, nota);
+    setPending(null);
+  };
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 10 : 14, flexWrap: 'wrap', marginBottom: isMobile ? 18 : 22 }}>
-        {!isMobile && <p style={{ color: '#55627A', fontSize: 13, maxWidth: 620, margin: 0 }}>O que o Marco tem para gravar. Cada item traz o texto do vídeo e o link onde ele sobe o arquivo depois de gravar.</p>}
-        <span style={{ marginLeft: isMobile ? 0 : 'auto', fontSize: 12.5, color: '#55627A', fontWeight: 500, whiteSpace: 'nowrap' }}>
-          {pendentes.length} para gravar
+      <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 10 : 14, flexWrap: 'wrap', marginBottom: isMobile ? 16 : 20 }}>
+        {!isMobile && <p style={{ color: '#55627A', fontSize: 13, maxWidth: 560, margin: 0 }}>Arraste o card pra direita pra gravar, ou pra esquerda se precisa refazer algo.</p>}
+        <span style={{ marginLeft: isMobile ? 0 : 'auto', display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: '#55627A', fontWeight: 500, whiteSpace: 'nowrap' }}>
+          <span>{pendentes.length} para gravar</span>
+          {emRefacao.length > 0 && <span style={{ color: REFAZER }}>· {emRefacao.length} em refação</span>}
         </span>
         <button onClick={() => setModal({ open: true, editing: null })} aria-label="Nova gravação" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, gap: 6, padding: isMobile ? '0 16px' : '9px 15px', height: isMobile ? 44 : undefined, border: 'none', background: REC, color: '#fff', borderRadius: 999, fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 6px 16px rgba(214,41,75,0.28)' }}><Plus size={16} />Gravação</button>
       </div>
 
-      <div style={grid}>
-        {pendentes.map(g => (
-          <GravacaoCard key={g.id} gravacao={g} onEdit={(x) => setModal({ open: true, editing: x })} onToggleDone={onToggleDone} onOpenScript={(x) => setScript(x)} />
-        ))}
-      </div>
-
-      {gravados.length > 0 && (
-        <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: pendentes.length ? (isMobile ? 26 : 34) : 0, marginBottom: isMobile ? 12 : 14 }}>
-            <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8A94A8', whiteSpace: 'nowrap' }}>Gravados ({gravados.length})</span>
-            <span style={{ flex: 1, height: 1, background: '#E6EDF6' }} />
+      {/* Pilha estilo cartão */}
+      {pendentes.length > 0 ? (
+        <div style={{ maxWidth: 420, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: isMobile ? 22 : 26 }}>
+          <SwipeStack
+            items={pendentes}
+            height={stackHeight}
+            pendingId={pending?.gravacao.id}
+            pendingDirection={pending?.direction}
+            onSwipeRight={handleSwipeRight}
+            onSwipeLeft={handleSwipeLeft}
+            onOpenScript={(g) => setScript(g)}
+            onEdit={(g) => setModal({ open: true, editing: g })}
+          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 44 : 56 }}>
+            <StackActionButton color={REFAZER} Icon={X} label="Refazer" disabled={!!pending} onClick={() => handleSwipeLeft(pendentes[0])} />
+            <StackActionButton color={DONE} Icon={Check} label="Gravar" disabled={!!pending} onClick={() => handleSwipeRight(pendentes[0])} />
           </div>
-          <div style={grid}>
-            {gravados.map(g => (
-              <GravacaoCard key={g.id} gravacao={g} onEdit={(x) => setModal({ open: true, editing: x })} onToggleDone={onToggleDone} onOpenScript={(x) => setScript(x)} />
-            ))}
+        </div>
+      ) : (
+        gravacoes.length > 0 && (
+          <div style={{ textAlign: 'center', padding: '48px 20px 8px' }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: DONE, marginBottom: 4 }}>Tudo revisado 🎉</div>
+            <div style={{ fontSize: 13, color: '#A9B4C6' }}>Nenhum conteúdo esperando decisão no momento.</div>
           </div>
-        </>
+        )
       )}
 
       {gravacoes.length === 0 && (
@@ -201,11 +535,35 @@ export const MarcoView = ({ gravacoes, onSave, onDelete, onToggleDone }) => {
         </div>
       )}
 
-      {gravacoes.length > 0 && pendentes.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '40px 20px 8px' }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: DONE, marginBottom: 4 }}>Tudo gravado 🎉</div>
-          <div style={{ fontSize: 13, color: '#A9B4C6' }}>Nenhuma gravação pendente no momento.</div>
-        </div>
+      {/* Fila de Refação — acompanhada pela equipe */}
+      {emRefacao.length > 0 && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: isMobile ? 34 : 42, marginBottom: isMobile ? 12 : 14 }}>
+            <RotateCcw size={13} color={REFAZER} />
+            <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: REFAZER, whiteSpace: 'nowrap' }}>Refação ({emRefacao.length})</span>
+            <span style={{ flex: 1, height: 1, background: '#E6EDF6' }} />
+          </div>
+          <div style={grid}>
+            {emRefacao.map(g => (
+              <RefacaoCard key={g.id} gravacao={g} onEdit={(x) => setModal({ open: true, editing: x })} onResolve={onResolveRefazer} onOpenScript={(x) => setScript(x)} />
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Gravados */}
+      {gravados.length > 0 && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: isMobile ? 34 : 42, marginBottom: isMobile ? 12 : 14 }}>
+            <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8A94A8', whiteSpace: 'nowrap' }}>Gravados ({gravados.length})</span>
+            <span style={{ flex: 1, height: 1, background: '#E6EDF6' }} />
+          </div>
+          <div style={grid}>
+            {gravados.map(g => (
+              <GravacaoCard key={g.id} gravacao={g} onEdit={(x) => setModal({ open: true, editing: x })} onToggleDone={onToggleDone} onOpenScript={(x) => setScript(x)} />
+            ))}
+          </div>
+        </>
       )}
 
       <GravacaoModal
@@ -221,6 +579,18 @@ export const MarcoView = ({ gravacoes, onSave, onDelete, onToggleDone }) => {
         gravacao={confirming}
         onCancel={() => setConfirming(null)}
         onConfirm={() => { onDelete(confirming); setConfirming(null); }}
+      />
+      <AcceptModal
+        open={!!pending && pending.direction === 'right'}
+        gravacao={pending?.gravacao}
+        onCancel={cancelPending}
+        onConfirm={confirmAccept}
+      />
+      <RefazerModal
+        open={!!pending && pending.direction === 'left'}
+        gravacao={pending?.gravacao}
+        onCancel={cancelPending}
+        onConfirm={confirmRefazer}
       />
     </div>
   );

@@ -216,12 +216,40 @@ const App = () => {
   const gravacaoSave = (editing, draft) => updatePlanner((prev) => {
     const clean = { title: (draft.title || '').trim(), script: draft.script || '', uploadLink: normalizeUrl(draft.uploadLink || '') };
     if (editing) return { ...prev, gravacoes: (prev.gravacoes || []).map(g => g.id === editing.id ? { ...g, ...clean } : g) };
-    return { ...prev, gravacoes: [...(prev.gravacoes || []), { id: newId(), ...clean, done: false }] };
+    return { ...prev, gravacoes: [...(prev.gravacoes || []), { id: newId(), ...clean, done: false, precisaRefazer: false, notaRefazer: '' }] };
   });
   const gravacaoDelete = (gravacao) => updatePlanner((prev) => ({ ...prev, gravacoes: (prev.gravacoes || []).filter(g => g.id !== gravacao.id) }));
   const gravacaoToggleDone = (gravacao) => updatePlanner((prev) => ({
     ...prev,
     gravacoes: (prev.gravacoes || []).map(g => g.id === gravacao.id ? { ...g, done: !g.done } : g)
+  }));
+
+  // Card arrastado para a DIREITA no modo cartão: Marco decidiu gravar aquele
+  // conteúdo. O modal de aceite deixa ele ver o texto, colar o link do vídeo
+  // e confirmar — só aí o item sai da pilha e vai pra "Gravados".
+  const gravacaoComplete = (gravacao, uploadLink) => updatePlanner((prev) => ({
+    ...prev,
+    gravacoes: (prev.gravacoes || []).map(g => g.id === gravacao.id
+      ? { ...g, uploadLink: normalizeUrl(uploadLink || ''), done: true, precisaRefazer: false, notaRefazer: '' }
+      : g)
+  }));
+
+  // Card arrastado para a ESQUERDA: precisa refazer algo. A observação do
+  // Marco vai junto — o item sai da pilha e cai na fila de Refação, pra
+  // equipe ler o recado e ajustar.
+  const gravacaoSendRefazer = (gravacao, nota) => updatePlanner((prev) => ({
+    ...prev,
+    gravacoes: (prev.gravacoes || []).map(g => g.id === gravacao.id
+      ? { ...g, done: false, precisaRefazer: true, notaRefazer: (nota || '').trim() }
+      : g)
+  }));
+
+  // Depois de ajustado pela equipe, volta pra pilha do Marco revisar de novo.
+  const gravacaoResolveRefazer = (gravacao) => updatePlanner((prev) => ({
+    ...prev,
+    gravacoes: (prev.gravacoes || []).map(g => g.id === gravacao.id
+      ? { ...g, precisaRefazer: false, notaRefazer: '' }
+      : g)
   }));
 
   if (authChecking || (user && loading)) {
@@ -267,6 +295,9 @@ const App = () => {
           onSave={gravacaoSave}
           onDelete={gravacaoDelete}
           onToggleDone={gravacaoToggleDone}
+          onComplete={gravacaoComplete}
+          onSendRefazer={gravacaoSendRefazer}
+          onResolveRefazer={gravacaoResolveRefazer}
         />
       </div>
 
