@@ -14,6 +14,13 @@ const DONE = '#15935A';
 // Âmbar: estado intermediário "precisa refazer" — nem pendente, nem gravado.
 const REFAZER = '#D97706';
 
+// Pilha de cards: cada card de fundo desce STACK_STEP e encolhe 5%, então o
+// mais baixo sobra ~STACK_PEEK abaixo do card da frente. Como os cards são
+// `position: absolute`, o contêiner NÃO cresce junto — quem vem depois na
+// coluna precisa descontar essa sobra, senão encosta na pilha.
+const STACK_STEP = 22;
+const STACK_PEEK = 24;
+
 // Copia texto pra área de transferência. A API moderna exige contexto seguro
 // (https/localhost) e gesto do usuário; o fallback com textarea + execCommand
 // cobre navegador antigo e http. Devolve se deu certo, pro botão avisar.
@@ -360,7 +367,7 @@ const SwipeCard = ({ gravacao, exitDirection, draggable, onSwipeRight, onSwipeLe
           </div>
 
           {gravacao.script && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, paddingTop: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, paddingTop: 12 }}>
               <button
                 onPointerDownCapture={stop}
                 onClick={(e) => { stop(e); onOpenScript(gravacao); }}
@@ -413,7 +420,7 @@ const SwipeStack = ({ items, height, pendingId, pendingDirection, onSwipeRight, 
               boxShadow: '0 10px 26px rgba(20,40,80,0.07)',
               // Escala + descida suficientes pra "aparecer" por baixo do card
               // da frente: só o deslocamento não basta, a escala come a sobra.
-              transform: `translateY(${i * 22}px) scale(${1 - i * 0.05})`,
+              transform: `translateY(${i * STACK_STEP}px) scale(${1 - i * 0.05})`,
               // O card fica opaco (senão o título do card de trás vaza por
               // cima); quem esmaece é só o conteúdo dele.
               zIndex: 10 - i, padding: '48px 24px 0'
@@ -611,7 +618,7 @@ export const MarcoView = ({ gravacoes, onSave, onDelete, onToggleDone, onComplet
 
       {/* Pilha estilo cartão */}
       {pendentes.length > 0 ? (
-        <div style={{ width: '100%', maxWidth: 420, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: isMobile ? 22 : 26 }}>
+        <div style={{ width: '100%', maxWidth: 420, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: STACK_PEEK + (isMobile ? 24 : 28) }}>
           <SwipeStack
             items={pendentes}
             height={stackHeight}
