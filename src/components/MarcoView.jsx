@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { motion, useMotionValue, useTransform } from 'motion/react';
 import {
   Plus, ArrowUpRight, Pencil, X, Trash2, Check, AlignLeft, Video,
@@ -451,7 +451,7 @@ const SwipeStack = ({ items, height, pendingId, pendingDirection, onSwipeRight, 
 };
 
 // ── Cards das filas de Refação e Gravados (visão em lista, sem arrasto) ──
-const RefacaoCard = ({ gravacao, onEdit, onResolve, onOpenScript }) => {
+const RefacaoCard = React.memo(({ gravacao, onEdit, onResolve, onOpenScript }) => {
   const [hover, setHover] = useState(false);
   const isMobile = useIsMobile();
   const tapSize = isMobile ? 40 : 26;
@@ -462,7 +462,6 @@ const RefacaoCard = ({ gravacao, onEdit, onResolve, onOpenScript }) => {
       onMouseLeave={() => setHover(false)}
       style={{
         position: 'relative', background: 'rgba(255,251,240,0.82)',
-        backdropFilter: 'blur(12px) saturate(160%)', WebkitBackdropFilter: 'blur(12px) saturate(160%)',
         border: `1px solid ${hover ? 'rgba(217,119,6,0.55)' : 'rgba(217,119,6,0.3)'}`,
         borderRadius: 18, padding: isMobile ? '14px 15px 13px' : '13px 15px 12px',
         display: 'flex', flexDirection: 'column', gap: 6,
@@ -502,9 +501,10 @@ const RefacaoCard = ({ gravacao, onEdit, onResolve, onOpenScript }) => {
       </button>
     </div>
   );
-};
+});
+RefacaoCard.displayName = 'RefacaoCard';
 
-const GravacaoCard = ({ gravacao, onEdit, onToggleDone, onOpenScript }) => {
+const GravacaoCard = React.memo(({ gravacao, onEdit, onToggleDone, onOpenScript }) => {
   const [hover, setHover] = useState(false);
   const isMobile = useIsMobile();
   const done = gravacao.done;
@@ -517,7 +517,6 @@ const GravacaoCard = ({ gravacao, onEdit, onToggleDone, onOpenScript }) => {
       style={{
         position: 'relative',
         background: done ? 'rgba(224,246,233,0.82)' : 'rgba(255,255,255,0.66)',
-        backdropFilter: 'blur(12px) saturate(160%)', WebkitBackdropFilter: 'blur(12px) saturate(160%)',
         border: `1px solid ${done ? 'rgba(21,147,90,0.45)' : (hover ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.85)')}`,
         borderRadius: 18, padding: isMobile ? '14px 15px 13px' : '13px 15px 12px',
         display: 'flex', flexDirection: 'column', gap: 4,
@@ -551,7 +550,8 @@ const GravacaoCard = ({ gravacao, onEdit, onToggleDone, onOpenScript }) => {
       )}
     </div>
   );
-};
+});
+GravacaoCard.displayName = 'GravacaoCard';
 
 // Botão circular grande de ação abaixo da pilha — funciona como alternativa
 // ao arrasto (clique/toque simples), essencial no desktop e pra quem prefere
@@ -601,9 +601,11 @@ export const MarcoView = ({ gravacoes, onSave, onDelete, onToggleDone, onComplet
   const grid = { display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill,minmax(258px,1fr))', gap: isMobile ? 10 : 12 };
   const stackHeight = isMobile ? 420 : 440;
 
-  const handleSwipeRight = (g) => setPending({ gravacao: g, direction: 'right' });
-  const handleSwipeLeft = (g) => setPending({ gravacao: g, direction: 'left' });
-  const cancelPending = () => setPending(null);
+  const handleSwipeRight = useCallback((g) => setPending({ gravacao: g, direction: 'right' }), []);
+  const handleSwipeLeft = useCallback((g) => setPending({ gravacao: g, direction: 'left' }), []);
+  const cancelPending = useCallback(() => setPending(null), []);
+  const openScript = useCallback((g) => setScript(g), []);
+  const openEdit = useCallback((g) => setModal({ open: true, editing: g }), []);
 
   const confirmAccept = (g) => {
     onComplete(g);
@@ -636,8 +638,8 @@ export const MarcoView = ({ gravacoes, onSave, onDelete, onToggleDone, onComplet
             pendingDirection={pending?.direction}
             onSwipeRight={handleSwipeRight}
             onSwipeLeft={handleSwipeLeft}
-            onOpenScript={(g) => setScript(g)}
-            onEdit={(g) => setModal({ open: true, editing: g })}
+            onOpenScript={openScript}
+            onEdit={openEdit}
           />
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: isMobile ? 44 : 56 }}>
             <StackActionButton color={REFAZER} Icon={X} label="Refazer" disabled={!!pending} onClick={() => handleSwipeLeft(pendentes[0])} />
@@ -671,7 +673,7 @@ export const MarcoView = ({ gravacoes, onSave, onDelete, onToggleDone, onComplet
           </div>
           <div style={grid}>
             {emRefacao.map(g => (
-              <RefacaoCard key={g.id} gravacao={g} onEdit={(x) => setModal({ open: true, editing: x })} onResolve={onResolveRefazer} onOpenScript={(x) => setScript(x)} />
+              <RefacaoCard key={g.id} gravacao={g} onEdit={openEdit} onResolve={onResolveRefazer} onOpenScript={openScript} />
             ))}
           </div>
         </>
@@ -686,7 +688,7 @@ export const MarcoView = ({ gravacoes, onSave, onDelete, onToggleDone, onComplet
           </div>
           <div style={grid}>
             {gravados.map(g => (
-              <GravacaoCard key={g.id} gravacao={g} onEdit={(x) => setModal({ open: true, editing: x })} onToggleDone={onToggleDone} onOpenScript={(x) => setScript(x)} />
+              <GravacaoCard key={g.id} gravacao={g} onEdit={openEdit} onToggleDone={onToggleDone} onOpenScript={openScript} />
             ))}
           </div>
         </>

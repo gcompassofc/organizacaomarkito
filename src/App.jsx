@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import {
@@ -60,6 +60,14 @@ const App = () => {
           if (currentUser) {
             const docRef = doc(db, 'artifacts', 'organizador-semanal', 'users', currentUser.uid, 'weeklyData', 'current');
             unsubscribeSnapshot = onSnapshot(docRef, (docSnap) => {
+              // Toda escrita nossa volta na hora como eco local antes de ir
+              // pro servidor. O estado da tela já reflete ela, e reprocessar
+              // o documento inteiro (normalizePlanner varre todas as semanas
+              // do histórico) a cada save trava a interface à toa.
+              if (docSnap.metadata.hasPendingWrites) {
+                setLoading(false);
+                return;
+              }
               setPlanner(normalizePlanner(docSnap.exists() ? docSnap.data().content : null));
               setLoading(false);
             }, () => {
@@ -116,25 +124,36 @@ const App = () => {
     pendingPlannerRef.current = nextPlanner;
     setSaving(true);
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(flushSave, 600);
+    saveTimerRef.current = setTimeout(() => flushRef.current(), 600);
   };
+
+  // Refs com o valor mais recente de cada coisa que muda a cada render.
+  // Servem pra `updatePlanner` e o listener de saída não precisarem ser
+  // recriados: quem os recebe (os cards memoizados) então não re-renderiza
+  // só porque o indicador de "salvando" piscou.
+  const flushRef = useRef(flushSave);
+  flushRef.current = flushSave;
+  const plannerRef = useRef(planner);
+  plannerRef.current = planner;
+  const saveRef = useRef(saveToCloud);
+  saveRef.current = saveToCloud;
 
   useEffect(() => {
     const onUnload = () => {
       if (saveTimerRef.current) {
         clearTimeout(saveTimerRef.current);
-        flushSave();
+        flushRef.current();
       }
     };
     window.addEventListener('beforeunload', onUnload);
     return () => window.removeEventListener('beforeunload', onUnload);
-  });
+  }, []);
 
-  const updatePlanner = (updater) => {
-    const nextPlanner = updater(planner);
+  const updatePlanner = useCallback((updater) => {
+    const nextPlanner = updater(plannerRef.current);
     setPlanner(nextPlanner);
-    saveToCloud(nextPlanner);
-  };
+    saveRef.current(nextPlanner);
+  }, []);
 
   const handleLogin = async () => {
     setError(null);
@@ -213,45 +232,45 @@ const App = () => {
   // ── Gravações do Marco (aba "Marco") ──
   // Lista independente: título, texto do vídeo, link de upload e o check de
   // gravado. editing: gravação existente | null (nova).
-  const gravacaoSave = (editing, draft) => updatePlanner((prev) => {
+  const gravacaoSave = useCallback((editing, draft) => updatePlanner((prev) => {
     const clean = { title: (draft.title || '').trim(), script: draft.script || '', uploadLink: normalizeUrl(draft.uploadLink || '') };
     if (editing) return { ...prev, gravacoes: (prev.gravacoes || []).map(g => g.id === editing.id ? { ...g, ...clean } : g) };
     return { ...prev, gravacoes: [...(prev.gravacoes || []), { id: newId(), ...clean, done: false, precisaRefazer: false, notaRefazer: '' }] };
-  });
-  const gravacaoDelete = (gravacao) => updatePlanner((prev) => ({ ...prev, gravacoes: (prev.gravacoes || []).filter(g => g.id !== gravacao.id) }));
-  const gravacaoToggleDone = (gravacao) => updatePlanner((prev) => ({
+  }), [updatePlanner]);
+  const gravacaoDelete = useCallback((gravacao) => updatePlanner((prev) => ({ ...prev, gravacoes: (prev.gravacoes || []).filter(g => g.id !== gravacao.id) })), [updatePlanner]);
+  const gravacaoToggleDone = useCallback((gravacao) => updatePlanner((prev) => ({
     ...prev,
     gravacoes: (prev.gravacoes || []).map(g => g.id === gravacao.id ? { ...g, done: !g.done } : g)
-  }));
+  })), [updatePlanner]);
 
   // Card arrastado para a DIREITA no modo cartão: Marco decidiu gravar aquele
   // conteúdo. O modal de aceite deixa ele ler o texto e abrir a pasta de
   // upload; ao confirmar, o item sai da pilha e vai pra "Gravados".
   // O uploadLink é cadastrado pela equipe e não se mexe aqui.
-  const gravacaoComplete = (gravacao) => updatePlanner((prev) => ({
+  const gravacaoComplete = useCallback((gravacao) => updatePlanner((prev) => ({
     ...prev,
     gravacoes: (prev.gravacoes || []).map(g => g.id === gravacao.id
       ? { ...g, done: true, precisaRefazer: false, notaRefazer: '' }
       : g)
-  }));
+  })), [updatePlanner]);
 
   // Card arrastado para a ESQUERDA: precisa refazer algo. A observação do
   // Marco vai junto — o item sai da pilha e cai na fila de Refação, pra
   // equipe ler o recado e ajustar.
-  const gravacaoSendRefazer = (gravacao, nota) => updatePlanner((prev) => ({
+  const gravacaoSendRefazer = useCallback((gravacao, nota) => updatePlanner((prev) => ({
     ...prev,
     gravacoes: (prev.gravacoes || []).map(g => g.id === gravacao.id
       ? { ...g, done: false, precisaRefazer: true, notaRefazer: (nota || '').trim() }
       : g)
-  }));
+  })), [updatePlanner]);
 
   // Depois de ajustado pela equipe, volta pra pilha do Marco revisar de novo.
-  const gravacaoResolveRefazer = (gravacao) => updatePlanner((prev) => ({
+  const gravacaoResolveRefazer = useCallback((gravacao) => updatePlanner((prev) => ({
     ...prev,
     gravacoes: (prev.gravacoes || []).map(g => g.id === gravacao.id
       ? { ...g, precisaRefazer: false, notaRefazer: '' }
       : g)
-  }));
+  })), [updatePlanner]);
 
   if (authChecking || (user && loading)) {
     return (
