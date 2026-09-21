@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { motion, useMotionValue, useTransform } from 'motion/react';
 import {
   Plus, ArrowUpRight, Pencil, X, Trash2, Check, AlignLeft, Video,
-  RotateCcw, MessageSquareWarning, Undo2
+  RotateCcw, MessageSquareWarning, Undo2, Copy
 } from 'lucide-react';
 import { useIsMobile } from '../lib/useIsMobile';
 import { GlassModal, useInputStyle, useModalButtons, labelSpan } from './ui/GlassModal';
@@ -13,6 +13,81 @@ const REC = '#D6294B';
 const DONE = '#15935A';
 // Âmbar: estado intermediário "precisa refazer" — nem pendente, nem gravado.
 const REFAZER = '#D97706';
+
+// Copia texto pra área de transferência. A API moderna exige contexto seguro
+// (https/localhost) e gesto do usuário; o fallback com textarea + execCommand
+// cobre navegador antigo e http. Devolve se deu certo, pro botão avisar.
+const copyText = async (text) => {
+  if (!text) return false;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch { /* cai no fallback abaixo */ }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, ta.value.length); // iOS ignora só o select()
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
+};
+
+// Botão de copiar com retorno visual ("Copiado!" por 2s). `variant` 'inline'
+// é o link discreto dos cards; 'pill' é o botão com borda dos modais.
+// `stopDrag` impede que o toque no botão vire arrasto do card da pilha.
+const CopyTextButton = ({ text, variant = 'inline', color = REC, label = 'Copiar texto', stopDrag = false }) => {
+  const isMobile = useIsMobile();
+  const [state, setState] = useState('idle'); // idle | ok | erro
+  const timer = React.useRef(null);
+  React.useEffect(() => () => clearTimeout(timer.current), []);
+
+  const handle = async (e) => {
+    e.stopPropagation();
+    const ok = await copyText(text);
+    setState(ok ? 'ok' : 'erro');
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setState('idle'), 2000);
+  };
+
+  const shown = state === 'ok' ? 'Copiado!' : state === 'erro' ? 'Não deu — copie na mão' : label;
+  const tone = state === 'ok' ? DONE : state === 'erro' ? '#E11D48' : color;
+  const Icon = state === 'ok' ? Check : Copy;
+
+  // minHeight 44 no mobile: alvo de toque confortável sem precisar de moldura.
+  const inline = {
+    display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: isMobile ? 13 : 12.5,
+    color: tone, background: 'none', border: 'none', padding: isMobile ? '6px 2px' : '2px',
+    minHeight: isMobile ? 44 : undefined,
+    cursor: 'pointer', fontWeight: 600, width: 'fit-content'
+  };
+  const pill = {
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+    padding: isMobile ? '13px 16px' : '9px 14px', width: isMobile ? '100%' : 'auto',
+    border: `1px solid ${state === 'idle' ? '#E6EDF6' : tone}`, background: '#fff',
+    borderRadius: isMobile ? 12 : 10, color: tone, fontSize: isMobile ? 15 : 13,
+    fontWeight: 600, cursor: 'pointer', boxSizing: 'border-box'
+  };
+
+  return (
+    <button
+      onPointerDownCapture={stopDrag ? (e) => e.stopPropagation() : undefined}
+      onClick={handle}
+      aria-label={label}
+      style={variant === 'pill' ? pill : inline}
+    >
+      <Icon size={isMobile ? 14 : 12.5} strokeWidth={state === 'ok' ? 3 : 2} />{shown}
+    </button>
+  );
+};
 
 // ── Modal de cadastro/edição (título, texto e link) ──
 // Usado tanto pra criar uma gravação nova quanto pra editar qualquer item,
@@ -79,6 +154,7 @@ const ScriptModal = ({ open, gravacao, onClose }) => {
           <div style={{ background: '#F7FAFE', border: '1px solid #E6EDF6', borderRadius: 12, padding: 14, fontSize: isMobile ? 15 : 13.5, color: '#55627A', lineHeight: 1.65, maxHeight: isMobile ? '52dvh' : 380, overflowY: 'auto', whiteSpace: 'pre-wrap', marginBottom: 16 }}>{gravacao.script || 'Sem texto cadastrado.'}</div>
           <div style={btn.row}>
             <button onClick={onClose} style={btn.cancel}>Fechar</button>
+            {gravacao.script && <CopyTextButton text={gravacao.script} variant="pill" />}
             {gravacao.uploadLink && (
               <a href={gravacao.uploadLink} target="_blank" rel="noreferrer" style={{ ...btn.save, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, textDecoration: 'none', boxSizing: 'border-box' }}>
                 <ArrowUpRight size={isMobile ? 16 : 14} />Subir vídeo
@@ -134,6 +210,11 @@ const AcceptModal = ({ open, gravacao, onCancel, onConfirm }) => {
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
             <AlignLeft size={12} color="#8A94A8" />
             <span style={labelSpan}>Texto do vídeo</span>
+            {gravacao.script && (
+              <span style={{ marginLeft: 'auto' }}>
+                <CopyTextButton text={gravacao.script} label="Copiar" />
+              </span>
+            )}
           </div>
           <div style={{ background: '#F7FAFE', border: '1px solid #E6EDF6', borderRadius: 12, padding: 13, fontSize: isMobile ? 14.5 : 13, color: '#55627A', lineHeight: 1.6, maxHeight: isMobile ? '32dvh' : 220, overflowY: 'auto', whiteSpace: 'pre-wrap', marginBottom: 16 }}>
             {gravacao.script || 'Sem texto cadastrado.'}
@@ -279,13 +360,17 @@ const SwipeCard = ({ gravacao, exitDirection, draggable, onSwipeRight, onSwipeLe
           </div>
 
           {gravacao.script && (
-            <button
-              onPointerDownCapture={stop}
-              onClick={(e) => { stop(e); onOpenScript(gravacao); }}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12.5, color: REC, background: 'none', border: 'none', padding: '10px 2px 0', cursor: 'pointer', fontWeight: 600, width: 'fit-content' }}
-            >
-              Ler texto completo
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, paddingTop: 8 }}>
+              <button
+                onPointerDownCapture={stop}
+                onClick={(e) => { stop(e); onOpenScript(gravacao); }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12.5, color: REC, background: 'none', border: 'none', padding: isMobile ? '6px 2px' : '2px', minHeight: isMobile ? 44 : undefined, cursor: 'pointer', fontWeight: 600, width: 'fit-content' }}
+              >
+                Ler texto completo
+              </button>
+              <span style={{ width: 1, height: 12, background: '#E6EDF6' }} />
+              <CopyTextButton text={gravacao.script} label="Copiar" color="#55627A" stopDrag />
+            </div>
           )}
         </div>
       </div>
