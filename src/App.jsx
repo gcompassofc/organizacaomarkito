@@ -278,8 +278,12 @@ const App = () => {
 
   return (
     /* px-4 no mobile: p-6 comia 48px da largura útil de um celular de 390px.
-       O padding inferior reserva espaço para a nav flutuante + safe area. */
-    <div className="min-h-screen bg-[#FAFAFA] font-sans text-slate-900 px-4 py-5 md:p-10 selection:bg-blue-100">
+       O padding inferior reserva espaço para a nav flutuante + safe area.
+       overflowX clip: o card da pilha do Marco voa pra fora da tela ao ser
+       arrastado e, sem isso, vira rolagem horizontal. `clip` (e não `hidden`)
+       porque não transforma o eixo vertical num scroller aninhado; modais e
+       nav são `fixed`, então não são recortados. */
+    <div className="min-h-screen bg-[#FAFAFA] font-sans text-slate-900 px-4 py-5 md:p-10 selection:bg-blue-100" style={{ overflowX: 'clip' }}>
       <div className="max-w-7xl mx-auto pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-32">
         <HeaderBar
           firebaseReady={firebaseReady}

@@ -211,9 +211,15 @@ const SwipeCard = ({ gravacao, exitDirection, draggable, onSwipeRight, onSwipeLe
 
   const handleDragEnd = (_, info) => {
     if (exitDirection) return;
-    const threshold = 110;
-    if (info.offset.x > threshold || info.velocity.x > 650) onSwipeRight(gravacao);
-    else if (info.offset.x < -threshold || info.velocity.x < -650) onSwipeLeft(gravacao);
+    const DIST = 110;   // arrasto curto e decidido já vale
+    const FLICK = 650;  // ou um peteleco rápido
+    // A velocidade só conta se o card também ESTIVER daquele lado: sem isso,
+    // arrastar pra direita e voltar correndo pro centro dispara "refazer",
+    // porque na volta a velocidade fica negativa.
+    const { x: dx } = info.offset;
+    const { x: vx } = info.velocity;
+    if (dx > DIST || (vx > FLICK && dx > 40)) onSwipeRight(gravacao);
+    else if (dx < -DIST || (vx < -FLICK && dx < -40)) onSwipeLeft(gravacao);
   };
 
   const target = exitDirection === 'right'
@@ -229,7 +235,7 @@ const SwipeCard = ({ gravacao, exitDirection, draggable, onSwipeRight, onSwipeLe
       drag={draggable ? 'x' : false}
       dragDirectionLock
       onDragEnd={handleDragEnd}
-      style={{ x, rotate, position: 'absolute', inset: 0, touchAction: 'pan-y' }}
+      style={{ x, rotate, position: 'absolute', inset: 0, zIndex: 20, touchAction: 'pan-y' }}
       animate={target}
       transition={{ type: 'spring', stiffness: 300, damping: 28 }}
     >
@@ -241,9 +247,10 @@ const SwipeCard = ({ gravacao, exitDirection, draggable, onSwipeRight, onSwipeLe
           cursor: draggable ? 'grab' : 'default', userSelect: 'none'
         }}
       >
-        {/* Selos GRAVAR / REFAZER, aparecem conforme o arrasto */}
-        <motion.div style={{ opacity: gravarOpacity, position: 'absolute', top: 22, left: 20, zIndex: 2, border: `3px solid ${DONE}`, color: DONE, borderRadius: 10, padding: '5px 12px', fontSize: 14, fontWeight: 800, letterSpacing: '0.06em', transform: 'rotate(-10deg)', textTransform: 'uppercase', background: 'rgba(255,255,255,0.9)' }}>Gravar</motion.div>
-        <motion.div style={{ opacity: refazerOpacity, position: 'absolute', top: 22, right: 20, zIndex: 2, border: `3px solid ${REFAZER}`, color: REFAZER, borderRadius: 10, padding: '5px 12px', fontSize: 14, fontWeight: 800, letterSpacing: '0.06em', transform: 'rotate(10deg)', textTransform: 'uppercase', background: 'rgba(255,255,255,0.9)' }}>Refazer</motion.div>
+        {/* Selos GRAVAR / REFAZER, aparecem conforme o arrasto. Ficam abaixo
+            da linha do lápis pra não brigar com ele no canto superior. */}
+        <motion.div style={{ opacity: gravarOpacity, position: 'absolute', top: 64, left: 20, zIndex: 2, border: `3px solid ${DONE}`, color: DONE, borderRadius: 10, padding: '5px 12px', fontSize: 15, fontWeight: 800, letterSpacing: '0.06em', transform: 'rotate(-10deg)', textTransform: 'uppercase', background: 'rgba(255,255,255,0.92)' }}>Gravar</motion.div>
+        <motion.div style={{ opacity: refazerOpacity, position: 'absolute', top: 64, right: 20, zIndex: 2, border: `3px solid ${REFAZER}`, color: REFAZER, borderRadius: 10, padding: '5px 12px', fontSize: 15, fontWeight: 800, letterSpacing: '0.06em', transform: 'rotate(10deg)', textTransform: 'uppercase', background: 'rgba(255,255,255,0.92)' }}>Refazer</motion.div>
 
         <button
           onPointerDownCapture={stop}
@@ -290,8 +297,10 @@ const SwipeCard = ({ gravacao, exitDirection, draggable, onSwipeRight, onSwipeLe
 // "lombo" visual, pra dar profundidade de pilha estilo Tinder.
 const SwipeStack = ({ items, height, pendingId, pendingDirection, onSwipeRight, onSwipeLeft, onOpenScript, onEdit }) => {
   const visible = items.slice(0, 3);
+  // width 100% é obrigatório: todos os cards são `position: absolute`, então
+  // sem largura explícita este contêiner colapsa pra zero e a pilha some.
   return (
-    <div style={{ position: 'relative', height }}>
+    <div style={{ position: 'relative', width: '100%', height }}>
       {visible.map((g, i) => {
         if (i === 0) {
           return (
@@ -307,17 +316,32 @@ const SwipeStack = ({ items, height, pendingId, pendingDirection, onSwipeRight, 
             />
           );
         }
+        // Cards de trás: só o "lombo" da pilha, mas com o título do próximo
+        // conteúdo — enquanto o de cima está sendo arrastado, o que aparece
+        // atrás precisa parecer conteúdo de verdade, não um retângulo vazio.
         return (
           <div
             key={g.id}
             style={{
-              position: 'absolute', inset: 0, borderRadius: 26,
+              position: 'absolute', inset: 0, borderRadius: 26, overflow: 'hidden',
               background: '#fff', border: '1px solid rgba(230,237,246,0.9)',
-              boxShadow: '0 10px 26px rgba(20,40,80,0.08)',
-              transform: `scale(${1 - i * 0.035}) translateY(${i * 10}px)`,
-              zIndex: 10 - i
+              boxShadow: '0 10px 26px rgba(20,40,80,0.07)',
+              // Escala + descida suficientes pra "aparecer" por baixo do card
+              // da frente: só o deslocamento não basta, a escala come a sobra.
+              transform: `translateY(${i * 22}px) scale(${1 - i * 0.05})`,
+              // O card fica opaco (senão o título do card de trás vaza por
+              // cima); quem esmaece é só o conteúdo dele.
+              zIndex: 10 - i, padding: '48px 24px 0'
             }}
-          />
+          >
+            <div style={{ opacity: 1 - i * 0.45 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: REC, marginBottom: 10 }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: REC }} />
+                Para gravar
+              </span>
+              <h3 style={{ fontSize: 19, fontWeight: 700, color: '#16202E', lineHeight: 1.28, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{g.title}</h3>
+            </div>
+          </div>
         );
       })}
     </div>
@@ -502,7 +526,7 @@ export const MarcoView = ({ gravacoes, onSave, onDelete, onToggleDone, onComplet
 
       {/* Pilha estilo cartão */}
       {pendentes.length > 0 ? (
-        <div style={{ maxWidth: 420, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: isMobile ? 22 : 26 }}>
+        <div style={{ width: '100%', maxWidth: 420, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: isMobile ? 22 : 26 }}>
           <SwipeStack
             items={pendentes}
             height={stackHeight}
@@ -513,7 +537,7 @@ export const MarcoView = ({ gravacoes, onSave, onDelete, onToggleDone, onComplet
             onOpenScript={(g) => setScript(g)}
             onEdit={(g) => setModal({ open: true, editing: g })}
           />
-          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 44 : 56 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: isMobile ? 44 : 56 }}>
             <StackActionButton color={REFAZER} Icon={X} label="Refazer" disabled={!!pending} onClick={() => handleSwipeLeft(pendentes[0])} />
             <StackActionButton color={DONE} Icon={Check} label="Gravar" disabled={!!pending} onClick={() => handleSwipeRight(pendentes[0])} />
           </div>
