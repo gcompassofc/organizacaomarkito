@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { motion, useMotionValue, useTransform } from 'motion/react';
 import {
   Plus, ArrowUpRight, Pencil, X, Trash2, Check, AlignLeft, Video,
-  RotateCcw, MessageSquareWarning, Undo2, Copy, Layers, List, Search, FolderUp
+  RotateCcw, MessageSquareWarning, Undo2, Copy, Layers, List, Search
 } from 'lucide-react';
 import { useIsMobile } from '../lib/useIsMobile';
 import { GlassModal, useInputStyle, useModalButtons, labelSpan } from './ui/GlassModal';
@@ -20,21 +20,39 @@ const REFAZER = '#D97706';
 // gravação cadastrada antes. Pra trocar de pasta, basta mudar esta URL.
 const PASTA_LIVRE = 'https://drive.google.com/drive/folders/1WfPG9KEJ2Bf9h_BddrpZBAkqNSseKkE0';
 
+// Logo do Google Drive (o triângulo de três cores), pra ficar óbvio pra onde
+// o botão leva. Fica num disco branco porque as cores dele sumiriam no verde.
+const DriveLogo = ({ size = 15 }) => (
+  <svg width={size} height={size} viewBox="0 0 87.3 78" aria-hidden="true" focusable="false">
+    <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da" />
+    <path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47" />
+    <path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335" />
+    <path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d" />
+    <path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc" />
+    <path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00" />
+  </svg>
+);
+
 const PastaLivreButton = ({ label = 'Pasta livre', full = false }) => {
   const isMobile = useIsMobile();
+  const h = isMobile ? 44 : 34;
   return (
     <a
       href={PASTA_LIVRE} target="_blank" rel="noreferrer"
       title="Suba vídeo, texto ou qualquer arquivo — sem precisar de uma gravação cadastrada"
       style={{
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-        height: isMobile ? 44 : 34, padding: '0 15px', borderRadius: 999,
-        border: '1px solid #DCE5F0', background: '#fff', color: '#3B5578',
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        height: h, paddingLeft: 7, paddingRight: 16, borderRadius: 999,
+        border: 'none', background: DONE, color: '#fff',
         fontSize: 13, fontWeight: 600, textDecoration: 'none', flexShrink: 0,
-        width: full ? '100%' : undefined, boxSizing: 'border-box'
+        width: full ? '100%' : undefined, boxSizing: 'border-box',
+        boxShadow: '0 6px 16px rgba(21,147,90,0.28)'
       }}
     >
-      <FolderUp size={15} />{label}
+      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: h - 14, height: h - 14, borderRadius: '50%', background: '#fff', flexShrink: 0 }}>
+        <DriveLogo size={isMobile ? 16 : 14} />
+      </span>
+      {label}
     </a>
   );
 };
@@ -693,7 +711,9 @@ export const MarcoView = ({ gravacoes, onSave, onDelete, onToggleDone, onComplet
 
   const pendentes = useMemo(() => gravacoes.filter(g => !g.done && !g.precisaRefazer), [gravacoes]);
   const emRefacao = useMemo(() => gravacoes.filter(g => g.precisaRefazer), [gravacoes]);
-  const gravados = useMemo(() => gravacoes.filter(g => g.done), [gravacoes]);
+  // Mais recente primeiro. Quem não tem doneAt (gravado antes desse campo
+  // existir) vai pro fim, mantendo a ordem em que já estava.
+  const gravados = useMemo(() => gravacoes.filter(g => g.done).sort((x, y) => (y.doneAt || '').localeCompare(x.doneAt || '')), [gravacoes]);
 
   const [view, setViewState] = useState(readView);
   const setView = useCallback((v) => { setViewState(v); saveView(v); }, []);
@@ -709,6 +729,12 @@ export const MarcoView = ({ gravacoes, onSave, onDelete, onToggleDone, onComplet
     return [pendentes.filter(bate), emRefacao.filter(bate), gravados.filter(bate)];
   }, [q, pendentes, emRefacao, gravados]);
   const nadaNaBusca = Boolean(q) && vPend.length + vRef.length + vGrav.length === 0;
+
+  // A tela inicial (Cartões) mostra só os últimos gravados — a lista
+  // completa fica no modo Lista, a um toque de distância.
+  const GRAVADOS_NA_HOME = 3;
+  const gravadosVisiveis = isLista ? vGrav : vGrav.slice(0, GRAVADOS_NA_HOME);
+  const gravadosOcultos = vGrav.length - gravadosVisiveis.length;
 
   const grid = { display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill,minmax(258px,1fr))', gap: isMobile ? 10 : 12 };
   const stackHeight = isMobile ? 420 : 440;
@@ -812,15 +838,27 @@ export const MarcoView = ({ gravacoes, onSave, onDelete, onToggleDone, onComplet
         </>
       )}
 
-      {/* Gravados */}
+      {/* Gravados — na home, só os últimos */}
       {vGrav.length > 0 && (
         <>
-          <SectionTitle label="Gravados" count={vGrav.length} first={isLista && vPend.length === 0 && vRef.length === 0} />
+          <SectionTitle
+            label={isLista ? 'Gravados' : 'Gravados recentes'}
+            count={gravadosOcultos > 0 ? `${gravadosVisiveis.length} de ${vGrav.length}` : vGrav.length}
+            first={isLista && vPend.length === 0 && vRef.length === 0}
+          />
           <div style={grid}>
-            {vGrav.map(g => (
+            {gravadosVisiveis.map(g => (
               <GravacaoCard key={g.id} gravacao={g} onEdit={openEdit} onToggleDone={onToggleDone} onOpenScript={openScript} />
             ))}
           </div>
+          {gravadosOcultos > 0 && (
+            <button
+              onClick={() => setView('lista')}
+              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: isMobile ? 12 : 14, height: isMobile ? 44 : 34, padding: '0 16px', border: '1px solid #DCE5F0', background: '#fff', borderRadius: 999, color: '#55627A', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+            >
+              <List size={15} />Ver os outros {gravadosOcultos} na lista
+            </button>
+          )}
         </>
       )}
 

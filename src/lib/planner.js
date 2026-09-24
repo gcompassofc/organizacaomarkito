@@ -183,6 +183,10 @@ export const normalizeGravacoes = (raw) => {
     script: g.script || '',
     uploadLink: normalizeUrl(g.uploadLink || ''),
     done: Boolean(g.done),
+    // Quando foi marcada como gravada (ISO). Serve pra tela inicial mostrar
+    // só as últimas; gravações antigas, de antes deste campo, vêm vazias e
+    // caem pro fim da ordem.
+    doneAt: g.doneAt || '',
     precisaRefazer: Boolean(g.precisaRefazer),
     notaRefazer: g.notaRefazer || ''
   }));

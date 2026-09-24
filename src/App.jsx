@@ -235,12 +235,14 @@ const App = () => {
   const gravacaoSave = useCallback((editing, draft) => updatePlanner((prev) => {
     const clean = { title: (draft.title || '').trim(), script: draft.script || '', uploadLink: normalizeUrl(draft.uploadLink || '') };
     if (editing) return { ...prev, gravacoes: (prev.gravacoes || []).map(g => g.id === editing.id ? { ...g, ...clean } : g) };
-    return { ...prev, gravacoes: [...(prev.gravacoes || []), { id: newId(), ...clean, done: false, precisaRefazer: false, notaRefazer: '' }] };
+    return { ...prev, gravacoes: [...(prev.gravacoes || []), { id: newId(), ...clean, done: false, doneAt: '', precisaRefazer: false, notaRefazer: '' }] };
   }), [updatePlanner]);
   const gravacaoDelete = useCallback((gravacao) => updatePlanner((prev) => ({ ...prev, gravacoes: (prev.gravacoes || []).filter(g => g.id !== gravacao.id) })), [updatePlanner]);
   const gravacaoToggleDone = useCallback((gravacao) => updatePlanner((prev) => ({
     ...prev,
-    gravacoes: (prev.gravacoes || []).map(g => g.id === gravacao.id ? { ...g, done: !g.done } : g)
+    gravacoes: (prev.gravacoes || []).map(g => g.id === gravacao.id
+      ? { ...g, done: !g.done, doneAt: g.done ? '' : new Date().toISOString() }
+      : g)
   })), [updatePlanner]);
 
   // Card arrastado para a DIREITA no modo cartão: Marco decidiu gravar aquele
@@ -250,7 +252,7 @@ const App = () => {
   const gravacaoComplete = useCallback((gravacao) => updatePlanner((prev) => ({
     ...prev,
     gravacoes: (prev.gravacoes || []).map(g => g.id === gravacao.id
-      ? { ...g, done: true, precisaRefazer: false, notaRefazer: '' }
+      ? { ...g, done: true, doneAt: new Date().toISOString(), precisaRefazer: false, notaRefazer: '' }
       : g)
   })), [updatePlanner]);
 
@@ -260,7 +262,7 @@ const App = () => {
   const gravacaoSendRefazer = useCallback((gravacao, nota) => updatePlanner((prev) => ({
     ...prev,
     gravacoes: (prev.gravacoes || []).map(g => g.id === gravacao.id
-      ? { ...g, done: false, precisaRefazer: true, notaRefazer: (nota || '').trim() }
+      ? { ...g, done: false, doneAt: '', precisaRefazer: true, notaRefazer: (nota || '').trim() }
       : g)
   })), [updatePlanner]);
 
