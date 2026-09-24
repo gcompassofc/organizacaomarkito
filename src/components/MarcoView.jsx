@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { motion, useMotionValue, useTransform } from 'motion/react';
 import {
   Plus, ArrowUpRight, Pencil, X, Trash2, Check, AlignLeft, Video,
-  RotateCcw, MessageSquareWarning, Undo2, Copy, Layers, List, Search
+  RotateCcw, MessageSquareWarning, Undo2, Copy, Layers, List, Search, FolderUp
 } from 'lucide-react';
 import { useIsMobile } from '../lib/useIsMobile';
 import { GlassModal, useInputStyle, useModalButtons, labelSpan } from './ui/GlassModal';
@@ -13,6 +13,31 @@ const REC = '#D6294B';
 const DONE = '#15935A';
 // Âmbar: estado intermediário "precisa refazer" — nem pendente, nem gravado.
 const REFAZER = '#D97706';
+
+// ── Pasta livre ──
+// Pasta "_Marco-uploads" no Drive, aberta pra escrita por quem tem o link:
+// serve pra subir vídeo, texto, print — qualquer coisa — sem depender de uma
+// gravação cadastrada antes. Pra trocar de pasta, basta mudar esta URL.
+const PASTA_LIVRE = 'https://drive.google.com/drive/folders/1WfPG9KEJ2Bf9h_BddrpZBAkqNSseKkE0';
+
+const PastaLivreButton = ({ label = 'Pasta livre', full = false }) => {
+  const isMobile = useIsMobile();
+  return (
+    <a
+      href={PASTA_LIVRE} target="_blank" rel="noreferrer"
+      title="Suba vídeo, texto ou qualquer arquivo — sem precisar de uma gravação cadastrada"
+      style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+        height: isMobile ? 44 : 34, padding: '0 15px', borderRadius: 999,
+        border: '1px solid #DCE5F0', background: '#fff', color: '#3B5578',
+        fontSize: 13, fontWeight: 600, textDecoration: 'none', flexShrink: 0,
+        width: full ? '100%' : undefined, boxSizing: 'border-box'
+      }}
+    >
+      <FolderUp size={15} />{label}
+    </a>
+  );
+};
 
 // Pilha de cards: cada card de fundo desce STACK_STEP e encolhe 5%, então o
 // mais baixo sobra ~STACK_PEEK abaixo do card da frente. Como os cards são
@@ -237,9 +262,12 @@ const AcceptModal = ({ open, gravacao, onCancel, onConfirm }) => {
               <ArrowUpRight size={isMobile ? 18 : 16} strokeWidth={2.5} />Subir vídeo
             </a>
           ) : (
-            <p style={{ fontSize: isMobile ? 13.5 : 12.5, color: '#A9B4C6', margin: '0 0 20px', textAlign: 'center' }}>
-              Sem link de upload cadastrado — adicione no lápis do card.
-            </p>
+            <div style={{ marginBottom: 20 }}>
+              <p style={{ fontSize: isMobile ? 13.5 : 12.5, color: '#A9B4C6', margin: '0 0 10px', textAlign: 'center' }}>
+                Esta gravação não tem pasta própria cadastrada.
+              </p>
+              <PastaLivreButton label="Subir na pasta livre" full />
+            </div>
           )}
 
           <div style={btn.row}>
@@ -712,12 +740,11 @@ export const MarcoView = ({ gravacoes, onSave, onDelete, onToggleDone, onComplet
         <button onClick={() => setModal({ open: true, editing: null })} aria-label="Nova gravação" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, gap: 6, padding: isMobile ? '0 16px' : '9px 15px', height: isMobile ? 44 : undefined, border: 'none', background: REC, color: '#fff', borderRadius: 999, fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 6px 16px rgba(214,41,75,0.28)' }}><Plus size={16} />Gravação</button>
       </div>
 
-      {gravacoes.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: isMobile ? 18 : 22 }}>
-          <ViewToggle view={view} onChange={setView} total={gravacoes.length} />
-          {isLista && <SearchBox value={busca} onChange={setBusca} />}
-        </div>
-      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: isMobile ? 18 : 22 }}>
+        {gravacoes.length > 0 && <ViewToggle view={view} onChange={setView} total={gravacoes.length} />}
+        <PastaLivreButton />
+        {isLista && gravacoes.length > 0 && <SearchBox value={busca} onChange={setBusca} />}
+      </div>
 
       {/* Modo Cartões: pilha estilo Tinder */}
       {!isLista && (pendentes.length > 0 ? (
